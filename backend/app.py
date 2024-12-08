@@ -1,3 +1,13 @@
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+'''
 from flask import Flask, request, jsonify, send_from_directory
 import requests
 
@@ -53,3 +63,4 @@ def get_osm_data():
 
 if __name__ == '__main__':
     app.run(debug=True)
+'''
