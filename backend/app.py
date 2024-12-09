@@ -1,11 +1,21 @@
+import os
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
+# Calcolo della directory relativa basandosi sul file corrente
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE_DIR, "../frontend")
 
 @app.get("/")
-async def root():
-    return {"message": "Hello World"}
+async def serve_frontend():
+   # Percorso completo al file index.html
+   file_path = os.path.join(FRONTEND_DIR, "index.html")
+   if not os.path.exists(file_path):
+      return {"error": "File not found", "path": file_path}  # Debug
+   return FileResponse(file_path)
+
 
 '''
 from flask import Flask, request, jsonify, send_from_directory
