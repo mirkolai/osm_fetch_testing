@@ -1,21 +1,35 @@
 import os
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
+
 
 app = FastAPI()
 
-# Calcolo della directory relativa basandosi sul file corrente
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(BASE_DIR, "../frontend")
+# Calcolo corretto dei percorsi basato sulla tua struttura
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+PUBLIC_DIR = os.path.join(FRONTEND_DIR, "public")
+VIEWS_DIR = os.path.join(FRONTEND_DIR, "views")
+
+
+# Monta i file statici
+app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
+app.mount("/views", StaticFiles(directory=VIEWS_DIR), name="views")
 
 @app.get("/")
 async def serve_frontend():
-   # Percorso completo al file index.html
-   file_path = os.path.join(FRONTEND_DIR, "index.html")
-   if not os.path.exists(file_path):
-      return {"error": "File not found", "path": file_path}  # Debug
-   return FileResponse(file_path)
+    file_path = os.path.join(VIEWS_DIR, "index.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
 
+@app.get("/search")
+async def serve_search():
+    file_path = os.path.join(VIEWS_DIR, "search.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
 
 '''
 from flask import Flask, request, jsonify, send_from_directory

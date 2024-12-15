@@ -1,0 +1,113 @@
+/* Original base styles - DO NOT MODIFY */
+body {
+    margin: 0;
+    padding: 0;
+}
+
+nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #5E5D87;
+    color: white;
+    z-index: 999;
+    height: 60px;
+}
+
+.flex {
+    display: flex;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.font-bold {
+    font-weight: bold;
+    margin-left: 20px;
+}
+
+.text-lg {
+    font-size: 1.2em;
+}
+
+.links {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-right: 20px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+}
+
+nav a:hover {
+    background-color: #4C4A6D;
+    border-radius: 4px;
+}
+
+#map {
+    height: calc(100vh - 60px);
+    width: 100%;
+    margin-top: 60px;
+}
+
+/* New sidebar styles */
+.main-container {
+    display: flex;
+    height: calc(100vh - 60px);
+    margin-top: 60px;
+}
+
+.sidebar {
+    width: 350px;
+    height: calc(100vh - 60px);
+    background: white;
+    border-right: 1px solid #dee2e6;
+    overflow-y: auto;
+    z-index: 998;
+}
+
+/* Override map styles for sidebar layout */
+.main-container #map {
+    flex: 1;
+    margin-top: 0;
+}
+
+/* Selected services display */
+.selected-services {
+    min-height: 40px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.badge i {
+    cursor: pointer;
+}
+
+/* Custom scrollbar for sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
