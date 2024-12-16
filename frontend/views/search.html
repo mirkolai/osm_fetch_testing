@@ -1,145 +1,150 @@
 <!DOCTYPE html>
 <html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>United-and-Close - Cerca nelle vicinanze</title>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>United-and-Close</title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/public/css/style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-</head>
-<body>
-<!-- Navbar -->
-<div id="navbar"></div>
+        <link rel="stylesheet" href="/public/css/style.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    </head>
 
-<!-- Main container -->
-<div class="main-container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="p-4">
-            <h5 class="mb-4">Cerca nelle vicinanze</h5>
-
-            <div class="mb-4">
-                <label class="form-label">Inserisci un indirizzo</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" placeholder="Cerca indirizzo...">
-                    <button class="btn btn-outline-secondary" type="button">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
+    <body>
+        <nav class="flex justify-between items-center bg-[#5E5D87] text-white p-4">
+            <div class="font-bold text-lg">
+                UNITED-AND-CLOSE
             </div>
-
-            <div class="mb-4">
-                <label class="form-label">Seleziona il tempo e la modalità di percorrenza</label>
-                <div class="d-flex gap-2 mb-2">
-                    <select class="form-select">
-                        <option>5 min</option>
-                        <option>10 min</option>
-                        <option selected>15 min</option>
-                        <option>20 min</option>
-                        <option>30 min</option>
-                    </select>
-                </div>
-                <div class="btn-group w-100">
-                    <button type="button" class="btn btn-outline-primary active">
-                        <i class="bi bi-person-walking"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-primary">
-                        <i class="bi bi-bicycle"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-primary">
-                        <i class="bi bi-train-front"></i>
-                    </button>
-                </div>
+            <div class="links">
+                <a href="/" class="hover:text-gray-300">Home</a>
+                <a href="/search" class="hover:text-gray-300">Cerca nelle vicinanze</a>
+                <a href="#" class="hover:text-gray-300">Scopri aree adatte a te</a>
+                <a href="#" class="hover:text-gray-300">Confronta aree</a>
+                <a href="#" class="hover:text-gray-300">Funzioni avanzate</a>
             </div>
+        </nav>
 
-            <div class="mb-4">
-                <label class="form-label">Seleziona i servizi da visualizzare nell'area</label>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control" placeholder="Cerca servizi...">
-                    <button class="btn btn-outline-secondary" type="button">
-                        <i class="bi bi-plus"></i>
-                    </button>
-                </div>
-
-                <div class="accordion" id="serviceAccordion">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sportServices">
-                                Sport e aree ricreative
+        <div class="main-container">
+            <div class="sidebar">
+                <div class="p-4">
+                    <h5 class="mb-4">Cerca nelle vicinanze</h5>
+                    <div class="mb-4">
+                        <label class="form-label">Inserisci un indirizzo</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Cerca indirizzo...">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-search"></i>
                             </button>
-                        </h2>
-                        <div id="sportServices" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="parksCheck">
-                                    <label class="form-check-label" for="parksCheck">
-                                        Parchi
-                                    </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Seleziona il tempo e la modalità di percorrenza</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <select class="form-select">
+                                <option>5 min</option>
+                                <option>10 min</option>
+                                <option selected>15 min</option>
+                                <option>20 min</option>
+                                <option>30 min</option>
+                            </select>
+                        </div>
+                        <div class="btn-group w-100">
+                            <button type="button" class="btn btn-outline-primary active">
+                                <i class="bi bi-person-walking"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary">
+                                <i class="bi bi-bicycle"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary">
+                                <i class="bi bi-train-front"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Seleziona i servizi da visualizzare nell'area</label>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" placeholder="Cerca servizi...">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="accordion" id="serviceAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#sportServices">
+                                        Sport e aree ricreative
+                                    </button>
+                                </h2>
+                                <div id="sportServices" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="" id="parksCheck">
+                                            <label class="form-check-label" for="parksCheck">
+                                                Parchi
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="" id="gymsCheck">
+                                            <label class="form-check-label" for="gymsCheck">
+                                                Palestre
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="gymsCheck">
-                                    <label class="form-check-label" for="gymsCheck">
-                                        Palestre
-                                    </label>
+                            </div>
+
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#healthServices">
+                                        Servizi Sanitari
+                                    </button>
+                                </h2>
+                                <div id="healthServices" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="" id="pharmacyCheck">
+                                            <label class="form-check-label" for="pharmacyCheck">
+                                                Farmacie
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="" id="hospitalCheck">
+                                            <label class="form-check-label" for="hospitalCheck">
+                                                Ospedali
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#healthServices">
-                                Servizi Sanitari
-                            </button>
-                        </h2>
-                        <div id="healthServices" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="pharmacyCheck">
-                                    <label class="form-check-label" for="pharmacyCheck">
-                                        Farmacie
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="hospitalCheck">
-                                    <label class="form-check-label" for="hospitalCheck">
-                                        Ospedali
-                                    </label>
-                                </div>
-                            </div>
+                    <div class="mb-4">
+                        <label class="form-label">Servizi selezionati:</label>
+                        <div class="selected-services">
+
                         </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" type="button">Cerca</button>
+                        <button class="btn btn-outline-secondary" type="button">Reset</button>
                     </div>
                 </div>
             </div>
 
-            <div class="mb-4">
-                <label class="form-label">Servizi selezionati:</label>
-                <div class="selected-services">
-
-                </div>
-            </div>
-
-            <div class="d-grid gap-2">
-                <button class="btn btn-primary" type="button">Cerca</button>
-                <button class="btn btn-outline-secondary" type="button">Reset</button>
-            </div>
+            <div id="map"></div>
         </div>
 
-    </div>
-
-    <div id="map"></div>
-
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/public/js/navbar.js"></script>
-<script src="/public/js/map.js"></script>
-<script src="/public/js/search.js"></script>
-</body>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="/public/js/map.js"></script>
+        <script src="/public/js/search.js"></script>
+    </body>
 </html>
