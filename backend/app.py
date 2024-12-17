@@ -1,8 +1,12 @@
 import os
-from fastapi import FastAPI, Request
+from typing import List
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from pymongo import MongoClient
 
+from backend.ReverseGeocoding import reverse_geocoding, Place
 
 app = FastAPI()
 
@@ -12,10 +16,24 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 PUBLIC_DIR = os.path.join(FRONTEND_DIR, "public")
 VIEWS_DIR = os.path.join(FRONTEND_DIR, "views")
 
-
 # Monta i file statici
 app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 app.mount("/views", StaticFiles(directory=VIEWS_DIR), name="views")
+
+# Modello per i dati del nodo
+class Node(BaseModel):
+    node_id: int
+    lat: float
+    lon: float
+
+
+class Coordinates(BaseModel):
+    lat: float
+    lon: float
+
+
+class ReverseGeocodingRequest(BaseModel):
+    text: str
 
 @app.get("/")
 async def serve_frontend():
@@ -24,6 +42,7 @@ async def serve_frontend():
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
+
 @app.get("/search")
 async def serve_search():
     file_path = os.path.join(VIEWS_DIR, "search.html")
@@ -31,60 +50,67 @@ async def serve_search():
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-'''
-from flask import Flask, request, jsonify, send_from_directory
-import requests
 
-app = Flask(__name__)
-
-# Funzione per ottenere il bounding box di una città tramite Nominatim
-def get_city_bbox(city):
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        'q': "Nizza Monferrato",
-        'format': 'json',
-        'limit': 1
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        data = response.json()
-        if data:
-            boundingbox = data[0]['boundingbox']  # Restituisce [min_lat, max_lat, min_lon, max_lon]
-            return f"{boundingbox[0]},{boundingbox[2]},{boundingbox[1]},{boundingbox[3]}"
-    return None
-
-# Endpoint per servire il file HTML
-@app.route('/')
-def serve_frontend():
-    return send_from_directory('../frontend', 'index.html')
-
-# Endpoint per ottenere dati da OpenStreetMap
-@app.route('/api/osm_data', methods=['GET'])
-def get_osm_data():
-    city = request.args.get('city', 'Nizza Monferrato')  # Default: Milano
-    bbox = (44.7385442, 44.7947340, 8.3031507, 8.4038346)
-    if not bbox:
-        return jsonify({"error": f"Impossibile trovare il bounding box per la città: {city}"}), 404
-
-    # Query per Overpass API
-    query = f"""
-    [out:json];
-    (
-      node({bbox});  // Tutti i nodi nell'area
-      way({bbox});   // Tutte le strade nell'area
-      relation({bbox}); // Tutte le relazioni nell'area
-    );
-    out body;
-    >;
-    out skel qt;
+@app.post("/api/reverse_geocoding")
+def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
     """
-    try:
-        response = requests.get("https://overpass-api.de/api/interpreter", params={'data': query})
-        response.raise_for_status()  # Solleva eccezione per errori HTTP
-        return jsonify(response.json())
-    except requests.RequestException as e:
-        return jsonify({"error": "Impossibile ottenere i dati da Overpass API", "details": str(e)}), 500
+    Ricerca indirizzi tramite Nominatim e restituisce la posizione geocodificata.
 
-if __name__ == '__main__':
-    app.run(debug=True)
-'''
+    Questo endpoint consente di cercare indirizzi utilizzando un input di testo (ad esempio, una città).
+    L'implementazione utilizza il servizio di geocoding Nominatim basato su OpenStreetMap.
+
+    Parametri:
+    ----------
+    - **request**: `ReverseGeocodingRequest`
+        - `text` (str): Città o query per effettuare la ricerca.
+
+    Risposta:
+    ---------
+    Una lista di oggetti `Place` contenente:
+    - `name` (str): Nome dell'indirizzo o luogo.
+    - `importance` (float): Indicatore di rilevanza.
+    - `coordinates` (List[float]): Latitudine e longitudine (es. `[44.826012649999996, 8.202686328987273]`).
+
+    Risposta di esempio:
+    ---------------------
+    ```json
+    [
+        {
+            "name": "Asti, Piemonte, Italia",
+            "importance": 0.7086021965813384,
+            "coordinates": [
+                44.826012649999996,
+                8.202686328987273
+            ]
+        },
+        {
+            "name": "Asti, Piemonte, 14100, Italia",
+            "importance": 0.5965846969089829,
+            "coordinates": [
+                44.900542,
+                8.2068876
+            ]
+        }
+    ]
+    ```
+
+    Errori:
+    -------
+    - **400**: Parametri non validi.
+    - **500**: Errore interno o servizio Nominatim non disponibile.
+
+    Eccezioni:
+    ----------
+    In caso di errore, restituisce un oggetto `HTTPException` con dettagli sul problema.
+
+    """
+    status_code, message, result = reverse_geocoding(request.text)
+
+    if status_code == 200:
+        return result
+    else:
+        raise HTTPException(status_code=status_code,
+                            detail=[{
+                                "loc": [],
+                                "msg": message,
+                                "type": status_code}])
