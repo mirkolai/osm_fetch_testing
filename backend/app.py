@@ -8,6 +8,11 @@ from pymongo import MongoClient
 
 from backend.ReverseGeocoding import reverse_geocoding, Place
 
+# Connessione a MongoDB
+mongo_url = os.getenv("mongodb://localhost:27017")
+client = MongoClient(mongo_url)
+db = client["15minute"]
+
 app = FastAPI()
 
 # Calcolo corretto dei percorsi basato sulla tua struttura
@@ -114,3 +119,28 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "loc": [],
                                 "msg": message,
                                 "type": status_code}])
+
+
+# Endpoint per trovare il nodo più vicino a un punto specifico
+@app.post("/api/nodes/nearest/")
+async def find_nearest_node(coords: Coordinates):
+    collection = db["nodes"]
+    nearest_node = collection.find_one({
+        "location": {
+            "$near": {
+                "$geometry": {
+                    "type": "Point",
+                    "coordinates": [coords.lon, coords.lat]  # GeoJSON [lon, lat]
+                }
+            }
+        }
+    })
+
+    if nearest_node:
+        return {
+            "node_id": nearest_node["node_id"],
+            "lat": nearest_node['location']['coordinates'][1],
+            "lon": nearest_node['location']['coordinates'][0]
+        }
+    else:
+        raise HTTPException(status_code=404, detail="No node found near the given point.")
