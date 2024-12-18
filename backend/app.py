@@ -9,9 +9,10 @@ from pymongo import MongoClient
 from backend.ReverseGeocoding import reverse_geocoding, Place
 
 # Connessione a MongoDB
-mongo_url = os.getenv("mongodb://localhost:27017")
+mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")  # Connessione predefinita per debug
+print(mongo_url)
 client = MongoClient(mongo_url)
-db = client["15minute"]
+db = client["15minute1"]
 
 app = FastAPI()
 
@@ -39,6 +40,7 @@ class Coordinates(BaseModel):
 
 class ReverseGeocodingRequest(BaseModel):
     text: str
+
 
 @app.get("/")
 async def serve_frontend():
@@ -144,3 +146,27 @@ async def find_nearest_node(coords: Coordinates):
         }
     else:
         raise HTTPException(status_code=404, detail="No node found near the given point.")
+
+
+# Endpoint per trovare il poi specifico date le coordinate
+@app.post("/api/pois/single_poi/")
+async def find_node_by_coordinates(coords: Coordinates):
+    collection = db["pois"]
+
+    # Query per trovare il primo nodo con le coordinate esatte
+    poi = collection.find_one({
+        "location.coordinates": [coords.lat, coords.lon]  # attenzione a posizionamento lat/lon
+    })
+
+    print("Query result:", poi)
+
+    if poi:
+        return {
+            "pois_id": poi["pois_id"],
+            "name": poi["names"]["primary"],
+            "categories": poi["categories"]["primary"],
+            "lat": poi["location"]["coordinates"][0],  # Estrae latitudine
+            "lon": poi["location"]["coordinates"][1]   # Estrae longitudine
+        }
+    else:
+        raise HTTPException(status_code=404, detail="No node found at the given coordinates.")
