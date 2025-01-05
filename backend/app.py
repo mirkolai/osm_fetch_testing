@@ -4,7 +4,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from pymongo import MongoClient
 
 from backend.ReverseGeocoding import reverse_geocoding, Place
 from backend.Isochrones import get_isocronewalk_by_node_id
