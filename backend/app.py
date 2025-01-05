@@ -7,12 +7,8 @@ from pydantic import BaseModel
 from pymongo import MongoClient
 
 from backend.ReverseGeocoding import reverse_geocoding, Place
-
-# Connessione a MongoDB
-mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")  # Connessione predefinita per debug
-print(mongo_url)
-client = MongoClient(mongo_url)
-db = client["15minute1"]
+from backend.Isochrones import get_isocronewalk_by_node_id
+from backend.db import db
 
 app = FastAPI()
 
@@ -40,6 +36,11 @@ class Coordinates(BaseModel):
 
 class ReverseGeocodingRequest(BaseModel):
     text: str
+
+class IsochroneRequest(BaseModel):
+    node_id: int
+    minute: int
+    velocity: int
 
 
 @app.get("/")
@@ -121,6 +122,45 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "loc": [],
                                 "msg": message,
                                 "type": status_code}])
+    
+@app.post("/api/get_isochrone_walk")
+async def get_isochrone_walk(request: IsochroneRequest):
+    """
+    Estrae l'isocrona camminabile in base ai parametri forniti.
+
+    Parametri:
+    ----------
+    - **request**: `IsochroneRequest`
+        - `node_id` (int): ID del nodo.
+        - `minute` (int): Minuti per calcolare l'isocrona.
+        - `velocity` (int): Velocità di spostamento.
+
+    Risposta:
+    ---------
+    Un dizionario contenente:
+    - `node_id`: ID del nodo.
+    - `concave_hull`: Dettagli sulla geometria del percorso (coordinate e bounding box).
+
+    Errori:
+    -------
+    - **404**: Dati non trovati.
+    - **500**: Errore interno.
+
+    """
+    try:
+        status_code, message, result = get_isocronewalk_by_node_id(
+            node_id=request.node_id,
+            minute=request.minute,
+            velocity=request.velocity
+        )
+
+        if status_code == 200:
+            return result
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Endpoint per trovare il nodo più vicino a un punto specifico
