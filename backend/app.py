@@ -189,7 +189,7 @@ async def find_nearest_node(coords: Coordinates):
 
 # Endpoint per trovare il poi specifico date le coordinate
 @app.post("/api/pois/single_poi/")
-async def find_node_by_coordinates(coords: Coordinates):
+async def find_poi_by_coordinates(coords: Coordinates):
     collection = db["pois"]
 
     # Query per trovare il primo nodo con le coordinate esatte
