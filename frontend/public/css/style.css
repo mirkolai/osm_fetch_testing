@@ -1,19 +1,22 @@
+/* Reset di base */
 body {
     margin: 0;
     padding: 0;
 }
 
+/* Navbar */
 nav {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background-color: #5E5D87;
+    height: 60px;
+    background-color: #483d8b;
     color: white;
     z-index: 999;
-    height: 60px;
 }
 
+/* Utilities di layout */
 .flex {
     display: flex;
 }
@@ -35,6 +38,16 @@ nav {
     font-size: 1.2em;
 }
 
+.mb-4 {
+    margin-bottom: 24px;
+}
+
+.accordion {
+    width: fit-content;
+    height: fit-content;
+ }
+
+/* Links nella navbar */
 .links {
     display: flex;
     align-items: center;
@@ -49,8 +62,15 @@ nav a {
 }
 
 nav a:hover {
-    background-color: #4C4A6D;
+    background-color: #483d8b;
     border-radius: 4px;
+}
+
+/* Layout principale */
+.main-container {
+    display: flex;
+    height: calc(100vh - 60px);
+    margin-top: 60px;
 }
 
 #map {
@@ -59,30 +79,126 @@ nav a:hover {
     margin-top: 60px;
 }
 
-.main-container {
-    display: flex;
-    height: calc(100vh - 60px);
-    margin-top: 60px;
-}
-
-.sidebar {
-    width: 350px;
-    height: calc(100vh - 60px);
-    background: white;
-    border-right: 1px solid #dee2e6;
-    overflow-y: auto;
-    z-index: 998;
-}
-
 .main-container #map {
     flex: 1;
     margin-top: 0;
 }
 
+/* Sidebar */
+.sidebar {
+    width: 350px;
+    height: calc(100vh - 60px);
+    background-color: #F8F7FA;
+    border-right: 1px solid #dee2e6;
+    overflow-y: auto;
+    z-index: 998;
+    padding: 16px;
+}
+
+/* Scrollbar personalizzata */
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #F8F7FA;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: #E0E0E0;
+    border-radius: 4px;
+}
+
+/* Form elements */
+.form-control {
+    border-radius: 20px;
+    border: 1px solid #E0E0E0;
+    padding: 8px 16px;
+}
+
+.form-select {
+    border-radius: 20px;
+    background-color: white;
+    border: 1px solid #E0E0E0;
+    width: 65px;
+}
+
+/* Buttons */
+.btn-group {
+    border-radius: 20px;
+    overflow: hidden;
+    background-color: white;
+}
+
+.btn-group .btn {
+    border: none;
+    background-color: white;
+    flex: 1;
+    padding: 0.375rem 0.5rem;
+}
+
+.btn-group .btn.active {
+    background-color: #483d8b;
+    color: white;
+}
+
+.btn-outline-primary, .btn-outline-secondary {
+    border-radius: 20px;
+    border-color: #E0E0E0;
+}
+
+.btn.custom-primary {
+    background-color: #483d8b !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 20px !important;
+    padding: 0.5rem 0.75rem;
+}
+
+.btn.custom-primary:hover {
+    background-color: #372e6b !important;
+}
+
+.small-btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Se vuoi aggiungere un effetto hover */
+.btn-outline-primary:hover {
+    background-color: #372e6b;  /* Versione leggermente più scura del viola */
+    color: white;
+}
+
+.btn-outline-secondary {
+    padding: 0.5rem 0.75rem;
+    width: 100px;
+}
+
+/* Accordion */
+.accordion-item {
+    border: none;
+    background-color: transparent;
+}
+
+.accordion-button {
+    background-color: white;
+    border-radius: 20px !important;
+    margin-bottom: 8px;
+    box-shadow: none;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: white;
+    box-shadow: none;
+}
+
+/* Selected services */
 .selected-services {
     min-height: 40px;
+    background-color: white;
     border: 1px solid #dee2e6;
-    border-radius: 4px;
+    border-radius: 20px;
     padding: 8px;
 }
 
@@ -90,19 +206,42 @@ nav a:hover {
     cursor: pointer;
 }
 
-.sidebar::-webkit-scrollbar {
-    width: 6px;
+/* Utilities aggiuntive */
+.icon-color {
+    color: #483d8b;
 }
 
-.sidebar::-webkit-scrollbar-track {
-    background: #f1f1f1;
+.btn-outline-primary.active .icon-color {
+    color: white;
 }
 
-.sidebar::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
+.bg-custom {
+    background-color: #483d8b;
 }
 
-.sidebar::-webkit-scrollbar-thumb:hover {
-    background: #555;
+/* Suggestions dropdown */
+#suggestions {
+    position: absolute;
+    width: 20%;
+    z-index: 1000;
+    max-height: 600px;
+    overflow-y: auto;
+    margin-top: 2px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+}
+
+#suggestions .list-group-item {
+    cursor: pointer;
+    padding: 8px 12px;
+}
+
+#suggestions .list-group-item:hover {
+    background-color: #483d8b;
+    color: white;
+}
+
+.input-group {
+    position: relative;
 }

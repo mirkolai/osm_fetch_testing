@@ -1,3 +1,4 @@
+from flask import Flask, request, jsonify
 from functools import lru_cache
 import json
 from typing import Union, List, Tuple, Annotated
@@ -6,6 +7,7 @@ import requests
 from annotated_types import Len
 from pydantic import BaseModel
 
+app = Flask(__name__)
 
 # https://nominatim.org/release-docs/latest/admin/Installation/
 
@@ -24,28 +26,31 @@ class ReverseGeocodingResult(BaseModel):
 
 
 @lru_cache(maxsize=1000)
-def reverse_geocoding(text: str) -> Tuple[int, str, Union[List[Place] | None]]:
+def reverse_geocoding(query: str) -> Tuple[int, str, Union[List[Place] | None]]:
     try:
-        headers = {
-            'User-Agent': 'United and close',
-        }
-
-        response = requests.get(f"https://nominatim.openstreetmap.org/search?format=jsonv2&q={text}", headers=headers)
-        print(response.text)
-    except:
-        return 404, "The requested resource was not found", None
+        headers = {'User-Agent': 'United and close'}
+        response = requests.get(f"https://nominatim.openstreetmap.org/search?format=jsonv2&q={query}", headers=headers)
+    except Exception as e:
+        return 500, f"Error: {str(e)}", None
 
     if response.status_code == 200:
-        response = json.loads(response.text)
-        places = []
-        for row in response:
-            place = Place(name=row["display_name"], importance=row["importance"], coordinates=[row["lat"], row["lon"]])
-            places.append(place)
+        response_data = json.loads(response.text)
+        places = [
+            Place(
+                name=row["display_name"],
+                importance=row.get("importance", 0),
+                coordinates=[float(row["lat"]), float(row["lon"])]
+            )
+            for row in response_data
+        ]
         return 200, "OK", places
     else:
-
         return response.status_code, response.reason, None
 
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 if __name__ == "__main__":
     print(reverse_geocoding("torino"))
