@@ -1,10 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Existing elements from current version
     const searchInput = document.getElementById('city-search');
     const suggestionsList = document.getElementById('suggestions');
     const selectedServicesDiv = document.querySelector('.selected-services');
 
-    // Add transport buttons functionality from old version
     const transportButtons = document.querySelectorAll('.btn-group .btn');
     transportButtons.forEach(button => {
         button.addEventListener('click', function() {
@@ -13,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Autocomplete functionality from current version
     searchInput.addEventListener('input', async () => {
         const query = searchInput.value.trim();
         console.log('Input value:', query);
@@ -71,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Improved service selection handling (combining both versions)
     document.querySelectorAll('.form-check-input').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             const serviceName = this.nextElementSibling.textContent.trim();
@@ -120,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('');
     }
 
-    // Global removeService function
     window.removeService = function(serviceName) {
         const checkbox = Array.from(document.querySelectorAll('.form-check-input')).find(
             cb => cb.nextElementSibling.textContent.trim() === serviceName
@@ -131,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Close suggestions when clicking outside
     document.addEventListener('click', (event) => {
         if (!searchInput.contains(event.target) && !suggestionsList.contains(event.target)) {
             suggestionsList.innerHTML = '';
