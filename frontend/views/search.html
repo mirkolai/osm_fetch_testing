@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>United-and-Close</title>
 
-
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="../public/css/style.css">
@@ -81,16 +80,23 @@
                     <input type="text" class="form-control" placeholder="Cerca servizi...">
                 </div>
 
-                <div class="accordion" id="serviceAccordion">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                <div class="light-gray-container">
+                    <div class="accordion-container">
+                        <!-- Sport e Aree ricreative -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#sportServices">
-                                Sport e aree ricreative
+                                 Sport e Aree ricreative
                             </button>
-                        </h2>
+                        </div>
                         <div id="sportServices" class="accordion-collapse collapse">
                             <div class="accordion-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="sportServicesCheck">
+                                    <label class="form-check-label" for="sportServicesCheck">
+                                        Sport e Aree ricreative
+                                    </label>
+                                </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" value="" id="parksCheck">
                                     <label class="form-check-label" for="parksCheck">
@@ -105,27 +111,152 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        <!-- Servizi Sanitari -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#healthServices">
-                                Servizi Sanitari
+                                 Servizi Sanitari
                             </button>
-                        </h2>
+                        </div>
                         <div id="healthServices" class="accordion-collapse collapse">
                             <div class="accordion-body">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="pharmacyCheck">
-                                    <label class="form-check-label" for="pharmacyCheck">
-                                        Farmacie
+                                    <input class="form-check-input" type="checkbox" value="" id="healthServicesCheck">
+                                    <label class="form-check-label" for="healthServicesCheck">
+                                        Servizi Sanitari
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="hospitalCheck">
-                                    <label class="form-check-label" for="hospitalCheck">
+                                    <input class="form-check-input" type="checkbox" value="" id="hospitalsCheck">
+                                    <label class="form-check-label" for="hospitalsCheck">
                                         Ospedali
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="clinicsCheck">
+                                    <label class="form-check-label" for="clinicsCheck">
+                                        Cliniche
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shopping -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#shoppingServices">
+                                 Shopping
+                            </button>
+                        </div>
+                        <div id="shoppingServices" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="shoppingServicesCheck">
+                                    <label class="form-check-label" for="shoppingServicesCheck">
+                                        Shopping
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="mallsCheck">
+                                    <label class="form-check-label" for="mallsCheck">
+                                        Centri Commerciali
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="marketsCheck">
+                                    <label class="form-check-label" for="marketsCheck">
+                                        Mercati
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mobilità e Trasporti -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#transportServices">
+                                 Mobilità e Trasporti
+                            </button>
+                        </div>
+                        <div id="transportServices" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="transportServicesCheck">
+                                    <label class="form-check-label" for="transportServicesCheck">
+                                        Mobilità e Trasporti
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="busesCheck">
+                                    <label class="form-check-label" for="busesCheck">
+                                        Autobus
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="trainStationsCheck">
+                                    <label class="form-check-label" for="trainStationsCheck">
+                                        Stazioni Ferroviarie
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Servizi Educativi -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#educationServices">
+                                 Servizi Educativi
+                            </button>
+                        </div>
+                        <div id="educationServices" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="educationServicesCheck">
+                                    <label class="form-check-label" for="educationServicesCheck">
+                                        Servizi Educativi
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="schoolsCheck">
+                                    <label class="form-check-label" for="schoolsCheck">
+                                        Scuole
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="librariesCheck">
+                                    <label class="form-check-label" for="librariesCheck">
+                                        Biblioteche
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ristorazione e Locali -->
+                        <div class="accordion-toggle">
+                            <button class="accordion-button-custom" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#diningServices">
+                                 Ristorazione e Locali
+                            </button>
+                        </div>
+                        <div id="diningServices" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="diningServicesCheck">
+                                    <label class="form-check-label" for="diningServicesCheck">
+                                        Ristorazione e Locali
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="restaurantsCheck">
+                                    <label class="form-check-label" for="restaurantsCheck">
+                                        Ristoranti
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" id="cafesCheck">
+                                    <label class="form-check-label" for="cafesCheck">
+                                        Caffetterie
                                     </label>
                                 </div>
                             </div>

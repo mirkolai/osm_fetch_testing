@@ -16,6 +16,24 @@ nav {
     z-index: 999;
 }
 
+nav .links {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-right: 20px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+}
+
+nav a:hover {
+    background-color: #483d8b;
+    border-radius: 4px;
+}
+
 /* Utilities di layout */
 .flex {
     display: flex;
@@ -40,30 +58,6 @@ nav {
 
 .mb-4 {
     margin-bottom: 24px;
-}
-
-.accordion {
-    width: fit-content;
-    height: fit-content;
- }
-
-/* Links nella navbar */
-.links {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-right: 20px;
-}
-
-nav a {
-    color: white;
-    text-decoration: none;
-    padding: 5px 10px;
-}
-
-nav a:hover {
-    background-color: #483d8b;
-    border-radius: 4px;
 }
 
 /* Layout principale */
@@ -95,7 +89,6 @@ nav a:hover {
     padding: 16px;
 }
 
-/* Scrollbar personalizzata */
 .sidebar::-webkit-scrollbar {
     width: 4px;
 }
@@ -123,6 +116,56 @@ nav a:hover {
     width: 65px;
 }
 
+/* Custom Select Styling */
+.custom-select-wrapper {
+    position: relative;
+    width: 100px;
+}
+
+.custom-select-trigger {
+    padding: 8px 16px;
+    border: 1px solid #E0E0E0;
+    border-radius: 20px;
+    background-color: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border: 1px solid #E0E0E0;
+    border-radius: 12px;
+    margin-top: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: none;
+}
+
+.custom-select-wrapper.open .custom-select-options {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.custom-select-option:hover {
+    background-color: #e6e0f3;
+    color: #483d8b;
+}
+
+.custom-select-option.selected {
+    background-color: #483d8b;
+    color: white;
+}
+
 /* Buttons */
 .btn-group {
     border-radius: 20px;
@@ -142,32 +185,20 @@ nav a:hover {
     color: white;
 }
 
-.btn-outline-primary, .btn-outline-secondary {
+.btn-group .btn.btn-outline-primary:hover {
+    background-color: #483d8b;
+    color: white;
+    border-color: #483d8b;
+}
+
+.btn-group .btn.btn-outline-primary:hover .icon-color {
+    color: white;
+}
+
+.btn-outline-primary,
+.btn-outline-secondary {
     border-radius: 20px;
     border-color: #E0E0E0;
-}
-
-.btn.custom-primary {
-    background-color: #483d8b !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 20px !important;
-    padding: 0.5rem 0.75rem;
-}
-
-.btn.custom-primary:hover {
-    background-color: #372e6b !important;
-}
-
-.small-btn {
-    flex: 1;
-    padding: 0.5rem 0.75rem;
-}
-
-/* Se vuoi aggiungere un effetto hover */
-.btn-outline-primary:hover {
-    background-color: #372e6b;  /* Versione leggermente più scura del viola */
-    color: white;
 }
 
 .btn-outline-secondary {
@@ -175,7 +206,29 @@ nav a:hover {
     width: 100px;
 }
 
+.btn.custom-primary {
+    background-color: #483d8b;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0.5rem 0.75rem;
+}
+
+.btn.custom-primary:hover {
+    background-color: #372e6b;
+}
+
+.small-btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+}
+
 /* Accordion */
+.accordion {
+    width: fit-content;
+    height: fit-content;
+}
+
 .accordion-item {
     border: none;
     background-color: transparent;
@@ -183,7 +236,7 @@ nav a:hover {
 
 .accordion-button {
     background-color: white;
-    border-radius: 20px !important;
+    border-radius: 20px;
     margin-bottom: 8px;
     box-shadow: none;
 }
@@ -191,6 +244,60 @@ nav a:hover {
 .accordion-button:not(.collapsed) {
     background-color: white;
     box-shadow: none;
+}
+
+/* Accordion container e bottoni */
+.accordion-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    justify-content: flex-start;
+}
+
+.accordion-toggle {
+    flex: 0 1 auto;
+}
+
+.accordion-collapse {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.accordion-collapse.collapse {
+    display: none;
+}
+
+.accordion-collapse.collapse.show {
+    display: block;
+}
+
+.accordion-body {
+    padding: 8px 16px;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.accordion-button-custom {
+    background-color: #9966cc;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 7px;
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+    text-align: center;
+}
+
+.accordion-button-custom:hover {
+    background-color: #483d8b;
+}
+
+.accordion-button-custom:focus {
+    outline: none;
+    box-shadow: 0 0 4px #483d8b;
 }
 
 /* Selected services */
@@ -202,8 +309,27 @@ nav a:hover {
     padding: 8px;
 }
 
-.badge i {
+/* Custom checkbox styling */
+.form-check-input:checked {
+    background-color: #483d8b;
+    border-color: #483d8b;
+}
+
+/* Selected services badges */
+.selected-services .badge.bg-primary,
+.selected-services .badge.text-bg-primary {
+    background-color: #483d8b !important;  /* Solo in questo caso usiamo !important per sovrascrivere Bootstrap */
+    color: white;
+    padding: 6px 12px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.selected-services .badge i {
     cursor: pointer;
+    font-size: 14px;
 }
 
 /* Utilities aggiuntive */
@@ -242,6 +368,28 @@ nav a:hover {
     color: white;
 }
 
+/* Input group */
 .input-group {
     position: relative;
+}
+
+/* Light gray container */
+.light-gray-container {
+    background-color: #f1f1f1;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    border: 1px solid #dee2e6;
+}
+
+/* Inline group utility */
+.inline-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Time select utility */
+.time-select {
+    width: 100px;
 }
