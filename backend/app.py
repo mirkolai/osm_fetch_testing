@@ -1,18 +1,15 @@
+import logging
 import os
 from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from pymongo import MongoClient
 
 from backend.ReverseGeocoding import reverse_geocoding, Place
-
-# Connessione a MongoDB
-mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")  # Connessione predefinita per debug
-print(mongo_url)
-client = MongoClient(mongo_url)
-db = client["15minute1"]
+from backend.Isochrones import get_isocronewalk_by_node_id
+from backend.Nodes import get_id_node_by_coordinates
+from backend.db import db
 
 app = FastAPI()
 
@@ -41,6 +38,11 @@ class Coordinates(BaseModel):
 class ReverseGeocodingRequest(BaseModel):
     text: str
 
+class IsochroneRequest(BaseModel):
+    node_id: int
+    minute: int
+    velocity: int
+
 
 @app.get("/")
 async def serve_frontend():
@@ -56,6 +58,35 @@ async def serve_search():
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
+
+@app.post("/api/search_isochrone_walk")
+def app_search_isochrone_walk(request: Coordinates):
+    logging.info(f"Valori coordinate per isocrona walk: lat={request.lat}, lon={request.lon}")
+
+    try:
+        status_code1, message, node_id = get_id_node_by_coordinates(request)
+
+        if status_code1 == 200:
+            status_code, message, result = get_isocronewalk_by_node_id(
+                node_id=node_id,
+                minute=5,
+                velocity=5
+            )
+            if status_code == 200:
+                return result
+            else:
+                raise HTTPException(status_code=status_code, detail=message)
+        else:
+            raise HTTPException(status_code=status_code1, detail=message)
+
+    except HTTPException as http_exc:
+        # Rilancia l'eccezione HTTP senza modifiche
+        raise http_exc
+    except Exception as e:
+        # Log dell'errore non HTTP e restituzione di un errore generico
+        logging.error(f"Errore inatteso: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
 
 
 @app.post("/api/reverse_geocoding")
@@ -121,7 +152,49 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "loc": [],
                                 "msg": message,
                                 "type": status_code}])
+    
 
+
+######## API DI TESTING
+
+@app.post("/api/get_isochrone_walk")
+async def get_isochrone_walk(request: IsochroneRequest):
+    """
+    Estrae l'isocrona camminabile in base ai parametri forniti.
+
+    Parametri:
+    ----------
+    - **request**: `IsochroneRequest`
+        - `node_id` (int): ID del nodo.
+        - `minute` (int): Minuti per calcolare l'isocrona.
+        - `velocity` (int): Velocità di spostamento.
+
+    Risposta:
+    ---------
+    Un dizionario contenente:
+    - `node_id`: ID del nodo.
+    - `concave_hull`: Dettagli sulla geometria del percorso (coordinate e bounding box).
+
+    Errori:
+    -------
+    - **404**: Dati non trovati.
+    - **500**: Errore interno.
+
+    """
+    try:
+        status_code, message, result = get_isocronewalk_by_node_id(
+            node_id=request.node_id,
+            minute=request.minute,
+            velocity=request.velocity
+        )
+
+        if status_code == 200:
+            return result
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint per trovare il nodo più vicino a un punto specifico
 @app.post("/api/nodes/nearest/")
@@ -150,7 +223,7 @@ async def find_nearest_node(coords: Coordinates):
 
 # Endpoint per trovare il poi specifico date le coordinate
 @app.post("/api/pois/single_poi/")
-async def find_node_by_coordinates(coords: Coordinates):
+async def find_poi_by_coordinates(coords: Coordinates):
     collection = db["pois"]
 
     # Query per trovare il primo nodo con le coordinate esatte
