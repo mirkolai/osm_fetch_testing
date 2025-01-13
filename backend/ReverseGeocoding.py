@@ -1,4 +1,3 @@
-from flask import Flask, request, jsonify
 from functools import lru_cache
 import json
 from typing import Union, List, Tuple, Annotated
@@ -7,7 +6,6 @@ import requests
 from annotated_types import Len
 from pydantic import BaseModel
 
-app = Flask(__name__)
 
 # https://nominatim.org/release-docs/latest/admin/Installation/
 
@@ -47,10 +45,6 @@ def reverse_geocoding(query: str) -> Tuple[int, str, Union[List[Place] | None]]:
     else:
         return response.status_code, response.reason, None
 
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
 
 if __name__ == "__main__":
     print(reverse_geocoding("torino"))
