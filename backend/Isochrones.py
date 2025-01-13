@@ -1,15 +1,10 @@
-import json
 from typing import Union, List, Tuple, Annotated, Dict
-
-from fastapi import HTTPException
-import requests
-from annotated_types import Len
-from pydantic import BaseModel
-
 from backend.db import db
-   
-def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> Tuple[int, str, Union[Dict[str, Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
-    
+
+
+def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> Tuple[int, str, Union[Dict[str,
+Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
+
     collection = db["isochrone_walk"]
     # Query per trovare il documento con il node_id specificato
     query = {"node_id": node_id}
@@ -23,7 +18,7 @@ def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> Tup
     isochrone_data = document.get("isochrone", {}).get(str(minute), {}).get(str(velocity), {})
 
     # Log di debug per vedere cosa viene trovato
-    print(f"Document trovato: {document}")  # Log per verificare la struttura del documento
+    print(f"Document trovato: {document}")
     print(f"isochrone_data per {minute} minuti e velocità {velocity}: {isochrone_data}")
 
     if isochrone_data:
@@ -31,7 +26,8 @@ def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> Tup
         result = {
             "node_id": document["node_id"],
             "concave_hull": {
-                "coordinates": isochrone_data.get("concave_hull", {}).get("features", [])[0].get("geometry", {}).get("coordinates", []),
+                "coordinates": isochrone_data.get("concave_hull", {}).get("features", [])[0].get("geometry", {})
+                .get("coordinates", []),
                 "bbox": isochrone_data.get("concave_hull", {}).get("bbox", [])
             }
         }
