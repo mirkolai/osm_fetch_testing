@@ -220,6 +220,19 @@ async def find_nearest_node(coords: Coordinates):
     else:
         raise HTTPException(status_code=404, detail="No node found near the given point.")
 
+@app.post("/api/get_node_id")
+async def get_node_id(coords: Coordinates):
+    """
+    Get node_id from coordinates
+    """
+    try:
+        status_code, message, node_id = get_id_node_by_coordinates(coords)
+        if status_code == 200:
+            return {"node_id": node_id}
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint per trovare il poi specifico date le coordinate
 @app.post("/api/pois/single_poi/")

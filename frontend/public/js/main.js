@@ -1,3 +1,4 @@
+
 document.getElementById("fetchData").addEventListener("click", async () => {
     try {
         const response = await fetch("/api/osm_data");
