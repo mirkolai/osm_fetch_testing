@@ -60,11 +60,11 @@ async def serve_search():
     return FileResponse(file_path)
 
 @app.post("/api/search_isochrone_walk")
-def app_search_isochrone_walk(request: Coordinates):
-    logging.info(f"Valori coordinate per isocrona walk: lat={request.lat}, lon={request.lon}")
+def app_search_isochrone_walk(coords: Coordinates):
+    logging.info(f"Valori coordinate per isocrona walk: lat={coords.lat}, lon={coords.lon}")
 
     try:
-        status_code1, message, node_id = get_id_node_by_coordinates(request)
+        status_code1, message, node_id = get_id_node_by_coordinates(coords)
 
         if status_code1 == 200:
             status_code, message, result = get_isocronewalk_by_node_id(
