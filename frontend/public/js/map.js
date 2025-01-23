@@ -1,16 +1,9 @@
-/*document.addEventListener('DOMContentLoaded', function() {
-    const map = L.map('map').setView([45.0703, 7.6869], 13);
+// Singleton pattern for map instance
+let mapInstance = null;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-});*/
-
-let map = null;
-
-function initializeMap(containerId, options = {}) {
-    if (map) {
-        return map;
+const initializeMap = (containerId, options = {}) => {
+    if (mapInstance) {
+        return mapInstance;
     }
 
     const defaultOptions = {
@@ -20,16 +13,19 @@ function initializeMap(containerId, options = {}) {
 
     const mapOptions = { ...defaultOptions, ...options };
 
-    map = L.map(containerId).setView(mapOptions.center, mapOptions.zoom);
+    mapInstance = L.map(containerId).setView(mapOptions.center, mapOptions.zoom);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    }).addTo(mapInstance);
 
-    return map;
-}
+    return mapInstance;
+};
 
+const getMap = () => mapInstance;
+
+// Export functions
 window.mapUtils = {
     initializeMap,
-    getMap: () => map
+    getMap
 };
