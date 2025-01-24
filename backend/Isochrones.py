@@ -24,10 +24,10 @@ Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
         # Estrazione dei dati concave_hull
         result = {
             "node_id": document["node_id"],
-            "concave_hull": {
-                "coordinates": isochrone_data.get("concave_hull", {}).get("features", [])[0].get("geometry", {})
+            "convex_hull": {
+                "coordinates": isochrone_data.get("convex_hull", {}).get("features", [])[0].get("geometry", {})
                 .get("coordinates", []),
-                "bbox": isochrone_data.get("concave_hull", {}).get("bbox", [])
+                "bbox": isochrone_data.get("convex_hull", {}).get("bbox", [])
             }
         }
         return 200, "OK", result
