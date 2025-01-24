@@ -43,6 +43,11 @@ class IsochroneRequest(BaseModel):
     minute: int
     velocity: int
 
+class SearchProximityRequest(BaseModel):
+    coords: Coordinates
+    min: int
+    vel: int
+
 
 @app.get("/")
 async def serve_frontend():
@@ -59,18 +64,19 @@ async def serve_search():
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-@app.post("/api/search_isochrone_walk")
-def app_search_isochrone_walk(coords: Coordinates):
-    logging.info(f"Valori coordinate per isocrona walk: lat={coords.lat}, lon={coords.lon}")
+@app.post("/api/search_proximity")
+def search_proximity(request: SearchProximityRequest):
+    logging.info(f"Valori coordinate per isocrona walk: lat={request.coords.lat}, lon={request.coords.lon}")
 
     try:
-        status_code1, message, node_id = get_id_node_by_coordinates(coords)
+        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
 
         if status_code1 == 200:
+            print("Nodo trovato")
             status_code, message, result = get_isocronewalk_by_node_id(
                 node_id=node_id,
-                minute=5,
-                velocity=5
+                minute=request.min,
+                velocity=request.vel
             )
             if status_code == 200:
                 return result

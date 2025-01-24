@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  # Servizio per l'app FastAPI
+  fastapi-app:
+    build:
+      dockerfile: "Docker_backend"
+    container_name: 15MinuteApp
+    ports:
+      - "5555:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URL: "mongodb://user:pass@mongodb:27017"
+    networks:
+      - app-network
+
+  # Servizio per MongoDB
+  mongodb:
+    image: mongodb/mongodb-community-server:6.0-ubi8
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=user
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db  # Persistenza dei dati di MongoDB Sx: cartella dove viene salvato in host dati db
+      - C:\Users\morro\dump:/docker-entrypoint-initdb.d  # Carica il dump all'avvio C:\Users\morro\dump\15MinutiDB
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+#volumes:
+#  mongo-data:
