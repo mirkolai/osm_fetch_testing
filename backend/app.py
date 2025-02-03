@@ -6,9 +6,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from backend.ReverseGeocoding import reverse_geocoding, Place
-from backend.Isochrones import get_isocronewalk_by_node_id
-from backend.Nodes import get_id_node_by_coordinates
+from backend.Poi import *
+from backend.ReverseGeocoding import *
+from backend.Isochrones import *
+from backend.Nodes import *
 from backend.db import db
 
 app = FastAPI()
@@ -47,6 +48,14 @@ class SearchProximityRequest(BaseModel):
     coords: Coordinates
     min: int
     vel: int
+
+class SearchPoisIsochroneRequest(BaseModel):
+    coords: Coordinates  # lat, lon
+    min: int  # minuti per l'isocrona
+    vel: int  # velocità per l'isocrona
+
+class NodeRequest(BaseModel):
+    node_id: int
 
 
 @app.get("/")
@@ -92,6 +101,40 @@ def search_proximity(request: SearchProximityRequest):
         # Log dell'errore non HTTP e restituzione di un errore generico
         logging.error(f"Errore inatteso: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
+
+@app.post("/api/get_pois_isochrone")
+def search_pois_within_isochrone(request: SearchPoisIsochroneRequest):
+    """
+    Endpoint per ottenere i POI dettagliati all'interno dell'isocrona.
+
+    :param request: Richiesta contenente le coordinate, i minuti e la velocità dell'isocrona
+    :return: Lista di POI filtrati per l'isocrona e ordinati per distanza
+    """
+    try:
+        # Recupera l'ID del nodo dalle coordinate
+        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
+
+        if status_code1 != 200:
+            raise HTTPException(status_code=status_code1, detail=message)
+
+        # Recupera i dati dell'isocrona per il nodo
+        status_code2, message, isochrone = get_isocronewalk_by_node_id(node_id=node_id, minute=request.min, velocity=request.vel)
+
+        if status_code2 != 200:
+            raise HTTPException(status_code=status_code2, detail=message)
+
+        # Recupera i POI all'interno dell'isocrona
+        status_code3, message, pois_data = get_pois_within_isochrone(node_id, isochrone)
+
+        if status_code3 == 200:
+            return pois_data
+        else:
+            raise HTTPException(status_code=status_code3, detail=message)
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore interno del server: {str(e)}")
 
 
 
@@ -162,6 +205,36 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
 
 
 ######## API DI TESTING
+
+@app.post("/api/test_get_data_pois_near_node")
+def get_data_pois_near_node(request: NodeRequest):
+    """
+    Endpoint per ottenere i POI dettagliati associati a un node_id.
+
+    :param request: Richiesta contenente il node_id
+    :return: Dizionario contenente i POI con informazioni dettagliate e distanza dal nodo
+    """
+    status_code, message, pois_data = get_detailed_pois_by_node_id(request.node_id)
+
+    if status_code == 200:
+        return pois_data
+    else:
+        raise HTTPException(status_code=status_code, detail=message)
+
+@app.post("/api/test_get_pois_distance")
+def get_pois_distance(request: NodeRequest):
+    """
+    Endpoint per ottenere i POI associati a un node_id.
+
+    :param request: Richiesta contenente il node_id
+    :return: Dizionario contenente i POI raggiungibili dal nodo e le loro distanze
+    """
+    status_code, message, pois_data = get_pois_by_node_id(request.node_id)
+
+    if status_code == 200:
+        return pois_data
+    else:
+        raise HTTPException(status_code=status_code, detail=message)
 
 @app.post("/api/get_isochrone_walk")
 async def get_isochrone_walk(request: IsochroneRequest):
