@@ -107,6 +107,7 @@ nav a:hover {
     border-radius: 4px;
 }
 
+
 /* Form elements */
 .form-control {
     border-radius: 20px;
@@ -228,31 +229,31 @@ nav a:hover {
     padding: 0.5rem 0.75rem;
 }
 
-/* Accordion */
-.accordion {
+/* pointOfInterest */
+.pointOfInterest {
     width: fit-content;
     height: fit-content;
 }
 
-.accordion-item {
+.pointOfInterest-item {
     border: none;
     background-color: transparent;
 }
 
-.accordion-button {
+.pointOfInterest-button {
     background-color: white;
     border-radius: 20px;
     margin-bottom: 8px;
     box-shadow: none;
 }
 
-.accordion-button:not(.collapsed) {
+.pointOfInterest-button:not(.collapsed) {
     background-color: white;
     box-shadow: none;
 }
 
-/* Accordion container e bottoni */
-.accordion-container {
+/* pointOfInterest container e bottoni */
+.pointOfInterest-container {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -260,31 +261,31 @@ nav a:hover {
     justify-content: flex-start;
 }
 
-.accordion-toggle {
+.pointOfInterest-toggle {
     flex: 0 1 auto;
 }
 
-.accordion-collapse {
+.pointOfInterest-collapse {
     width: 100%;
     margin-top: 8px;
 }
 
-.accordion-collapse.collapse {
+.pointOfInterest-collapse.collapse {
     display: none;
 }
 
-.accordion-collapse.collapse.show {
+.pointOfInterest-collapse.collapse.show {
     display: block;
 }
 
-.accordion-body {
+.pointOfInterest-body {
     padding: 8px 16px;
     background-color: #fff;
     border: 1px solid #dee2e6;
     border-radius: 8px;
 }
 
-.accordion-button-custom {
+.pointOfInterest-button-custom {
     background-color: #9966cc;
     color: #fff;
     border: none;
@@ -296,11 +297,11 @@ nav a:hover {
     text-align: center;
 }
 
-.accordion-button-custom:hover {
+.pointOfInterest-button-custom:hover {
     background-color: #483d8b;
 }
 
-.accordion-button-custom:focus {
+.pointOfInterest-button-custom:focus {
     outline: none;
     box-shadow: 0 0 4px #483d8b;
 }
@@ -385,6 +386,21 @@ nav a:hover {
     border-radius: 12px;
     margin-bottom: 24px;
     border: 1px solid #dee2e6;
+    height: 150px;
+    overflow-y: auto;
+}
+
+.light-gray-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.light-gray-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.light-gray-container::-webkit-scrollbar-thumb {
+    background: #E0E0E0;
+    border-radius: 4px;
 }
 
 /* Inline group utility */
