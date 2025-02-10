@@ -44,15 +44,15 @@ class IsochroneRequest(BaseModel):
     minute: int
     velocity: int
 
-class SearchProximityRequest(BaseModel):
+class IsochroneRequest(BaseModel):
     coords: Coordinates
     min: int
     vel: int
 
-class SearchPoisIsochroneRequest(BaseModel):
+class PoisRequest(BaseModel):
     coords: Coordinates  # lat, lon
-    min: int  # minuti per l'isocrona
-    vel: int  # velocità per l'isocrona
+    min: int
+    vel: int
 
 class NodeRequest(BaseModel):
     node_id: int
@@ -72,71 +72,6 @@ async def serve_search():
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
-
-@app.post("/api/search_proximity")
-def search_proximity(request: SearchProximityRequest):
-    logging.info(f"Valori coordinate per isocrona walk: lat={request.coords.lat}, lon={request.coords.lon}")
-
-    try:
-        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
-
-        if status_code1 == 200:
-            print("Nodo trovato")
-            status_code, message, result = get_isocronewalk_by_node_id(
-                node_id=node_id,
-                minute=request.min,
-                velocity=request.vel
-            )
-            if status_code == 200:
-                return result
-            else:
-                raise HTTPException(status_code=status_code, detail=message)
-        else:
-            raise HTTPException(status_code=status_code1, detail=message)
-
-    except HTTPException as http_exc:
-        # Rilancia l'eccezione HTTP senza modifiche
-        raise http_exc
-    except Exception as e:
-        # Log dell'errore non HTTP e restituzione di un errore generico
-        logging.error(f"Errore inatteso: {str(e)}")
-        raise HTTPException(status_code=500, detail="Errore interno del server")
-
-@app.post("/api/get_pois_isochrone")
-def search_pois_within_isochrone(request: SearchPoisIsochroneRequest):
-    """
-    Endpoint per ottenere i POI dettagliati all'interno dell'isocrona.
-
-    :param request: Richiesta contenente le coordinate, i minuti e la velocità dell'isocrona
-    :return: Lista di POI filtrati per l'isocrona e ordinati per distanza
-    """
-    try:
-        # Recupera l'ID del nodo dalle coordinate
-        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
-
-        if status_code1 != 200:
-            raise HTTPException(status_code=status_code1, detail=message)
-
-        # Recupera i dati dell'isocrona per il nodo
-        status_code2, message, isochrone = get_isocronewalk_by_node_id(node_id=node_id, minute=request.min, velocity=request.vel)
-
-        if status_code2 != 200:
-            raise HTTPException(status_code=status_code2, detail=message)
-
-        # Recupera i POI all'interno dell'isocrona
-        status_code3, message, pois_data = get_pois_within_isochrone(node_id, isochrone)
-
-        if status_code3 == 200:
-            return pois_data
-        else:
-            raise HTTPException(status_code=status_code3, detail=message)
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Errore interno del server: {str(e)}")
-
-
 
 @app.post("/api/reverse_geocoding")
 def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
@@ -201,25 +136,86 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "loc": [],
                                 "msg": message,
                                 "type": status_code}])
-    
+
+@app.post("/api/get_isochrone")
+def search_proximity(request: IsochroneRequest):
+    logging.info(f"Valori coordinate per isocrona walk: lat={request.coords.lat}, lon={request.coords.lon}")
+
+    try:
+        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
+
+        if status_code1 == 200:
+            print("Nodo trovato")
+            status_code, message, result = get_isocronewalk_by_node_id(
+                node_id=node_id,
+                minute=request.min,
+                velocity=request.vel
+            )
+            if status_code == 200:
+                return result
+            else:
+                raise HTTPException(status_code=status_code, detail=message)
+        else:
+            raise HTTPException(status_code=status_code1, detail=message)
+
+    except HTTPException as http_exc:
+        # Rilancia l'eccezione HTTP senza modifiche
+        raise http_exc
+    except Exception as e:
+        # Log dell'errore non HTTP e restituzione di un errore generico
+        logging.error(f"Errore inatteso: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
 
 
-######## API DI TESTING
-
-@app.post("/api/test_get_data_pois_near_node")
-def get_data_pois_near_node(request: NodeRequest):
+@app.post("/api/get_pois_isochrone")
+def get_pois_data_in_isochrone(request: PoisRequest):
     """
     Endpoint per ottenere i POI dettagliati associati a un node_id.
 
     :param request: Richiesta contenente il node_id
     :return: Dizionario contenente i POI con informazioni dettagliate e distanza dal nodo
     """
-    status_code, message, pois_data = get_detailed_pois_by_node_id(request.node_id)
 
-    if status_code == 200:
-        return pois_data
-    else:
-        raise HTTPException(status_code=status_code, detail=message)
+    logging.info(f"Valori coordinate per pois in isocrone: lat={request.coords.lat}, lon={request.coords.lon}")
+
+    try:
+        status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
+
+        if status_code1 == 200:
+            print("Nodo trovato")
+            status_code, message, result = get_detailed_pois_by_node_id(node_id, request.min, request.vel)
+            if status_code == 200:
+                return result
+            else:
+                raise HTTPException(status_code=status_code, detail=message)
+        else:
+            raise HTTPException(status_code=status_code1, detail=message)
+
+    except HTTPException as http_exc:
+        # Rilancia l'eccezione HTTP senza modifiche
+        raise http_exc
+    except Exception as e:
+        # Log dell'errore non HTTP e restituzione di un errore generico
+        logging.error(f"Errore inatteso: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+    
+@app.post("/api/get_node_id")
+async def get_node_id(coords: Coordinates):
+    """
+    Get node_id from coordinates
+    """
+    try:
+        status_code, message, node_id = get_id_node_by_coordinates(coords)
+        if status_code == 200:
+            return {"node_id": node_id}
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+######## API DI TESTING
+
 
 @app.post("/api/test_get_pois_distance")
 def get_pois_distance(request: NodeRequest):
@@ -236,7 +232,7 @@ def get_pois_distance(request: NodeRequest):
     else:
         raise HTTPException(status_code=status_code, detail=message)
 
-@app.post("/api/get_isochrone_walk")
+@app.post("/api/test_get_isochrone_walk")
 async def get_isochrone_walk(request: IsochroneRequest):
     """
     Estrae l'isocrona camminabile in base ai parametri forniti.
@@ -299,22 +295,10 @@ async def find_nearest_node(coords: Coordinates):
     else:
         raise HTTPException(status_code=404, detail="No node found near the given point.")
 
-@app.post("/api/get_node_id")
-async def get_node_id(coords: Coordinates):
-    """
-    Get node_id from coordinates
-    """
-    try:
-        status_code, message, node_id = get_id_node_by_coordinates(coords)
-        if status_code == 200:
-            return {"node_id": node_id}
-        else:
-            raise HTTPException(status_code=status_code, detail=message)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Endpoint per trovare il poi specifico date le coordinate
-@app.post("/api/pois/single_poi/")
+@app.post("/api/pois/test_single_poi/")
 async def find_poi_by_coordinates(coords: Coordinates):
     collection = db["pois"]
 
