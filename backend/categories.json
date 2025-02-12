@@ -1,0 +1,97 @@
+{
+   "eat_and_drink": [
+      "bar",
+      "cafe",
+      "restaurant"
+   ],
+   "automotive": [
+      "electric_vehicle_charging_station"
+   ],
+   "arts_and_entertainment": [
+      "cinema",
+      "internet_cafe",
+      "music_venue"
+   ],
+   "attractions_and_activities": [
+      "park",
+      "plaza"
+   ],
+   "active_life": [
+      "sports_and_fitness_instruction",
+      "sports_and_recreation_venue"
+   ],
+   "beauty_and_spa": [
+      "barber",
+      "beauty_salon"
+   ],
+   "education": [
+      "college_university",
+      "educational_services",
+      "school"
+   ],
+   "financial_service": [
+      "atms"
+   ],
+   "retail": [
+      "beverage_store",
+      "drugstore",
+      "food",
+      "meat_shop",
+      "pharmacy",
+      "seafood_market",
+      "shopping",
+      "water_store"
+   ],
+   "health_and_medical": [
+      "ambulance_and_ems_services",
+      "childrens_hospital",
+      "community_health_center",
+      "dentist",
+      "doctor",
+      "emergency_room",
+      "hospital",
+      "medical_center",
+      "urgent_care_clinic",
+      "women's_health_clinic"
+   ],
+   "pets": [
+      "pet_services",
+      "veterinarian"
+   ],
+   "public_service_and_government": [
+      "children_hall",
+      "civic_center",
+      "community_center",
+      "community_services",
+      "family_service_center",
+      "library",
+      "police_department",
+      "post_office",
+      "railway_service"
+   ],
+   "religious_organization": [
+      "buddhist_temple",
+      "church_cathedral",
+      "hindu_temple",
+      "mosque",
+      "shinto_shrines",
+      "sikh_temple",
+      "synagogue",
+      "temple"
+   ],
+   "travel": [
+      "transportation"
+   ],
+   "professional_services": [
+      "bike_repair_maintenance",
+      "child_care_and_day_care",
+      "community_gardens",
+      "emergency_service",
+      "laundry_services",
+      "mailbox_center",
+      "package_locker"
+   ],
+   "structure_and_geography": [
+      "public_plaza"
+   ]
+}

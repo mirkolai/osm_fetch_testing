@@ -53,6 +53,7 @@ class PoisRequest(BaseModel):
     coords: Coordinates  # lat, lon
     min: int
     vel: int
+    categories: List[str]
 
 class NodeRequest(BaseModel):
     node_id: int
@@ -172,7 +173,7 @@ def get_pois_data_in_isochrone(request: PoisRequest):
     """
     Endpoint per ottenere i POI dettagliati associati a un node_id.
 
-    :param request: Richiesta contenente il node_id
+    :param request: Richiesta contenente il node_id e altri parametri
     :return: Dizionario contenente i POI con informazioni dettagliate e distanza dal nodo
     """
 
@@ -182,24 +183,24 @@ def get_pois_data_in_isochrone(request: PoisRequest):
         status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
 
         if status_code1 == 200:
-            print("Nodo trovato")
-            status_code, message, result = get_detailed_pois_by_node_id(node_id, request.min, request.vel)
+            logging.info("Nodo trovato, ottenimento POI...")
+            status_code, message, result = get_detailed_pois_by_node_id(
+                node_id, request.min, request.vel, request.categories
+            )
             if status_code == 200:
-                return result
+                return {"status": "success", "pois": result}
             else:
                 raise HTTPException(status_code=status_code, detail=message)
         else:
             raise HTTPException(status_code=status_code1, detail=message)
 
     except HTTPException as http_exc:
-        # Rilancia l'eccezione HTTP senza modifiche
-        raise http_exc
+        raise http_exc  # Rilancia l'errore HTTP senza modificarlo
     except Exception as e:
-        # Log dell'errore non HTTP e restituzione di un errore generico
         logging.error(f"Errore inatteso: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
 
-    
+
 @app.post("/api/get_node_id")
 async def get_node_id(coords: Coordinates):
     """
@@ -216,21 +217,6 @@ async def get_node_id(coords: Coordinates):
 
 ######## API DI TESTING
 
-
-@app.post("/api/test_get_pois_distance")
-def get_pois_distance(request: NodeRequest):
-    """
-    Endpoint per ottenere i POI associati a un node_id.
-
-    :param request: Richiesta contenente il node_id
-    :return: Dizionario contenente i POI raggiungibili dal nodo e le loro distanze
-    """
-    status_code, message, pois_data = get_pois_by_node_id(request.node_id)
-
-    if status_code == 200:
-        return pois_data
-    else:
-        raise HTTPException(status_code=status_code, detail=message)
 
 @app.post("/api/test_get_isochrone_walk")
 async def get_isochrone_walk(request: IsochroneRequest):
