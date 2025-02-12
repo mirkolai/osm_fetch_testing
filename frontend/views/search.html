@@ -9,20 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script>
     <link rel="stylesheet" href="../public/css/style.css">
-
-    <style>
-        .inline-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .time-select {
-            width: 100px;
-        }
-    </style>
 </head>
 
 <body>
@@ -42,6 +29,7 @@
 <div class="main-container">
     <div class="sidebar">
         <div class="p-4">
+            <!-- Search input -->
             <div class="mb-4">
                 <label class="form-label">Enter an address</label>
                 <div class="input-group">
@@ -50,6 +38,7 @@
                 <div id="suggestions" class="list-group"></div>
             </div>
 
+            <!-- Time and travel mode -->
             <div class="mb-4">
                 <label class="form-label">Select time and mode of travel</label>
                 <div class="inline-group mb-2">
@@ -76,668 +65,25 @@
                 </div>
             </div>
 
+            <!-- Services section -->
             <div class="mb-4">
                 <label class="form-label">Select services to be displayed in the area</label>
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" placeholder="Cerca servizi...">
+                    <input type="text" class="form-control" placeholder="Search services...">
                 </div>
 
                 <div class="light-gray-container">
-                    <div class="pointOfInterest-container">
-                        <!-- Eat and drink services -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#eatAndDrinkServices">
-                                Eat And Drink
-                            </button>
-                        </div>
-                        <div id="eatAndDrinkServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="eatAndDrinkCheck">
-                                    <label class="form-check-label" for="eatAndDrinkCheck">
-                                        Eat And Drink
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="barCheck">
-                                    <label class="form-check-label" for="barCheck">
-                                        Bar
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="cafeCheck">
-                                    <label class="form-check-label" for="cafeCheck">
-                                        Cafe
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="restaurantCheck">
-                                    <label class="form-check-label" for="restaurantCheck">
-                                        Restaurant
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Automotive Services -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#automotiveServices">
-                                Automotive
-                            </button>
-                        </div>
-                        <div id="automotiveServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="electricVehicleStationCheck">
-                                    <label class="form-check-label" for="electricVehicleStationCheck">
-                                        Electric Vehicle Charging Station
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Arts And Entertainment -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#artsAndEntertainmentServices">
-                                Arts And Entertainment
-                            </button>
-                        </div>
-                        <div id="artsAndEntertainmentServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="artsAndEntertainmentServicesCheck">
-                                    <label class="form-check-label" for="artsAndEntertainmentServicesCheck">
-                                        Arts And Entertainment
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="cinemaCheck">
-                                    <label class="form-check-label" for="cinemaCheck">
-                                        Cinema
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="internetCafeCheck">
-                                    <label class="form-check-label" for="internetCafeCheck">
-                                        Internet Cafe
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="MusicVenueCheck">
-                                    <label class="form-check-label" for="MusicVenueCheck">
-                                        Music Venue
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Attractions and Activities -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#attractionsAndActivitiesServices">
-                                Attractions and Activities
-                            </button>
-                        </div>
-                        <div id="attractionsAndActivitiesServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="ArtsActivitiesCheck">
-                                    <label class="form-check-label" for="ArtsActivitiesCheck">
-                                        Attractions and Activities
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="parkCheck">
-                                    <label class="form-check-label" for="parkCheck">
-                                        Park
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="plazaCheck">
-                                    <label class="form-check-label" for="plazaCheck">
-                                        Plaza
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Active Life -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#activeLifeServices">
-                                Active Life
-                            </button>
-                        </div>
-                        <div id="activeLifeServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="activeLifeServicesCheck">
-                                    <label class="form-check-label" for="activeLifeServicesCheck">
-                                        Active Life
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="sportsFitnessCheck">
-                                    <label class="form-check-label" for="sportsFitnessCheck">
-                                        Sports and Fitness Instruction
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="sportsRecreationCheck">
-                                    <label class="form-check-label" for="sportsRecreationCheck">
-                                        Sports and Recreation Venue
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Beauty and Spa -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#beautyAndSpaServices">
-                                Beauty and Spa
-                            </button>
-                        </div>
-                        <div id="beautyAndSpaServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="beautyAndSpaServicesCheck">
-                                    <label class="form-check-label" for="beautyAndSpaServicesCheck">
-                                        Beauty and Spa
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="barberCheck">
-                                    <label class="form-check-label" for="barberCheck">
-                                        Barber
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="beautySalonCheck">
-                                    <label class="form-check-label" for="beautySalonCheck">
-                                        Beauty Salon
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Education -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#educationServices">
-                                Education
-                            </button>
-                        </div>
-                        <div id="educationServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="educationServicesCheck">
-                                    <label class="form-check-label" for="educationServicesCheck">
-                                        Education
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="collegeCheck">
-                                    <label class="form-check-label" for="collegeCheck">
-                                        College University
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="educationalCheck">
-                                    <label class="form-check-label" for="educationalCheck">
-                                        Educational Services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="schoolCheck">
-                                    <label class="form-check-label" for="schoolCheck">
-                                        School
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Financial Services -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#financialServices">
-                                Financial Service
-                            </button>
-                        </div>
-                        <div id="financialServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="atmsCheck">
-                                    <label class="form-check-label" for="atmsCheck">
-                                        Atms
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Retail -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#retailServices">
-                                Retail
-                            </button>
-                        </div>
-                        <div id="retailServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="retailCheck">
-                                    <label class="form-check-label" for="retailCheck">
-                                        Retail
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="beverageStoreCheck">
-                                    <label class="form-check-label" for="beverageStoreCheck">
-                                        Beverage Store
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="drugstoreCheck">
-                                    <label class="form-check-label" for="drugstoreCheck">
-                                        Drugstore
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="foodCheck">
-                                    <label class="form-check-label" for="foodCheck">
-                                        Food
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="meatShopCheck">
-                                    <label class="form-check-label" for="meatShopCheck">
-                                        Meat Shop
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="pharmacyCheck">
-                                    <label class="form-check-label" for="pharmacyCheck">
-                                        Pharmacy
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="seafoodCheck">
-                                    <label class="form-check-label" for="seafoodCheck">
-                                        Seafood Market
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="shoppingCheck">
-                                    <label class="form-check-label" for="shoppingCheck">
-                                        Shopping
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="waterStoreCheck">
-                                    <label class="form-check-label" for="waterStoreCheck">
-                                        Water Store
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Health and Medical -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#healthMedicalServices">
-                                Health and Medical
-                            </button>
-                        </div>
-                        <div id="healthMedicalServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="healthMedicalCheck">
-                                    <label class="form-check-label" for="healthMedicalCheck">
-                                        Health and Medical
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="ambulanceCheck">
-                                    <label class="form-check-label" for="ambulanceCheck">
-                                        Ambulance and Ems Services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="childrenHospitalCheck">
-                                    <label class="form-check-label" for="childrenHospitalCheck">
-                                        Children Hospital
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="communityHealthCheck">
-                                    <label class="form-check-label" for="communityHealthCheck">
-                                        Community Health Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="dentistCheck">
-                                    <label class="form-check-label" for="dentistCheck">
-                                        Dentist
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="doctorCheck">
-                                    <label class="form-check-label" for="doctorCheck">
-                                        Doctor
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="emergencyCheck">
-                                    <label class="form-check-label" for="emergencyCheck">
-                                        Emergency Room
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="hospitalCheck">
-                                    <label class="form-check-label" for="hospitalCheck">
-                                        Hospital
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="medicalCenterCheck">
-                                    <label class="form-check-label" for="medicalCenterCheck">
-                                        Medical Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="urgentCheck">
-                                    <label class="form-check-label" for="urgentCheck">
-                                        Urgent Care Clinic
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="womenHealthCheck">
-                                    <label class="form-check-label" for="womenHealthCheck">
-                                        Women's Health Clinic
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Pets -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#petsServices">
-                                Pets
-                            </button>
-                        </div>
-                        <div id="petsServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="petsCheck">
-                                    <label class="form-check-label" for="petsCheck">
-                                        Pets
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="petServicesCheck">
-                                    <label class="form-check-label" for="petServicesCheck">
-                                        Pet services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="veterinarianCheck">
-                                    <label class="form-check-label" for="veterinarianCheck">
-                                        Veterinarian
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Public Service And Government -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#publicGovernmentServices">
-                                Public Service And Government
-                            </button>
-                        </div>
-                        <div id="publicGovernmentServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="publicGovernmentServicesCheck">
-                                    <label class="form-check-label" for="publicGovernmentServicesCheck">
-                                        Public Service And Government
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="childrenHallCheck">
-                                    <label class="form-check-label" for="childrenHallCheck">
-                                        Children Hall
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="civicCenterCheck">
-                                    <label class="form-check-label" for="civicCenterCheck">
-                                        Civic Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="communityCenterCheck">
-                                    <label class="form-check-label" for="communityCenterCheck">
-                                        Community Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="communityServicesCheck">
-                                    <label class="form-check-label" for="communityServicesCheck">
-                                        Community Services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="familyServiceCheck">
-                                    <label class="form-check-label" for="familyServiceCheck">
-                                        Family Service Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="libraryCheck">
-                                    <label class="form-check-label" for="libraryCheck">
-                                        Library
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="sbirriCheck">
-                                    <label class="form-check-label" for="sbirriCheck">
-                                        Police Department
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="postOfficeCheck">
-                                    <label class="form-check-label" for="postOfficeCheck">
-                                        Post Office
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="railwayCheck">
-                                    <label class="form-check-label" for="railwayCheck">
-                                        Railway Service
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Religious Organization -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#religiousServices">
-                                Religious Organization
-                            </button>
-                        </div>
-                        <div id="religiousServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="religiousCheck">
-                                    <label class="form-check-label" for="religiousCheck">
-                                        Religious Organization
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="buddhistCheck">
-                                    <label class="form-check-label" for="buddhistCheck">
-                                        Buddhist Temple
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="churchCheck">
-                                    <label class="form-check-label" for="churchCheck">
-                                        Church Cathedral
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="hinduCheck">
-                                    <label class="form-check-label" for="hinduCheck">
-                                        Hindu Temple
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="mosqueCheck">
-                                    <label class="form-check-label" for="mosqueCheck">
-                                        Mosque
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="shintoShrinesCheck">
-                                    <label class="form-check-label" for="shintoShrinesCheck">
-                                        Shinto Shrines
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="sikhCheck">
-                                    <label class="form-check-label" for="sikhCheck">
-                                        Sikh Temple
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="synagogueCheck">
-                                    <label class="form-check-label" for="synagogueCheck">
-                                        Synagogue
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="templeCheck">
-                                    <label class="form-check-label" for="templeCheck">
-                                        Temple
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Travel -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#travelServices">
-                                Travel
-                            </button>
-                        </div>
-                        <div id="travelServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="transportationCheck">
-                                    <label class="form-check-label" for="transportationCheck">
-                                        Transportation
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Professional Services -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#professionalServices">
-                                Professional Services
-                            </button>
-                        </div>
-                        <div id="professionalServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value=""
-                                           id="professionalServicesCheck">
-                                    <label class="form-check-label" for="professionalServicesCheck">
-                                        Professional Services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="bikeRepairCheck">
-                                    <label class="form-check-label" for="bikeRepairCheck">
-                                        Bike Repair Maintenance
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="childAndDayCareCheck">
-                                    <label class="form-check-label" for="childAndDayCareCheck">
-                                        Child Care and Day Care
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="communityGardenCheck">
-                                    <label class="form-check-label" for="communityGardenCheck">
-                                        Community Gardens
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="emergencyServiceCheck">
-                                    <label class="form-check-label" for="emergencyServiceCheck">
-                                        Emergency Service
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="laundryCheck">
-                                    <label class="form-check-label" for="laundryCheck">
-                                        Laundry Services
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="mailboxCenterCheck">
-                                    <label class="form-check-label" for="mailboxCenterCheck">
-                                        Mailbox Center
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="packageLockerCheck">
-                                    <label class="form-check-label" for="packageLockerCheck">
-                                        Package Locker
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Structure and Geography -->
-                        <div class="pointOfInterest-toggle">
-                            <button class="pointOfInterest-button-custom" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#structureGeographyServices">
-                                Structure and Geography
-                            </button>
-                        </div>
-                        <div id="structureGeographyServices" class="pointOfInterest-collapse collapse">
-                            <div class="pointOfInterest-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" id="publicPlazaCheck">
-                                    <label class="form-check-label" for="publicPlazaCheck">
-                                        Public Plaza
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="pointOfInterest-container" id="services-container"></div>
                 </div>
             </div>
+
+            <!-- Selected services -->
             <div class="mb-4">
                 <label class="form-label">Selected services:</label>
                 <div class="selected-services"></div>
             </div>
 
+            <!-- Action buttons -->
             <div class="d-flex gap-2">
                 <button class="btn custom-primary small-btn" type="button">Search</button>
                 <button class="btn btn-outline-secondary small-btn" type="button">Reset</button>
@@ -745,19 +91,75 @@
         </div>
     </div>
 
-
     <div id="map"></div>
 </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <script src="/public/js/map.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            window.map = window.mapUtils.initializeMap('map');
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+<!-- Custom Components -->
+<script type="module" src="../public/js/components/ServiceCategory.js"></script>
+
+<!-- App Scripts -->
+<script type="module">
+    import { servicesConfig } from '../public/js/config/services-config.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('services-container');
+        const selectedServicesDiv = document.querySelector('.selected-services');
+
+        // Initialize service categories
+        Object.values(servicesConfig).forEach(category => {
+            const element = document.createElement('service-category');
+            element.setAttribute('title', category.title);
+            element.setAttribute('services', JSON.stringify(category.services));
+            container.appendChild(element);
         });
-    </script>
-    <script src="../public/js/search.js"></script>
+
+        // Handle service selection
+        document.addEventListener('service-changed', (e) => {
+            const { id, label, checked } = e.detail;
+            if (checked) {
+                addServiceBadge(label);
+            } else {
+                removeServiceBadge(label);
+            }
+        });
+
+        function addServiceBadge(label) {
+            const badge = document.createElement('span');
+            badge.classList.add('badge', 'bg-primary', 'me-1', 'mb-1');
+            badge.innerHTML = `${label} <i class="bi bi-x"></i>`;
+            badge.querySelector('i').addEventListener('click', () => {
+                removeServiceBadge(label);
+                // Trova e deseleziona il checkbox corrispondente
+                const checkbox = document.querySelector(`service-category input#${id}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
+            selectedServicesDiv.appendChild(badge);
+        }
+
+        function removeServiceBadge(label) {
+            const badges = selectedServicesDiv.querySelectorAll('.badge');
+            badges.forEach(badge => {
+                if (badge.textContent.includes(label)) {
+                    badge.remove();
+                }
+            });
+        }
+    });
+</script>
+
+<script src="../public/js/map.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        window.map = window.mapUtils.initializeMap('map');
+    });
+</script>
+<script type="module" src="../public/js/search.js"></script>
 </body>
 </html>

@@ -1,3 +1,6 @@
+import { MapManager } from './managers/map-manager.js';
+import { ApiService } from './services/api-service.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         searchInput: document.getElementById('city-search'),
@@ -8,9 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
         transportButtons: document.querySelectorAll('.btn-group .btn')
     };
 
-    let isochroneLayer = null;
     let selectedCoordinates = null;
-    let poiMarkers = [];
+    const mapManager = new MapManager(window.map);
 
     const transportSpeeds = {
         'bi-person-walking': 5,
@@ -26,11 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.searchInput.addEventListener('input', handleSearchInput);
         elements.searchButton.addEventListener('click', drawIsochrone);
-
-        document.querySelectorAll('.form-check-input').forEach(checkbox => {
-            checkbox.addEventListener('change', handleServiceChange);
-        });
-
         document.addEventListener('click', handleOutsideClick);
     }
 
@@ -38,20 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.transportButtons.forEach(btn => btn.classList.remove('active'));
         this.classList.add('active');
 
-        if (selectedCoordinates && isochroneLayer) {
+        if (selectedCoordinates && mapManager.isochroneLayer) {
             drawIsochrone();
-        }
-    }
-
-    function handleServiceChange() {
-        const serviceName = this.nextElementSibling.textContent.trim();
-        this.checked ? addServiceBadge(serviceName) : removeServiceBadge(serviceName);
-        updateSelectedServices();
-    }
-
-    function handleOutsideClick(event) {
-        if (!elements.searchInput.contains(event.target) && !elements.suggestionsList.contains(event.target)) {
-            elements.suggestionsList.innerHTML = '';
         }
     }
 
@@ -63,26 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const places = await fetchPlaces(query);
+            const places = await ApiService.fetchPlaces(query);
             updateSuggestionsList(places);
         } catch (error) {
             console.error('Error during search:', error);
             elements.suggestionsList.innerHTML = '<li class="list-group-item">Errore durante la ricerca</li>';
         }
-    }
-
-    async function fetchPlaces(query) {
-        const response = await fetch('/api/reverse_geocoding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: query })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return response.json();
     }
 
     function updateSuggestionsList(places) {
@@ -136,162 +107,52 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseInt(elements.timeSelect.value.split(' ')[0]);
     }
 
-    async function getPoisForNode(nodeId) {
-        const response = await fetch('/api/test_get_data_pois_near_node', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ node_id: nodeId })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-
-    function clearPoiMarkers() {
-        poiMarkers.forEach(marker => window.map.removeLayer(marker));
-        poiMarkers = [];
-    }
-
-    //per i punti di interesse
-    function addPoiMarkers(pois) {
-        clearPoiMarkers();
-
-        pois.forEach(poi => {
-            const circle = L.circleMarker([
-                poi.location.coordinates[0],
-                poi.location.coordinates[1]
-            ], {
-                radius: 6,
-                fillColor: '#483d8b',
-                color: '#483d8b',
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).bindPopup(`
-                <strong>${poi.names.primary || 'Unknown'}</strong><br>
-                Category: ${poi.categories.primary || 'Not specified'}<br>
-                Distance: ${poi.distance.toFixed(0)}m
-            `);
-
-            circle.addTo(window.map);
-            poiMarkers.push(circle);
-        });
-    }
-
     async function drawIsochrone() {
         if (!selectedCoordinates) {
             alert('Per favore, seleziona prima una località dalla barra di ricerca');
             return;
         }
 
+        const time = getSelectedTime();
+        const speed = getSelectedSpeed();
+
+        console.log('Drawing isochrone with params:', {
+            coordinates: selectedCoordinates,
+            time,
+            speed
+        });
+
         try {
-            const nodeResponse = await fetch('/api/get_node_id', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    lat: selectedCoordinates[0],
-                    lon: selectedCoordinates[1]
-                })
-            });
+            const isochroneData = await ApiService.fetchIsochroneData(
+                selectedCoordinates,
+                time,
+                speed
+            );
+            mapManager.updateIsochroneLayer(isochroneData);
 
-            if (!nodeResponse.ok) {
-                throw new Error('Failed to get node ID');
-            }
-
-            const nodeData = await nodeResponse.json();
-            const nodeId = nodeData.node_id;
-
-            const isochroneData = await fetchIsochroneData(nodeId);
-            updateIsochroneLayer(isochroneData);
-
-            const pois = await getPoisForNode(nodeId);
-            addPoiMarkers(pois);
+            // Fetch and draw POIs
+            const poisData = await ApiService.getPoisInIsochrone(
+                selectedCoordinates,
+                time,
+                speed
+            );
+            mapManager.addPoiMarkers(poisData);
 
         } catch (error) {
-            console.error('Error:', error);
-            alert('Errore nel calcolo. Per favore riprova.');
+            console.error('Error in drawIsochrone:', error);
+            alert('Errore nel calcolo dell\'isocrona. Per favore riprova.');
         }
     }
 
     async function fetchIsochroneData(nodeId) {
-        const response = await fetch('/api/get_isochrone_walk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                node_id: nodeId,
-                minute: getSelectedTime(),
-                velocity: getSelectedSpeed()
-            })
-        });
+        return ApiService.fetchIsochroneData(nodeId, getSelectedTime(), getSelectedSpeed());
+    }
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    function handleOutsideClick(event) {
+        if (!elements.searchInput.contains(event.target) && !elements.suggestionsList.contains(event.target)) {
+            elements.suggestionsList.innerHTML = '';
         }
-
-        return response.json();
     }
-
-    function updateIsochroneLayer(data) {
-        if (isochroneLayer && window.map) {
-            window.map.removeLayer(isochroneLayer);
-        }
-
-        const coordinates = data.convex_hull.coordinates[0].map(coord => [coord[1], coord[0]]);
-
-        isochroneLayer = L.polygon(coordinates, {
-            color: '#483d8b',
-            fillColor: '#483d8b',
-            fillOpacity: 0.3,
-            weight: 2
-        }).addTo(window.map);
-
-        window.map.fitBounds(isochroneLayer.getBounds());
-    }
-
-    function addServiceBadge(serviceName) {
-        const badge = document.createElement('span');
-        badge.classList.add('badge', 'bg-primary', 'me-1', 'mb-1');
-        badge.innerHTML = `${serviceName} <i class="bi bi-x"></i>`;
-        badge.querySelector('i').addEventListener('click', () => {
-            removeService(serviceName);
-        });
-        elements.selectedServicesDiv.appendChild(badge);
-    }
-
-    function removeServiceBadge(serviceName) {
-        const badges = elements.selectedServicesDiv.querySelectorAll('.badge');
-        badges.forEach(badge => {
-            if (badge.textContent.includes(serviceName)) {
-                badge.remove();
-            }
-        });
-    }
-
-    function updateSelectedServices() {
-        const selectedServices = Array.from(document.querySelectorAll('.form-check-input:checked'))
-            .map(checkbox => checkbox.nextElementSibling.textContent.trim());
-
-        elements.selectedServicesDiv.innerHTML = selectedServices
-            .map(service => `
-                <span class="badge bg-primary me-1 mb-1">
-                    ${service} 
-                    <i class="bi bi-x" onclick="removeService('${service}')"></i>
-                </span>
-            `)
-            .join('');
-    }
-
-    window.removeService = function(serviceName) {
-        const checkbox = Array.from(document.querySelectorAll('.form-check-input'))
-            .find(cb => cb.nextElementSibling.textContent.trim() === serviceName);
-
-        if (checkbox) {
-            checkbox.checked = false;
-            updateSelectedServices();
-        }
-    };
 
     setupEventListeners();
 });
