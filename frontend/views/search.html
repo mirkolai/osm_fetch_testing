@@ -117,40 +117,6 @@
             element.setAttribute('services', JSON.stringify(category.services));
             container.appendChild(element);
         });
-
-        // Handle service selection
-        document.addEventListener('service-changed', (e) => {
-            const { id, label, checked } = e.detail;
-            if (checked) {
-                addServiceBadge(label);
-            } else {
-                removeServiceBadge(label);
-            }
-        });
-
-        function addServiceBadge(label) {
-            const badge = document.createElement('span');
-            badge.classList.add('badge', 'bg-primary', 'me-1', 'mb-1');
-            badge.innerHTML = `${label} <i class="bi bi-x"></i>`;
-            badge.querySelector('i').addEventListener('click', () => {
-                removeServiceBadge(label);
-                // Trova e deseleziona il checkbox corrispondente
-                const checkbox = document.querySelector(`service-category input#${id}`);
-                if (checkbox) {
-                    checkbox.checked = false;
-                }
-            });
-            selectedServicesDiv.appendChild(badge);
-        }
-
-        function removeServiceBadge(label) {
-            const badges = selectedServicesDiv.querySelectorAll('.badge');
-            badges.forEach(badge => {
-                if (badge.textContent.includes(label)) {
-                    badge.remove();
-                }
-            });
-        }
     });
 </script>
 

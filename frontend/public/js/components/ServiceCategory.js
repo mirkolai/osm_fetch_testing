@@ -24,6 +24,7 @@ class ServiceCategory extends HTMLElement {
 
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
+                // Emette solo l'evento, la gestione dei badge è spostata in search.js
                 const event = new CustomEvent('service-changed', {
                     bubbles: true,
                     composed: true,

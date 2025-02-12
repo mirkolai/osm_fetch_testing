@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let selectedCoordinates = null;
+    let selectedCategories = new Set();
     const mapManager = new MapManager(window.map);
 
     const transportSpeeds = {
@@ -29,6 +30,44 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.searchInput.addEventListener('input', handleSearchInput);
         elements.searchButton.addEventListener('click', drawIsochrone);
         document.addEventListener('click', handleOutsideClick);
+    }
+
+    document.addEventListener('service-changed', (e) => {
+        const { id, label, checked } = e.detail;
+        if (checked) {
+            selectedCategories.add(id);
+            addServiceBadge(id, label);
+        } else {
+            selectedCategories.delete(id);
+            removeServiceBadge(label);
+        }
+        console.log('Selected categories:', Array.from(selectedCategories));
+    });
+
+    function addServiceBadge(id, label) {
+        const badge = document.createElement('span');
+        badge.classList.add('badge', 'bg-primary', 'me-1', 'mb-1');
+        badge.innerHTML = `${label} <i class="bi bi-x"></i>`;
+        badge.querySelector('i').addEventListener('click', () => {
+            selectedCategories.delete(id);
+            removeServiceBadge(label);
+            // Deseleziona il checkbox
+            const checkbox = document.querySelector(`service-category`)
+                .shadowRoot.querySelector(`input#${id}`);
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+        elements.selectedServicesDiv.appendChild(badge);
+    }
+
+    function removeServiceBadge(label) {
+        const badges = elements.selectedServicesDiv.querySelectorAll('.badge');
+        badges.forEach(badge => {
+            if (badge.textContent.includes(label)) {
+                badge.remove();
+            }
+        });
     }
 
     function handleTransportClick() {
@@ -113,28 +152,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const time = getSelectedTime();
-        const speed = getSelectedSpeed();
-
-        console.log('Drawing isochrone with params:', {
+        const requestData = {
             coordinates: selectedCoordinates,
-            time,
-            speed
-        });
+            minutes: getSelectedTime(),
+            velocity: getSelectedSpeed(),
+            categories: Array.from(selectedCategories)
+        };
+
+        console.log('%c Categorie inviate dopo aver premuto cerca:', 'background: #222; color: #bada55');
+        console.table(requestData.categories);
 
         try {
             const isochroneData = await ApiService.fetchIsochroneData(
-                selectedCoordinates,
-                time,
-                speed
+                requestData.coordinates,
+                requestData.minutes,
+                requestData.velocity,
+                requestData.categories
             );
             mapManager.updateIsochroneLayer(isochroneData);
 
-            // Fetch and draw POIs
             const poisData = await ApiService.getPoisInIsochrone(
-                selectedCoordinates,
-                time,
-                speed
+                requestData.coordinates,
+                requestData.minutes,
+                requestData.velocity,
+                requestData.categories
             );
             mapManager.addPoiMarkers(poisData);
 

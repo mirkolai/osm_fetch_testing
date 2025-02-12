@@ -25,11 +25,12 @@ export class ApiService {
         return response.json();
     }
 
-    static async fetchIsochroneData(coordinates, minutes, velocity) {
+    static async fetchIsochroneData(coordinates, minutes, velocity, categories = []) {
         console.log('Fetching isochrone with params:', {
             coordinates,
             minutes,
-            velocity
+            velocity,
+            categories
         });
 
         try {
@@ -44,7 +45,8 @@ export class ApiService {
                         lon: coordinates[1]
                     },
                     min: minutes,
-                    vel: velocity
+                    vel: velocity,
+                    categories: categories
                 })
             });
 
