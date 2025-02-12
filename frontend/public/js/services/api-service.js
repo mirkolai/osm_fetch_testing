@@ -1,30 +1,5 @@
+// api-service.js
 export class ApiService {
-    static async fetchPlaces(query) {
-        const response = await fetch('/api/reverse_geocoding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: query })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-
-    static async getPoisForNode(nodeId) {
-        const response = await fetch('/api/test_get_data_pois_near_node', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ node_id: nodeId })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-
     static async fetchIsochroneData(coordinates, minutes, velocity, categories = []) {
         console.log('Fetching isochrone with params:', {
             coordinates,
@@ -46,7 +21,7 @@ export class ApiService {
                     },
                     min: minutes,
                     vel: velocity,
-                    categories: categories
+                    categories: categories  // Ora categories è già un array di stringhe
                 })
             });
 
@@ -56,16 +31,14 @@ export class ApiService {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            console.log('Isochrone data received:', data);
-            return data;
+            return await response.json();
         } catch (error) {
             console.error('Error in fetchIsochroneData:', error);
             throw error;
         }
     }
 
-    static async getPoisInIsochrone(coordinates, minutes, velocity) {
+    static async getPoisInIsochrone(coordinates, minutes, velocity, categories = []) {
         try {
             const response = await fetch('/api/get_pois_isochrone', {
                 method: 'POST',
@@ -78,7 +51,8 @@ export class ApiService {
                         lon: coordinates[1]
                     },
                     min: minutes,
-                    vel: velocity
+                    vel: velocity,
+                    categories: categories
                 })
             });
 

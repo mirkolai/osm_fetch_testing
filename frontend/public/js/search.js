@@ -47,13 +47,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function addServiceBadge(id, label) {
         const badge = document.createElement('span');
         badge.classList.add('badge', 'bg-primary', 'me-1', 'mb-1');
+        badge.dataset.categoryId = id;
         badge.innerHTML = `${label} <i class="bi bi-x"></i>`;
         badge.querySelector('i').addEventListener('click', () => {
             selectedCategories.delete(id);
-            removeServiceBadge(label);
-            // Deseleziona il checkbox
-            const checkbox = document.querySelector(`service-category`)
-                .shadowRoot.querySelector(`input#${id}`);
+            badge.remove();
+            const checkbox = document.querySelector('service-category')
+                ?.shadowRoot?.querySelector(`input#${id}`);
             if (checkbox) {
                 checkbox.checked = false;
             }
@@ -158,9 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
             velocity: getSelectedSpeed(),
             categories: Array.from(selectedCategories)
         };
-
-        console.log('%c Categorie inviate dopo aver premuto cerca:', 'background: #222; color: #bada55');
-        console.table(requestData.categories);
 
         try {
             const isochroneData = await ApiService.fetchIsochroneData(
