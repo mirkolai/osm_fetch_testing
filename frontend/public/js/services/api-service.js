@@ -1,5 +1,34 @@
 // api-service.js
 export class ApiService {
+
+    static async fetchPlaces(query) {
+        const response = await fetch('/api/reverse_geocoding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: query })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    /*
+    static async getPoisForNode(nodeId) {
+        const response = await fetch('/api/test_get_data_pois_near_node', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node_id: nodeId })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    }
+    */
+
     static async fetchIsochroneData(coordinates, minutes, velocity, categories = []) {
         console.log('Fetching isochrone with params:', {
             coordinates,
