@@ -61,8 +61,7 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int) -> Tuple[int,
 """
 
 
-def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: List[str]) -> Tuple[
-    int, str, Union[List[Dict], None]]:
+def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: List[str]) -> Tuple[int, str, Union[List[Dict], None]]:
     """
     Recupera i POI associati a un dato node_id dalla collezione distance_to_pois_walk,
     arricchisce i dati con le informazioni dettagliate dalla collezione pois,
@@ -74,7 +73,7 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
     :param min: Tempo in minuti
     :param vel: Velocità in km/h
     :param categories: Lista di categorie da filtrare
-    :return: Tuple contenente il codice di stato, il messaggio e la lista dei POI filtrati
+    :return: Lista dei POI filtrati
     """
     try:
         distance_collection = db["distances_to_pois_walk"]
@@ -88,13 +87,13 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
         document = distance_collection.find_one(query)
 
         if not document:
-            return 404, "Nessun dato trovato per il node_id fornito", None
+            return []
 
         pois_data = document.get("PoIs", {})
 
         # Se non ci sono POI per questo nodo, ritorna una lista vuota
         if not pois_data:
-            return 200, "Nessun POI disponibile per questo nodo", []
+            return []
 
         # Recupera i dettagli dei POI dalla collezione 'pois'
         poi_ids = [poi_id for poi_id, poi_info in pois_data.items() if
@@ -123,9 +122,10 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
         # Ordina la lista per distanza in ordine crescente
         detailed_pois_list.sort(key=lambda x: x["distance"])
 
-        return 200, "OK", detailed_pois_list
+        return detailed_pois_list
 
     except Exception as e:
-        return 500, f"Errore del server: {str(e)}", None
+        return []
+
 
 

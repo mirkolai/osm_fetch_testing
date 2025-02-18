@@ -184,13 +184,10 @@ def get_pois_data_in_isochrone(request: PoisRequest):
 
         if status_code1 == 200:
             logging.info("Nodo trovato, ottenimento POI...")
-            status_code, message, result = get_detailed_pois_by_node_id(
+            result = get_detailed_pois_by_node_id(
                 node_id, request.min, request.vel, request.categories
             )
-            if status_code == 200:
-                return {"status": "success", "pois": result}
-            else:
-                raise HTTPException(status_code=status_code, detail=message)
+            return result
         else:
             raise HTTPException(status_code=status_code1, detail=message)
 
