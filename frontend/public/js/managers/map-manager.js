@@ -11,27 +11,41 @@ export class MapManager {
     }
 
     addPoiMarkers(pois) {
+        console.log('Received POIs in MapManager:', pois);
+
         this.clearPoiMarkers();
 
+        if (!Array.isArray(pois)) {
+            console.error('Expected an array of POIs, received:', typeof pois);
+            return;
+        }
+
         pois.forEach(poi => {
-            const circle = L.circleMarker([
-                poi.location.coordinates[0],
-                poi.location.coordinates[1]
-            ], {
+            if (!poi.location || !poi.location.coordinates) {
+                console.warn('Invalid POI data:', poi);
+                return;
+            }
+
+            const [lat, lon] = poi.location.coordinates;
+
+            const marker = L.circleMarker([lat, lon], {
                 radius: 6,
                 fillColor: '#483d8b',
                 color: '#483d8b',
                 weight: 1,
                 opacity: 1,
                 fillOpacity: 0.8
-            }).bindPopup(`
-                <strong>${poi.names.primary || 'Unknown'}</strong><br>
-                Category: ${poi.categories.primary || 'Not specified'}<br>
-                Distance: ${poi.distance.toFixed(0)}m
-            `);
+            });
 
-            circle.addTo(this.map);
-            this.poiMarkers.push(circle);
+            const popupContent = `
+                <strong>${poi.names?.primary || 'Unknown'}</strong><br>
+                Category: ${poi.categories?.primary || 'Not specified'}<br>
+                Distance: ${poi.distance ? `${Math.round(poi.distance)}m` : 'N/A'}
+            `;
+
+            marker.bindPopup(popupContent);
+            marker.addTo(this.map);
+            this.poiMarkers.push(marker);
         });
     }
 
