@@ -50,13 +50,16 @@ document.addEventListener('DOMContentLoaded', () => {
         badge.dataset.categoryId = id;
         badge.innerHTML = `${label} <i class="bi bi-x"></i>`;
         badge.querySelector('i').addEventListener('click', () => {
-            selectedCategories.delete(id);
+            const categoryId = badge.dataset.categoryId;
+            selectedCategories.delete(categoryId);
             badge.remove();
-            const checkbox = document.querySelector('service-category')
-                ?.shadowRoot?.querySelector(`input#${id}`);
-            if (checkbox) {
-                checkbox.checked = false;
-            }
+
+            document.querySelectorAll('service-category').forEach(component => {
+                const checkbox = component.shadowRoot?.querySelector(`input#${categoryId}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
         });
         elements.selectedServicesDiv.appendChild(badge);
     }
@@ -65,7 +68,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const badges = elements.selectedServicesDiv.querySelectorAll('.badge');
         badges.forEach(badge => {
             if (badge.textContent.includes(label)) {
+                const categoryId = badge.dataset.categoryId;
                 badge.remove();
+
+                document.querySelectorAll('service-category').forEach(component => {
+                    const checkbox = component.shadowRoot?.querySelector(`input#${categoryId}`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                });
             }
         });
     }

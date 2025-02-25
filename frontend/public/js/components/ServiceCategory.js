@@ -22,9 +22,10 @@ class ServiceCategory extends HTMLElement {
             collapse.classList.toggle('show');
         });
 
+        const mainCategoryName = this.getAttribute('title').toLowerCase().replace(/\s+/g, '_');
+
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
-                // Emette solo l'evento, la gestione dei badge è spostata in search.js
                 const event = new CustomEvent('service-changed', {
                     bubbles: true,
                     composed: true,
