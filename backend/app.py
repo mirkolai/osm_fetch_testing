@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from backend.Parameters import *
 from backend.Poi import *
 from backend.ReverseGeocoding import *
 from backend.Isochrones import *
@@ -39,10 +40,6 @@ class Coordinates(BaseModel):
 class ReverseGeocodingRequest(BaseModel):
     text: str
 
-class IsochroneRequest(BaseModel):
-    node_id: int
-    minute: int
-    velocity: int
 
 class IsochroneRequest(BaseModel):
     coords: Coordinates
@@ -51,6 +48,12 @@ class IsochroneRequest(BaseModel):
 
 class PoisRequest(BaseModel):
     coords: Coordinates  # lat, lon
+    min: int
+    vel: int
+    categories: List[str]
+
+class IsochroneParametersRequest(BaseModel):
+    coords: Coordinates
     min: int
     vel: int
     categories: List[str]
@@ -138,6 +141,7 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "msg": message,
                                 "type": status_code}])
 
+
 @app.post("/api/get_isochrone")
 def search_proximity(request: IsochroneRequest):
     logging.info(f"Valori coordinate per isocrona walk: lat={request.coords.lat}, lon={request.coords.lon}")
@@ -198,6 +202,44 @@ def get_pois_data_in_isochrone(request: PoisRequest):
         raise HTTPException(status_code=500, detail="Errore interno del server")
 
 
+@app.post("/api/get_isochrone_parameters")
+def get_isochrone_parameters(req: IsochroneParametersRequest):
+    """
+    Esempio di rotta che calcola i parametri di isocrona
+    """
+    # 1) /api/get_isochrone
+    # simula la chiamata a get_isochrone => ottieni isochrone_data
+    try:
+        status_code1, message, node_id = get_id_node_by_coordinates(req.coords)
+        status_code, message, iso_resp = get_isocronewalk_by_node_id(
+                node_id=node_id,
+                minute=req.min,
+                velocity=req.vel
+            )
+        # iso_resp ha la shape: { "node_id":..., "convex_hull": { "coordinates": [...], ... } }
+        if not iso_resp or "convex_hull" not in iso_resp:
+            raise HTTPException(status_code=404, detail="Isochrone not found")
+
+        # 2) /api/get_pois_isochrone
+        pois_resp = get_pois_data_in_isochrone(req)  # <--- tu hai già /api/get_pois_isochrone
+        if not isinstance(pois_resp, list):
+            raise HTTPException(status_code=404, detail="PoIs not found")
+
+        # 3) Calcolo parametri
+        result = compute_isochrone_parameters(
+            pois_data=pois_resp,
+            isochrone_data=iso_resp,
+            vel=req.vel,
+            max_minutes=60,
+            categories=req.categories
+        )
+        return result
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/get_node_id")
 async def get_node_id(coords: Coordinates):
     """
@@ -211,6 +253,7 @@ async def get_node_id(coords: Coordinates):
             raise HTTPException(status_code=status_code, detail=message)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 ######## API DI TESTING
 
