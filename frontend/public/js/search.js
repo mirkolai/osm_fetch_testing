@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (typeof d3 === 'undefined') {
                 console.error('D3.js is not available! Spider chart cannot be initialized.');
-                elements.spiderChartContainer.innerHTML = '<div style="text-align: center; color: red; padding: 20px;">Visualization library not loaded</div>';
                 return;
             }
 
@@ -69,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error initializing spider chart:', error);
             if (elements.spiderChartContainer) {
-                elements.spiderChartContainer.innerHTML = '<div style="text-align: center; color: red; padding: 20px;">Error initializing chart</div>';
             }
         }
     }
@@ -294,11 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleSearch() {
         if (!selectedCoordinates) {
             alert('Per favore, seleziona prima una località dalla barra di ricerca');
-            return;
-        }
-
-        if (selectedCategories.size === 0) {
-            alert('Per favore, seleziona almeno una categoria di servizi');
             return;
         }
 
