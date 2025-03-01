@@ -3,7 +3,6 @@ import { MapManager } from './managers/map-manager.js';
 import { ApiService } from './services/api-service.js';
 import { SpiderChart } from './components/SpiderChart.js';
 
-// Dichiara spiderChart nel contesto globale
 let spiderChart;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,27 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
         'bi-train-front': 20
     };
 
-    // Inizializziamo lo spider chart subito
     initializeSpiderChart();
 
     function initializeSpiderChart() {
         console.log('Initializing spider chart component...');
 
         try {
-            // Verifica se D3 è disponibile
             if (typeof d3 === 'undefined') {
                 console.error('D3.js is not available! Spider chart cannot be initialized.');
                 elements.spiderChartContainer.innerHTML = '<div style="text-align: center; color: red; padding: 20px;">Visualization library not loaded</div>';
                 return;
             }
 
-            // Verifica che il container esista
             if (!elements.spiderChartContainer) {
                 console.error('Spider chart container not found!');
                 return;
             }
 
-            // Inizializziamo lo spider chart con valori predefiniti
             spiderChart = new SpiderChart('spider-chart', {
                 width: 200,
                 height: 200,
@@ -84,10 +79,25 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', handleTransportClick);
         });
 
+        const selectedServicesDiv = document.querySelector('.selected-services');
+        if (selectedServicesDiv) {
+            const observer = new MutationObserver(function(mutations) {
+                updateSidebarHeight();
+            });
+
+            observer.observe(selectedServicesDiv, {
+                childList: true,
+                subtree: true,
+                attributes: true
+            });
+        }
+
         elements.searchInput.addEventListener('input', handleSearchInput);
         elements.searchButton.addEventListener('click', handleSearch);
         elements.resetButton.addEventListener('click', handleReset);
         document.addEventListener('click', handleOutsideClick);
+        window.addEventListener('resize', updateSidebarHeight);
+        updateSidebarHeight();
     }
 
     function handleReset() {
@@ -135,15 +145,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('service-changed', (e) => {
-        const { id, label, checked } = e.detail;
-        if (checked) {
-            selectedCategories.add(id);
-            addServiceBadge(id, label);
-        } else {
-            selectedCategories.delete(id);
-            removeServiceBadge(label);
+        const { id, label, checked, isMainCategory, isFromSelectAll } = e.detail;
+        if (isFromSelectAll) {
+            if (checked) {
+                if (!selectedCategories.has(id)) {
+                    selectedCategories.add(id);
+                    addServiceBadge(id, label);
+                }
+            } else {
+                if (selectedCategories.has(id)) {
+                    selectedCategories.delete(id);
+                    removeServiceBadge(label);
+                }
+            }
         }
+        else{
+            if (checked) {
+                selectedCategories.add(id);
+                addServiceBadge(id, label);
+            } else {
+                selectedCategories.delete(id);
+                removeServiceBadge(label);
+            }
+        }
+
+
         console.log('Selected categories:', Array.from(selectedCategories));
+        updateSidebarHeight();
     });
 
     function addServiceBadge(id, label) {
@@ -164,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         elements.selectedServicesDiv.appendChild(badge);
+        updateSidebarHeight();
     }
 
     function removeServiceBadge(label) {
@@ -181,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+        updateSidebarHeight();
     }
 
     function handleTransportClick() {
@@ -298,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Errore durante la ricerca. Per favore riprova.');
         } finally {
             document.body.style.cursor = 'default';
+            updateSidebarHeight();
         }
     }
 
@@ -333,6 +364,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleOutsideClick(event) {
         if (!elements.searchInput.contains(event.target) && !elements.suggestionsList.contains(event.target)) {
             elements.suggestionsList.innerHTML = '';
+        }
+    }
+
+    function updateSidebarHeight() {
+        const sidebar = document.querySelector('.overlay-sidebar');
+        const content = sidebar.querySelector('.sidebar-content');
+
+        // Resetta prima l'altezza per calcolare quella naturale
+        sidebar.style.height = 'auto';
+
+        // Calcola l'altezza del contenuto
+        const contentHeight = content.scrollHeight;
+
+        // Applica l'altezza con un po' di padding
+        sidebar.style.height = (contentHeight + 20) + 'px';
+
+        // Assicurati che non superi l'altezza della viewport
+        const maxHeight = window.innerHeight - 100; // 100px di margine
+        if (contentHeight > maxHeight) {
+            sidebar.style.height = maxHeight + 'px';
+            sidebar.style.overflowY = 'auto';
+        } else {
+            sidebar.style.overflowY = 'visible';
         }
     }
 

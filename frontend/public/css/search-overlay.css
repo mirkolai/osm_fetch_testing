@@ -1,0 +1,59 @@
+body {
+    overflow: hidden;
+}
+
+.overlay-sidebar {
+    position: absolute;
+    top: 70px;
+    left: 45px;
+    width: 400px;
+    height: auto;
+    max-height: calc(100vh - 100px);
+    background-color: #F8F7FA;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    transition: transform 0.3s ease-in-out, height 0.3s ease;
+    overflow: visible;
+}
+
+.sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    right: -16px;
+    z-index: 1001;
+}
+
+.sidebar-toggle .btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 0 4px 4px 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #483d8b;
+    color: white;
+    border: none;
+}
+
+.sidebar-toggle .btn:hover {
+    background-color: #372e6b;
+}
+
+.sidebar-content {
+    height: auto;
+    overflow: visible;
+}
+
+#suggestions {
+    position: absolute;
+    width: 90%;
+    z-index: 1002;
+    max-height: 400px;
+}
+
+.form-control:focus {
+    box-shadow: none;
+    border-color: #483d8b;
+}
