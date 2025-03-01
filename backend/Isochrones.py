@@ -53,8 +53,8 @@ Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
     isochrone_data = document.get("isochrone", {}).get(str(minute), {}).get(str(velocity), {})
 
     # Log di debug per vedere cosa viene trovato
-    print(f"Document trovato: {document}")
-    print(f"isochrone_data per {minute} minuti e velocità {velocity}: {isochrone_data}")
+    # print(f"Document trovato: {document}")
+    # print(f"isochrone_data per {minute} minuti e velocità {velocity}: {isochrone_data}")
 
     if isochrone_data:
         # Estrazione dei dati concave_hull
