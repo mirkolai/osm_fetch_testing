@@ -1,5 +1,10 @@
+// frontend/public/js/search.js
 import { MapManager } from './managers/map-manager.js';
 import { ApiService } from './services/api-service.js';
+import { SpiderChart } from './components/SpiderChart.js';
+
+// Dichiara spiderChart nel contesto globale
+let spiderChart;
 
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
@@ -7,8 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
         suggestionsList: document.getElementById('suggestions'),
         selectedServicesDiv: document.querySelector('.selected-services'),
         searchButton: document.querySelector('.btn.custom-primary'),
+        resetButton: document.querySelector('.btn.btn-outline-secondary'),
         timeSelect: document.querySelector('.time-select'),
-        transportButtons: document.querySelectorAll('.btn-group .btn')
+        transportButtons: document.querySelectorAll('.btn-group .btn'),
+        spiderChartContainer: document.getElementById('spider-chart')
     };
 
     let selectedCoordinates = null;
@@ -22,14 +29,109 @@ document.addEventListener('DOMContentLoaded', () => {
         'bi-train-front': 20
     };
 
+    // Inizializziamo lo spider chart subito
+    initializeSpiderChart();
+
+    function initializeSpiderChart() {
+        console.log('Initializing spider chart component...');
+
+        try {
+            // Verifica se D3 è disponibile
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js is not available! Spider chart cannot be initialized.');
+                elements.spiderChartContainer.innerHTML = '<div style="text-align: center; color: red; padding: 20px;">Visualization library not loaded</div>';
+                return;
+            }
+
+            // Verifica che il container esista
+            if (!elements.spiderChartContainer) {
+                console.error('Spider chart container not found!');
+                return;
+            }
+
+            // Inizializziamo lo spider chart con valori predefiniti
+            spiderChart = new SpiderChart('spider-chart', {
+                width: 200,
+                height: 200,
+                margin: 100,
+                maxValue: 1,
+                levels: 5,
+                color: '#483d8b',
+                data: [
+                    {
+                        className: "metrics",
+                        axes: [
+                            { axis: "Proximity", value: 0.2 },
+                            { axis: "Density", value: 0.2 },
+                            { axis: "Entropy", value: 0.2 },
+                            { axis: "Accessibility", value: 0.2 }
+                        ]
+                    }
+                ]
+            });
+
+            console.log('Spider chart initialized successfully!');
+        } catch (error) {
+            console.error('Error initializing spider chart:', error);
+            if (elements.spiderChartContainer) {
+                elements.spiderChartContainer.innerHTML = '<div style="text-align: center; color: red; padding: 20px;">Error initializing chart</div>';
+            }
+        }
+    }
+
     function setupEventListeners() {
         elements.transportButtons.forEach(button => {
             button.addEventListener('click', handleTransportClick);
         });
 
         elements.searchInput.addEventListener('input', handleSearchInput);
-        elements.searchButton.addEventListener('click', drawIsochrone);
+        elements.searchButton.addEventListener('click', handleSearch);
+        elements.resetButton.addEventListener('click', handleReset);
         document.addEventListener('click', handleOutsideClick);
+    }
+
+    function handleReset() {
+        selectedCategories.clear();
+        elements.selectedServicesDiv.innerHTML = '';
+
+        document.querySelectorAll('service-category').forEach(component => {
+            const checkboxes = component.shadowRoot?.querySelectorAll('input[type="checkbox"]');
+            if (checkboxes) {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            }
+        });
+
+        elements.searchInput.value = '';
+        selectedCoordinates = null;
+
+        if (mapManager.isochroneLayer) {
+            mapManager.map.removeLayer(mapManager.isochroneLayer);
+            mapManager.isochroneLayer = null;
+        }
+        mapManager.clearPoiMarkers();
+        mapManager.map.setView([45.0703, 7.6869], 13);
+
+        resetSpiderChart();
+    }
+
+    function resetSpiderChart() {
+        if (spiderChart) {
+            spiderChart.updateData([
+                {
+                    className: "metrics",
+                    axes: [
+                        { axis: "Proximity", value: 0.2 },
+                        { axis: "Density", value: 0.2 },
+                        { axis: "Entropy", value: 0.2 },
+                        { axis: "Accessibility", value: 0.2 }
+                    ]
+                }
+            ]);
+        } else {
+            initializeSpiderChart();
+        }
     }
 
     document.addEventListener('service-changed', (e) => {
@@ -86,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         this.classList.add('active');
 
         if (selectedCoordinates && mapManager.isochroneLayer) {
-            drawIsochrone();
+            handleSearch();
         }
     }
 
@@ -98,7 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            console.log('Searching for:', query);
             const places = await ApiService.fetchPlaces(query);
+            console.log('Places found:', places);
             updateSuggestionsList(places);
         } catch (error) {
             console.error('Error during search:', error);
@@ -157,11 +261,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseInt(elements.timeSelect.value.split(' ')[0]);
     }
 
-    async function drawIsochrone() {
+    async function handleSearch() {
         if (!selectedCoordinates) {
             alert('Per favore, seleziona prima una località dalla barra di ricerca');
             return;
         }
+
+        if (selectedCategories.size === 0) {
+            alert('Per favore, seleziona almeno una categoria di servizi');
+            return;
+        }
+
+        document.body.style.cursor = 'wait';
 
         const requestData = {
             coordinates: selectedCoordinates,
@@ -171,30 +282,52 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            const isochroneData = await ApiService.fetchIsochroneData(
+            const results = await ApiService.runSearch(
                 requestData.coordinates,
                 requestData.minutes,
                 requestData.velocity,
                 requestData.categories
             );
-            mapManager.updateIsochroneLayer(isochroneData);
 
-            const poisData = await ApiService.getPoisInIsochrone(
-                requestData.coordinates,
-                requestData.minutes,
-                requestData.velocity,
-                requestData.categories
-            );
-            mapManager.addPoiMarkers(poisData);
+            mapManager.updateIsochroneLayer(results.isochrone);
+            mapManager.addPoiMarkers(results.pois);
+            updateSpiderChartDisplay(results.parameters);
 
         } catch (error) {
-            console.error('Error in drawIsochrone:', error);
-            alert('Errore nel calcolo dell\'isocrona. Per favore riprova.');
+            console.error('Error in handleSearch:', error);
+            alert('Errore durante la ricerca. Per favore riprova.');
+        } finally {
+            document.body.style.cursor = 'default';
         }
     }
 
-    async function fetchIsochroneData(nodeId) {
-        return ApiService.fetchIsochroneData(nodeId, getSelectedTime(), getSelectedSpeed());
+    function updateSpiderChartDisplay(parameters) {
+        try {
+            if (!spiderChart) {
+                console.error('Spider chart not initialized!');
+                initializeSpiderChart();
+                if (!spiderChart) {
+                    throw new Error('Failed to initialize spider chart');
+                }
+            }
+
+            const formattedData = [
+                {
+                    className: "metrics",
+                    axes: [
+                        { axis: "Proximity", value: typeof parameters.proximity_score === 'number' ? parameters.proximity_score : 0.2 },
+                        { axis: "Density", value: typeof parameters.density_score === 'number' ? parameters.density_score : 0.2 },
+                        { axis: "Entropy", value: typeof parameters.entropy_score === 'number' ? parameters.entropy_score : 0.2 },
+                        { axis: "Accessibility", value: typeof parameters.poi_accessibility === 'number' ? parameters.poi_accessibility : 0.2 }
+                    ]
+                }
+            ];
+
+            console.log('Formatted data for spider chart:', formattedData);
+            spiderChart.updateData(formattedData);
+        } catch (error) {
+            console.error('Error updating spider chart display:', error);
+        }
     }
 
     function handleOutsideClick(event) {
