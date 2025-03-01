@@ -102,7 +102,6 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, max_minutes=60,
         "density_score": density_score,
         "entropy_score": entropy_score,
         "poi_accessibility": poi_accessibility,
-        "area_km2": area_km2
     }
 
 def compute_area_km2_from_iso(isochrone_data: dict) -> float:
