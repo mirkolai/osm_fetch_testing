@@ -176,9 +176,6 @@ def search_proximity(request: IsochroneRequest):
 def get_pois_data_in_isochrone(request: PoisRequest):
     """
     Endpoint per ottenere i POI dettagliati associati a un node_id.
-
-    :param request: Richiesta contenente il node_id e altri parametri
-    :return: Dizionario contenente i POI con informazioni dettagliate e distanza dal nodo
     """
 
     logging.info(f"Valori coordinate per pois in isocrone: lat={request.coords.lat}, lon={request.coords.lon}")
@@ -188,11 +185,22 @@ def get_pois_data_in_isochrone(request: PoisRequest):
 
         if status_code1 == 200:
             logging.info("Nodo trovato, ottenimento POI...")
-            result = get_detailed_pois_by_node_id(
+
+            status_code2, message2, pois_list, total_count = get_detailed_pois_by_node_id(
                 node_id, request.min, request.vel, request.categories
             )
-            return result
+
+            if status_code2 == 200:
+                # Se vuoi loggare o usare total_count qui, puoi farlo:
+                logging.info(f"Numero totale di POI filtrati: {total_count}")
+                # Ma al frontend ritorni solo la lista dei pois
+                return pois_list
+            else:
+                # Se c'è un errore di altro tipo, lo gestisci come preferisci
+                raise HTTPException(status_code=status_code2, detail=message2)
+
         else:
+            # HTTP 404 o 500 se get_id_node_by_coordinates fallisce
             raise HTTPException(status_code=status_code1, detail=message)
 
     except HTTPException as http_exc:
@@ -200,6 +208,8 @@ def get_pois_data_in_isochrone(request: PoisRequest):
     except Exception as e:
         logging.error(f"Errore inatteso: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
 
 
 @app.post("/api/get_isochrone_parameters")
@@ -221,15 +231,21 @@ def get_isochrone_parameters(req: IsochroneParametersRequest):
             raise HTTPException(status_code=404, detail="Isochrone not found")
 
         # 2) /api/get_pois_isochrone
-        pois_resp = get_pois_data_in_isochrone(req)  # <--- tu hai già /api/get_pois_isochrone
+        status_code2, message2, pois_resp, total_count = get_detailed_pois_by_node_id(
+            node_id, req.min, req.vel, req.categories
+        )
+
         if not isinstance(pois_resp, list):
             raise HTTPException(status_code=404, detail="PoIs not found")
 
+
+        print("Entra")
         # 3) Calcolo parametri
         result = compute_isochrone_parameters(
             pois_data=pois_resp,
             isochrone_data=iso_resp,
             vel=req.vel,
+            total_pois=total_count,
             max_minutes=60,
             categories=req.categories
         )

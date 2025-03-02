@@ -4,8 +4,7 @@ from shapely.ops import transform
 import pyproj
 
 
-
-def compute_isochrone_parameters(pois_data, isochrone_data, vel, max_minutes=60, categories=None):
+def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max_minutes=60, categories=None):
     """
     Calcola i parametri:
     - Proximity
@@ -41,8 +40,8 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, max_minutes=60,
         proximity_score = min(proximity_min / max_minutes, 1.0)
 
     # 4) Calcolo density
-    total_pois = len(pois_data)
-    print("TOT POIS: ", total_pois)
+    print("TOT POIS in Param: ", total_pois)
+
     if total_pois == 0 or area_km2 == 0:
         density_raw = 0
     else:
@@ -55,7 +54,6 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, max_minutes=60,
         density_score = density_raw / 100.0
 
     # 5) Calcolo entropia
-    #    qui le categorie da considerare potresti averle dal tuo request
     if total_pois == 0:
         entropy_score = 0.0
     else:
@@ -97,7 +95,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, max_minutes=60,
     print("POIS ACCECCIBILITY: ", poi_accessibility)
 
     return {
-        "proximity": proximity_min,          # in minuti (o "ND")
+        "proximity": proximity_min,
         "proximity_score": proximity_score,
         "density_score": density_score,
         "entropy_score": entropy_score,
