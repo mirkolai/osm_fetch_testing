@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="../public/css/style.css">
-    <link rel="stylesheet" href="../public/css/spider-chart.css">
-    <link rel="stylesheet" href="../public/css/search-overlay.css">
+    <link rel="stylesheet" href="../public/css/spiderChartStyle.css">
+    <link rel="stylesheet" href="../public/css/searchStyle.css">
 
 </head>
 
@@ -93,13 +93,13 @@
 <script src="https://kit.fontawesome.com/081eecd135.js" crossorigin="anonymous"></script>
 
 <script type="module">
-    import { servicesConfig } from '../public/js/config/services-config.js';
+    import { servicesList } from '../public/js/config/servicesList.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('services-container');
         const selectedServicesDiv = document.querySelector('.selected-services');
 
-        Object.values(servicesConfig).forEach(category => {
+        Object.values(servicesList).forEach(category => {
             const element = document.createElement('service-category');
             element.setAttribute('title', category.title);
             element.setAttribute('services', JSON.stringify(category.services));

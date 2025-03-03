@@ -1,4 +1,3 @@
-// api-service.js
 export class ApiService {
     static async fetchPlaces(query) {
         try {

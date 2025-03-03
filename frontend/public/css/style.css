@@ -1,10 +1,9 @@
-/* Reset di base */
 body {
     margin: 0;
     padding: 0;
 }
 
-/* Navbar */
+
 nav {
     position: fixed;
     top: 0;
@@ -34,7 +33,6 @@ nav a:hover {
     border-radius: 4px;
 }
 
-/* Utilities di layout */
 .flex {
     display: flex;
 }
@@ -60,7 +58,7 @@ nav a:hover {
     margin-bottom: 24px;
 }
 
-/* Layout principale */
+
 .main-container {
     display: flex;
     height: calc(100vh - 60px);
@@ -69,7 +67,7 @@ nav a:hover {
 
 #map {
     position: absolute;
-    top: 60px;  /* Altezza della navbar */
+    top: 60px;
     bottom: 0;
     left: 0;
     right: 0;
@@ -83,7 +81,7 @@ nav a:hover {
     flex: 1;
 }
 
-/* Sidebar */
+
 .sidebar {
     width: 350px;
     height: calc(100vh - 60px);
@@ -108,7 +106,6 @@ nav a:hover {
 }
 
 
-/* Form elements */
 .form-control {
     border-radius: 20px;
     border: 1px solid #E0E0E0;
@@ -122,7 +119,6 @@ nav a:hover {
     width: 65px;
 }
 
-/* Custom Select Styling */
 .custom-select-wrapper {
     position: relative;
     width: 100px;
@@ -172,7 +168,7 @@ nav a:hover {
     color: white;
 }
 
-/* Buttons */
+
 .btn-group {
     border-radius: 20px;
     overflow: hidden;
@@ -229,7 +225,6 @@ nav a:hover {
     padding: 0.5rem 0.75rem;
 }
 
-/* pointOfInterest */
 .pointOfInterest {
     width: fit-content;
     height: fit-content;
@@ -252,7 +247,6 @@ nav a:hover {
     box-shadow: none;
 }
 
-/* pointOfInterest container e bottoni */
 .pointOfInterest-container {
     display: flex;
     flex-wrap: wrap;
@@ -306,7 +300,6 @@ nav a:hover {
     box-shadow: 0 0 4px #483d8b;
 }
 
-/* Selected services */
 .selected-services {
     min-height: 40px;
     background-color: white;
@@ -315,16 +308,14 @@ nav a:hover {
     padding: 8px;
 }
 
-/* Custom checkbox styling */
 .form-check-input:checked {
     background-color: #483d8b;
     border-color: #483d8b;
 }
 
-/* Selected services badges */
 .selected-services .badge.bg-primary,
 .selected-services .badge.text-bg-primary {
-    background-color: #483d8b !important;  /* Solo in questo caso usiamo !important per sovrascrivere Bootstrap */
+    background-color: #483d8b !important;
     color: white;
     padding: 6px 12px;
     border-radius: 16px;
@@ -338,7 +329,6 @@ nav a:hover {
     font-size: 14px;
 }
 
-/* Utilities aggiuntive */
 .icon-color {
     color: #483d8b;
 }
@@ -351,7 +341,6 @@ nav a:hover {
     background-color: #483d8b;
 }
 
-/* Suggestions dropdown */
 #suggestions {
     position: absolute;
     width: 20%;
@@ -374,12 +363,12 @@ nav a:hover {
     color: white;
 }
 
-/* Input group */
+
 .input-group {
     position: relative;
 }
 
-/* Light gray container */
+
 .light-gray-container {
     background-color: #f1f1f1;
     padding: 16px;
@@ -403,14 +392,13 @@ nav a:hover {
     border-radius: 4px;
 }
 
-/* Inline group utility */
 .inline-group {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-/* Time select utility */
+
 .time-select {
     width: 100px;
 }

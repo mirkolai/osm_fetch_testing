@@ -8,7 +8,6 @@ document.getElementById("fetchData").addEventListener("click", async () => {
         const data = await response.json();
         console.log(data);
 
-        // Esempio: aggiungere nodi sulla mappa
         data.elements.forEach((element) => {
             if (element.type === "node") {
                 L.marker([element.lat, element.lon]).addTo(map);

@@ -1,6 +1,5 @@
-// frontend/public/js/search.js
-import { MapManager } from './managers/map-manager.js';
-import { ApiService } from './services/api-service.js';
+import { MapManager } from './managers/mapManager.js';
+import { ApiService } from './services/apiService.js';
 import { SpiderChart } from './components/SpiderChart.js';
 
 let spiderChart;
@@ -364,17 +363,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const sidebar = document.querySelector('.overlay-sidebar');
         const content = sidebar.querySelector('.sidebar-content');
 
-        // Resetta prima l'altezza per calcolare quella naturale
         sidebar.style.height = 'auto';
-
-        // Calcola l'altezza del contenuto
         const contentHeight = content.scrollHeight;
-
-        // Applica l'altezza con un po' di padding
         sidebar.style.height = (contentHeight + 20) + 'px';
+        const maxHeight = window.innerHeight - 100;
 
-        // Assicurati che non superi l'altezza della viewport
-        const maxHeight = window.innerHeight - 100; // 100px di margine
         if (contentHeight > maxHeight) {
             sidebar.style.height = maxHeight + 'px';
             sidebar.style.overflowY = 'auto';

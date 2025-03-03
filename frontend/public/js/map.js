@@ -1,4 +1,3 @@
-// Singleton pattern for map instance
 let mapInstance = null;
 
 const initializeMap = (containerId, options = {}) => {
@@ -24,7 +23,6 @@ const initializeMap = (containerId, options = {}) => {
 
 const getMap = () => mapInstance;
 
-// Export functions
 window.mapUtils = {
     initializeMap,
     getMap

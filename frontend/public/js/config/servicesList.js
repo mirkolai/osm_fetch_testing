@@ -1,4 +1,4 @@
-export const servicesConfig = {
+export const servicesList = {
     "eatAndDrink": {
         title: "Eat And Drink",
         services: [
