@@ -45,7 +45,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
     if total_pois == 0 or area_km2 == 0:
         density_raw = 0
     else:
-        density_raw = area_km2 / total_pois
+        density_raw = total_pois/area_km2
     print("DENSITY NON NORM: ", density_raw)
     # Normalizza [0..1], con > 100 => 1
     if density_raw > 100:
