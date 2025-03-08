@@ -1,11 +1,10 @@
 import logging
 import os
-from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 
+from backend.RequestModels import *
 from backend.Parameters import *
 from backend.Poi import *
 from backend.ReverseGeocoding import *
@@ -25,41 +24,8 @@ VIEWS_DIR = os.path.join(FRONTEND_DIR, "views")
 app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 app.mount("/views", StaticFiles(directory=VIEWS_DIR), name="views")
 
+
 # Modello per i dati del nodo
-class Node(BaseModel):
-    node_id: int
-    lat: float
-    lon: float
-
-
-class Coordinates(BaseModel):
-    lat: float
-    lon: float
-
-
-class ReverseGeocodingRequest(BaseModel):
-    text: str
-
-
-class IsochroneRequest(BaseModel):
-    coords: Coordinates
-    min: int
-    vel: int
-
-class PoisRequest(BaseModel):
-    coords: Coordinates  # lat, lon
-    min: int
-    vel: int
-    categories: List[str]
-
-class IsochroneParametersRequest(BaseModel):
-    coords: Coordinates
-    min: int
-    vel: int
-    categories: List[str]
-
-class NodeRequest(BaseModel):
-    node_id: int
 
 
 @app.get("/")
@@ -76,6 +42,7 @@ async def serve_search():
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
+
 
 @app.post("/api/reverse_geocoding")
 def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
@@ -210,22 +177,18 @@ def get_pois_data_in_isochrone(request: PoisRequest):
         raise HTTPException(status_code=500, detail="Errore interno del server")
 
 
-
-
 @app.post("/api/get_isochrone_parameters")
-def get_isochrone_parameters(req: IsochroneParametersRequest):
+def get_isochrone_parameters(req: PoisRequest):
     """
     Esempio di rotta che calcola i parametri di isocrona
     """
-    # 1) /api/get_isochrone
-    # simula la chiamata a get_isochrone => ottieni isochrone_data
     try:
         status_code1, message, node_id = get_id_node_by_coordinates(req.coords)
         status_code, message, iso_resp = get_isocronewalk_by_node_id(
-                node_id=node_id,
-                minute=req.min,
-                velocity=req.vel
-            )
+            node_id=node_id,
+            minute=req.min,
+            velocity=req.vel
+        )
         # iso_resp ha la shape: { "node_id":..., "convex_hull": { "coordinates": [...], ... } }
         if not iso_resp or "convex_hull" not in iso_resp:
             raise HTTPException(status_code=404, detail="Isochrone not found")
@@ -237,7 +200,6 @@ def get_isochrone_parameters(req: IsochroneParametersRequest):
 
         if not isinstance(pois_resp, list):
             raise HTTPException(status_code=404, detail="PoIs not found")
-
 
         print("Entra")
         # 3) Calcolo parametri
@@ -256,6 +218,7 @@ def get_isochrone_parameters(req: IsochroneParametersRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/get_node_id")
 async def get_node_id(coords: Coordinates):
     """
@@ -272,46 +235,6 @@ async def get_node_id(coords: Coordinates):
 
 
 ######## API DI TESTING
-
-
-@app.post("/api/test_get_isochrone_walk")
-async def get_isochrone_walk(request: IsochroneRequest):
-    """
-    Estrae l'isocrona camminabile in base ai parametri forniti.
-
-    Parametri:
-    ----------
-    - **request**: `IsochroneRequest`
-        - `node_id` (int): ID del nodo.
-        - `minute` (int): Minuti per calcolare l'isocrona.
-        - `velocity` (int): Velocità di spostamento.
-
-    Risposta:
-    ---------
-    Un dizionario contenente:
-    - `node_id`: ID del nodo.
-    - `concave_hull`: Dettagli sulla geometria del percorso (coordinate e bounding box).
-
-    Errori:
-    -------
-    - **404**: Dati non trovati.
-    - **500**: Errore interno.
-
-    """
-    try:
-        status_code, message, result = get_isocronewalk_by_node_id(
-            node_id=request.node_id,
-            minute=request.minute,
-            velocity=request.velocity
-        )
-
-        if status_code == 200:
-            return result
-        else:
-            raise HTTPException(status_code=status_code, detail=message)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint per trovare il nodo più vicino a un punto specifico
 @app.post("/api/nodes/nearest/")
@@ -338,7 +261,6 @@ async def find_nearest_node(coords: Coordinates):
         raise HTTPException(status_code=404, detail="No node found near the given point.")
 
 
-
 # Endpoint per trovare il poi specifico date le coordinate
 @app.post("/api/pois/test_single_poi/")
 async def find_poi_by_coordinates(coords: Coordinates):
@@ -357,7 +279,7 @@ async def find_poi_by_coordinates(coords: Coordinates):
             "name": poi["names"]["primary"],
             "categories": poi["categories"]["primary"],
             "lat": poi["location"]["coordinates"][0],  # Estrae latitudine
-            "lon": poi["location"]["coordinates"][1]   # Estrae longitudine
+            "lon": poi["location"]["coordinates"][1]  # Estrae longitudine
         }
     else:
         raise HTTPException(status_code=404, detail="No node found at the given coordinates.")

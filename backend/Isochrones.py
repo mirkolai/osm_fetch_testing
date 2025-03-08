@@ -1,7 +1,10 @@
-from typing import Union, List, Tuple, Annotated, Dict
+from typing import Union, List, Tuple, Dict
+
 from backend.db import db
 
-def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> Tuple[int, str, Union[List[float], None]]:
+
+def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
+        Tuple)[int, str, Union[List[float], None]]:
     """
     Recupera la bounding box dell'isocrona di un nodo dalla collezione 'isochrone_walk',
     filtrando per node_id, minuti e velocità, e accedendo correttamente ai dati sotto 'convex_hull'.
@@ -37,8 +40,8 @@ def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> T
         return 500, f"Errore del server: {str(e)}", None
 
 
-def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> Tuple[int, str, Union[Dict[str,
-Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
+def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> (
+        Tuple)[int, str, Union[Dict[str, Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
 
     collection = db["isochrone_walk"]
     # Query per trovare il documento con il node_id specificato

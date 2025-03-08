@@ -1,9 +1,9 @@
 from typing import Union, Tuple
 
-from pymongo import MongoClient
+from pydantic import BaseModel
 
 from backend.db import db
-from pydantic import BaseModel
+
 
 class Coordinates(BaseModel):
     lat: float
@@ -29,9 +29,9 @@ def get_id_node_by_coordinates(coordinates: Coordinates) -> Tuple[int, str, Unio
 
         # Controlla se il nodo è stato trovato
         if node:
-            return (200, "OK", node['node_id'])
+            return 200, "OK", node['node_id']
         else:
-            return (404, "Nodo non trovato", None)
+            return 404, "Nodo non trovato", None
     except Exception as e:
         # Gestione degli errori generali
-        return (500, f"Errore del server: {str(e)}", None)
+        return 500, f"Errore del server: {str(e)}", None

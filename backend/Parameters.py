@@ -1,4 +1,6 @@
 import math
+import random
+
 from shapely.geometry import shape
 from shapely.ops import transform
 import pyproj
@@ -94,11 +96,16 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
     poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
     print("POIS ACCECCIBILITY: ", poi_accessibility)
 
+    # 7) Randomizzo la closeness per simulare
+    # TODO: aggiornare in seguito con valore preso dal databse
+    closeness_random = random.random()
+
     return {
         "proximity": proximity_min,
         "proximity_score": proximity_score,
         "density_score": density_score,
         "entropy_score": entropy_score,
+        "closeness": closeness_random,
         "poi_accessibility": poi_accessibility,
     }
 

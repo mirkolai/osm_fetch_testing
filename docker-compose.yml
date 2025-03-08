@@ -4,7 +4,7 @@ services:
   # Servizio per l'app FastAPI
   fastapi-app:
     build:
-      dockerfile: "Docker_backend"
+      dockerfile: "Docker"
     container_name: 15MinuteApp
     ports:
       - "5555:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
