@@ -151,7 +151,7 @@ export class MapManager {
             normalizedCategory.includes('seafood_market') ||
             normalizedCategory.includes('shopping') ||
             normalizedCategory.includes('water_store')){
-            return 'fa-solid fa-school';
+            return 'fa-solid fa-bag-shopping';
         }
 
         if(normalizedCategory.includes('public_service_and_government') ||

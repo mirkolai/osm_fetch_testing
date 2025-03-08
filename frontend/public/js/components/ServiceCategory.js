@@ -23,7 +23,6 @@ class ServiceCategory extends HTMLElement {
         });
 
         const mainCategoryName = this.getAttribute('title').toLowerCase().replace(/\s+/g, '_');
-
         const mainCheckbox = checkboxes[0];
 
         checkboxes.forEach((checkbox, idx) => {
@@ -32,12 +31,21 @@ class ServiceCategory extends HTMLElement {
 
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
-                const index = parseInt(e.target.dataset.index);
 
-                if (index === 0 && e.target.checked) {
+                const index = parseInt(e.target.dataset.index);
+                const isChecked = e.target.checked;
+
+                if (index === 0 && isChecked) {
                     this.selectAllCheckboxes();
-                } else if (index === 0 && !e.target.checked) {
+                } else if (index === 0 && !isChecked) {
                     this.deselectAllCheckboxes();
+                } else if (index > 0) {
+                    if (!isChecked) {
+                        this.deselectMainCategory();
+                        this.deselectAllSubcategories();
+                    } else {
+                        this.updateMainCategoryState();
+                    }
                 }
 
                 const event = new CustomEvent('service-changed', {
@@ -47,7 +55,8 @@ class ServiceCategory extends HTMLElement {
                         id: e.target.id,
                         label: e.target.nextElementSibling.textContent.trim(),
                         checked: e.target.checked,
-                        isMainCategory: index === 0
+                        isMainCategory: index === 0,
+                        isFromSelectAll: index === 0 && isChecked
                     }
                 });
                 this.dispatchEvent(event);
@@ -55,8 +64,53 @@ class ServiceCategory extends HTMLElement {
         });
     }
 
+    updateMainCategoryState() {
+        const checkboxes = this.shadowRoot.querySelectorAll('input[type="checkbox"]');
+        const mainCheckbox = checkboxes[0];
+        const subcategoryCheckboxes = Array.from(checkboxes).slice(1); // Tutte tranne la prima
+
+        const allSubcategoriesChecked = subcategoryCheckboxes.every(cb => cb.checked);
+
+        if (allSubcategoriesChecked && !mainCheckbox.checked) {
+
+            mainCheckbox.checked = true;
+
+            const event = new CustomEvent('service-changed', {
+                bubbles: true,
+                composed: true,
+                detail: {
+                    id: mainCheckbox.id,
+                    label: mainCheckbox.nextElementSibling.textContent.trim(),
+                    checked: true,
+                    isMainCategory: true
+                }
+            });
+            this.dispatchEvent(event);
+        }
+    }
+
+    deselectMainCategory() {
+        const mainCheckbox = this.shadowRoot.querySelector('input[type="checkbox"][data-index="0"]');
+        if (mainCheckbox && mainCheckbox.checked) {
+            mainCheckbox.checked = false;
+
+            const event = new CustomEvent('service-changed', {
+                bubbles: true,
+                composed: true,
+                detail: {
+                    id: mainCheckbox.id,
+                    label: mainCheckbox.nextElementSibling.textContent.trim(),
+                    checked: false,
+                    isMainCategory: true
+                }
+            });
+            this.dispatchEvent(event);
+        }
+    }
+
     selectAllCheckboxes() {
         const checkboxes = this.shadowRoot.querySelectorAll('input[type="checkbox"]');
+
         checkboxes.forEach((checkbox) => {
             const index = parseInt(checkbox.dataset.index);
             if (index > 0 && !checkbox.checked) {
@@ -77,8 +131,32 @@ class ServiceCategory extends HTMLElement {
         });
     }
 
+    deselectAllSubcategories() {
+        const checkboxes = this.shadowRoot.querySelectorAll('input[type="checkbox"]');
+
+        checkboxes.forEach((checkbox) => {
+            const index = parseInt(checkbox.dataset.index);
+            if (index > 0 && checkbox.checked) {
+                checkbox.checked = false;
+
+                const event = new CustomEvent('service-changed', {
+                    bubbles: true,
+                    composed: true,
+                    detail: {
+                        id: checkbox.id,
+                        label: checkbox.nextElementSibling.textContent.trim(),
+                        checked: false,
+                        isFromSelectAll: true
+                    }
+                });
+                this.dispatchEvent(event);
+            }
+        });
+    }
+
     deselectAllCheckboxes() {
         const checkboxes = this.shadowRoot.querySelectorAll('input[type="checkbox"]');
+
         checkboxes.forEach((checkbox) => {
             const index = parseInt(checkbox.dataset.index);
             if (index > 0 && checkbox.checked) {

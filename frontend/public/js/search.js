@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             { axis: "Proximity", value: 0.2 },
                             { axis: "Density", value: 0.2 },
                             { axis: "Entropy", value: 0.2 },
-                            { axis: "Accessibility", value: 0.2 }
+                            { axis: "Accessibility", value: 0.2 },
+                            { axis: "Closeness", value: 0.2 }
                         ]
                     }
                 ]
@@ -66,8 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Spider chart initialized successfully!');
         } catch (error) {
             console.error('Error initializing spider chart:', error);
-            if (elements.spiderChartContainer) {
-            }
         }
     }
 
@@ -89,6 +88,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function setupSidebarToggle() {
+            const sidebar = document.querySelector('.overlay-sidebar');
+            const toggleBtn = document.getElementById('sidebar-toggle-btn');
+            const toggleIcon = toggleBtn.querySelector('i');
+
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+
+                if (sidebar.classList.contains('collapsed')) {
+                    toggleIcon.classList.remove('bi-chevron-left');
+                    toggleIcon.classList.add('bi-chevron-right');
+                } else {
+                    toggleIcon.classList.remove('bi-chevron-right');
+                    toggleIcon.classList.add('bi-chevron-left');
+                }
+            });
+        }
+
+
+        setupSidebarToggle();
         elements.searchInput.addEventListener('input', handleSearchInput);
         elements.searchButton.addEventListener('click', handleSearch);
         elements.resetButton.addEventListener('click', handleReset);
@@ -96,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', updateSidebarHeight);
         updateSidebarHeight();
     }
+
 
     function handleReset() {
         selectedCategories.clear();
@@ -132,7 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         { axis: "Proximity", value: 0.2 },
                         { axis: "Density", value: 0.2 },
                         { axis: "Entropy", value: 0.2 },
-                        { axis: "Accessibility", value: 0.2 }
+                        { axis: "Accessibility", value: 0.2 },
+                        { axis: "Closeness", value: 0.2 }
                     ]
                 }
             ]);
@@ -341,7 +362,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         { axis: "Proximity", value: typeof parameters.proximity_score === 'number' ? parameters.proximity_score : 0.2 },
                         { axis: "Density", value: typeof parameters.density_score === 'number' ? parameters.density_score : 0.2 },
                         { axis: "Entropy", value: typeof parameters.entropy_score === 'number' ? parameters.entropy_score : 0.2 },
-                        { axis: "Accessibility", value: typeof parameters.poi_accessibility === 'number' ? parameters.poi_accessibility : 0.2 }
+                        { axis: "Accessibility", value: typeof parameters.poi_accessibility === 'number' ? parameters.poi_accessibility : 0.2 },
+                        { axis: "Closeness", value: typeof parameters.closeness === 'number' ? parameters.closeness : 0.2 }
                     ]
                 }
             ];
