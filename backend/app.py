@@ -38,6 +38,23 @@ async def serve_frontend():
 
 @app.get("/search")
 async def serve_search():
+    """
+        Ritorna la pagina principale del frontend.
+
+        ### Dettagli
+        Questa rotta serve il file `index.html` dal progetto frontend, se presente.
+        Utilizzata principalmente per l’accesso iniziale all’applicazione.
+
+        ### Response
+        - **200**: Restituisce la pagina HTML se il file esiste.
+        - **404**: Restituisce un JSON con `{"error": "File not found"}` se non esiste il file `index.html`.
+
+        ### Esempio di utilizzo
+        ```bash
+        # GET sulla root dell'app
+        curl -X GET http://localhost:8000/
+        ```
+    """
     file_path = os.path.join(VIEWS_DIR, "search.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
@@ -111,6 +128,60 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
 
 @app.post("/api/get_isochrone")
 def search_proximity(request: IsochroneRequest):
+    """
+        Calcola e restituisce i dati dell'isocrona di tipo "walk" per un punto specifico.
+
+        ### Dettagli
+        - Prende in ingresso latitudine, longitudine, minuti e velocità per eseguire il calcolo dell'isocrona a piedi.
+        - Prima individua il `node_id` del nodo più vicino alle coordinate fornite.
+        - Successivamente calcola l'isocrona corrispondente in base a **min** e **vel**.
+
+        ### Parametri:
+        - **request**: `IsochroneRequest`
+          - `coords` (Coordinates): latitudine e longitudine del punto di partenza.
+          - `min` (int): minuti per i quali calcolare l'isocrona.
+          - `vel` (int): velocità (in km/h).
+
+        ### Esempio di chiamata
+        ```bash
+        curl -X POST \\
+            -H "Content-Type: application/json" \\
+            -d '{
+                "coords": {"lat": 45.0703, "lon": 7.6869},
+                "min": 10,
+                "vel": 3
+            }' \\
+            http://localhost:8000/api/get_isochrone
+        ```
+
+        ### Esempio di risposta
+        ```json
+        {
+            "node_id": 1227233452,
+            "convex_hull": {
+                "coordinates": [
+                    [
+                        [
+                            7.6792319,
+                            45.0608158
+                        ],
+                        ...
+                    ]
+                ],
+                "bbox": [
+                    7.6738336,
+                    45.0608158,
+                    7.6910168,
+                    45.0733403
+                ]
+            }
+        }
+        ```
+
+        ### Errori:
+        - **404**: Nodo non trovato o isocrona non disponibile.
+        - **500**: Errore interno del server.
+    """
     logging.info(f"Valori coordinate per isocrona walk: lat={request.coords.lat}, lon={request.coords.lon}")
 
     try:
@@ -142,9 +213,75 @@ def search_proximity(request: IsochroneRequest):
 @app.post("/api/get_pois_isochrone")
 def get_pois_data_in_isochrone(request: PoisRequest):
     """
-    Endpoint per ottenere i POI dettagliati associati a un node_id.
-    """
+            Restituisce la lista dei POI (Points Of Interest) raggiungibili entro una certa isocrona a piedi.
 
+            ### Dettagli
+            - Prende in ingresso le coordinate iniziali, il tempo (in minuti), la velocità (km/h) e le categorie richieste.
+            - Dato il nodo più vicino (in base alle coordinate), restituisce la lista di POI filtrati in base alla distanza massima
+              percorribile e alle categorie fornite.
+
+            ### Parametri:
+            - **request**: `PoisRequest`
+              - `coords` (Coordinates): Coordinate di latitudine e longitudine.
+              - `min` (int): Numero di minuti per l'isocrona.
+              - `vel` (int): Velocità di percorrenza (km/h).
+              - `categories` (List[str]): Lista di categorie da filtrare.
+
+            ### Esempio di chiamata
+            ```bash
+            curl -X POST \\
+                -H "Content-Type: application/json" \\
+                -d '{
+                    "coords": {"lat": 45.0703, "lon": 7.6869},
+                    "min": 15,
+                    "vel": 5,
+                    "categories": ["restaurant","beauty_and_spa"]
+                }' \\
+                http://localhost:8000/api/get_pois_isochrone
+            ```
+
+            ### Esempio di risposta
+            ```json
+            [
+                {
+                    "poi_id": "08f1f984030131a103c98f5eca19fbd9",
+                    "distance": 201.467,
+                    "location": {
+                        "type": "Point",
+                        "coordinates": [
+                            7.6823526,
+                            45.068414
+                        ]
+                    },
+                    "names": {
+                        "common": null,
+                        "primary": "Scat_to",
+                        "rules": null
+                    },
+                    "categories": {
+                        "primary": "restaurant",
+                        "alternate": null
+                    }
+                },
+                {
+                    "poi_id": "08f1f9840301875b03a8ad08e477a497",
+                    "distance": 207.983,
+                    "location": {
+                        "type": "Point",
+                        "coordinates": [
+                            7.6835984,
+                            45.0683603
+                        ]
+                    },
+                    ...
+                }
+            ]
+            ```
+
+            ### Errori:
+            - **404**: Nodo non trovato o nessun POI disponibile.
+            - **500**: Errore interno del server.
+    """
     logging.info(f"Valori coordinate per pois in isocrone: lat={request.coords.lat}, lon={request.coords.lon}")
 
     try:
@@ -180,7 +317,52 @@ def get_pois_data_in_isochrone(request: PoisRequest):
 @app.post("/api/get_isochrone_parameters")
 def get_isochrone_parameters(req: PoisRequest):
     """
-    Esempio di rotta che calcola i parametri di isocrona
+        Calcola alcuni parametri avanzati per l'isocrona, tra cui:
+        - Proximity
+        - Density
+        - Entropy
+        - Poi Accessibility
+
+        ### Dettagli
+        1. Calcola l'isocrona in base a **coords**, **min** e **vel**.
+        2. Recupera i POI entro l'isocrona.
+        3. Calcola parametri di area, prossimità, densità e varietà di POI (entropy).
+
+        ### Parametri:
+        - **req**: `PoisRequest`
+          - `coords` (Coordinates): latitudine e longitudine
+          - `min` (int): minuti per cui calcolare l'isocrona
+          - `vel` (int): velocità di percorrenza (km/h)
+          - `categories` (List[str]): categorie di interesse per valutare i parametri
+
+        ### Esempio di chiamata
+        ```bash
+        curl -X POST \\
+            -H "Content-Type: application/json" \\
+            -d '{
+                "coords": {"lat": 45.0703, "lon": 7.6869},
+                "min": 15,
+                "vel": 5,
+                "categories": ["restaurant","beauty_and_spa"]
+            }' \\
+            http://localhost:8000/api/get_isochrone_parameters
+        ```
+
+        ### Esempio di risposta
+        ```json
+        {
+            "proximity": 19.74864,
+            "proximity_score": 0.32914400000000005,
+            "density_score": 1,
+            "entropy_score": 0.06265984760267532,
+            "closeness": 0.8043968515904784,
+            "poi_accessibility": 0.4639346158675585
+        }
+        ```
+
+        ### Errori:
+        - **404**: Isocrona o POI non trovati.
+        - **500**: Errore interno del server.
     """
     try:
         status_code1, message, node_id = get_id_node_by_coordinates(req.coords)
@@ -222,7 +404,34 @@ def get_isochrone_parameters(req: PoisRequest):
 @app.post("/api/get_node_id")
 async def get_node_id(coords: Coordinates):
     """
-    Get node_id from coordinates
+        Restituisce il `node_id` di rete stradale più vicino alle coordinate fornite.
+
+        ### Dettagli
+        - Prende in ingresso coordinate (lat, lon) e ricerca nel database il nodo (nella collezione `nodes`)
+          geograficamente più vicino.
+
+        ### Parametri:
+        - **coords**: `Coordinates`
+          - `lat` (float): latitudine
+          - `lon` (float): longitudine
+
+        ### Response
+        - Restituisce un dizionario contenente `{"node_id": <valore>}` se trovato.
+
+        ### Esempio di utilizzo
+        ```bash
+        curl -X POST \\
+            -H "Content-Type: application/json" \\
+            -d '{
+                "lat": 45.0703,
+                "lon": 7.6869
+            }' \\
+            http://localhost:8000/api/get_node_id
+        ```
+
+        ### Errori:
+        - **404**: Nessun nodo trovato nelle vicinanze.
+        - **500**: Errore interno del server.
     """
     try:
         status_code, message, node_id = get_id_node_by_coordinates(coords)
