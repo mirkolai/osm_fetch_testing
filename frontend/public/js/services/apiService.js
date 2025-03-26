@@ -18,13 +18,6 @@ export class ApiService {
     }
 
     static async fetchIsochroneData(coordinates, minutes, velocity, categories = []) {
-        console.log('Fetching isochrone with params:', {
-            coordinates,
-            minutes,
-            velocity,
-            categories
-        });
-
         try {
             const response = await fetch('/api/get_isochrone', {
                 method: 'POST',
@@ -43,14 +36,11 @@ export class ApiService {
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Server response:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             return await response.json();
         } catch (error) {
-            console.error('Error in fetchIsochroneData:', error);
             throw error;
         }
     }

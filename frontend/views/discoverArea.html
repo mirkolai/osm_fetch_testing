@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>United-and-Close</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="../public/css/style.css">
+    <link rel="stylesheet" href="../public/css/spiderChartStyle.css">
+    <link rel="stylesheet" href="../public/css/searchStyle.css">
+
+</head>
+
+<body>
+<div id="navbar-container"></div>
+
+<div id="map"></div>
+
+<div class="overlay-sidebar">
+    <div class="sidebar-toggle">
+        <button class="btn" id="sidebar-toggle-btn">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+    </div>
+    <div class="sidebar-content">
+        <div class="p-4">
+            <div class="mb-4">
+                <label class="form-label">Enter an address</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="Search address..." id="city-search">
+                </div>
+                <div id="suggestions" class="list-group"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Select time and mode of travel</label>
+                <div class="inline-group mb-2">
+                    <select class="form-select time-select">
+                        <option>5 min</option>
+                        <option>10 min</option>
+                        <option selected>15 min</option>
+                        <option>20 min</option>
+                    </select>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-primary active">
+                            <i class="bi bi-person-walking icon-color"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary">
+                            <i class="fa-solid fa-person-walking-with-cane icon-color"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary">
+                            <i class="bi bi-bicycle icon-color"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary">
+                            <i class="bi bi-train-front icon-color"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Select services to be displayed in the area</label>
+                <div class="light-gray-container">
+                    <div class="pointOfInterest-container" id="services-container"></div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Selected services:</label>
+                <div class="selected-services"></div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn custom-primary small-btn" type="button">Search</button>
+                <button class="btn btn-outline-secondary small-btn" type="button">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Spider Chart Container -->
+<div class="spider-chart-container">
+    <div id="spider-chart"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<script type="module" src="../public/js/components/ServiceCategory.js"></script>
+<script type="module" src="../public/js/components/SpiderChart.js"></script>
+<script src="https://kit.fontawesome.com/081eecd135.js" crossorigin="anonymous"></script>
+
+<script type="module">
+    import { servicesList } from '../public/js/config/servicesList.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('services-container');
+        const selectedServicesDiv = document.querySelector('.selected-services');
+
+        Object.values(servicesList).forEach(category => {
+            const element = document.createElement('service-category');
+            element.setAttribute('title', category.title);
+            element.setAttribute('services', JSON.stringify(category.services));
+            container.appendChild(element);
+        });
+    });
+</script>
+
+<script src="../public/js/map.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        window.map = window.mapUtils.initializeMap('map');
+    });
+</script>
+<script type="module" src="../public/js/search.js"></script>
+<script src="/public/js/navbar.js"></script>
+</body>
+</html>

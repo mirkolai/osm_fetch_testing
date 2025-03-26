@@ -12,7 +12,6 @@ export class MapManager {
 
     addPoiMarkers(pois) {
         this.clearPoiMarkers();
-
         if (!Array.isArray(pois)) {
             console.error('Expected an array of POIs, received:', typeof pois);
             return;
@@ -63,8 +62,6 @@ export class MapManager {
     }
 
     updateIsochroneLayer(data) {
-        console.log('Updating isochrone layer with data:', data);
-
         if (this.isochroneLayer) {
             this.map.removeLayer(this.isochroneLayer);
         }

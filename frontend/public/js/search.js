@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'bi-train-front': 20
     };
 
+
+
     initializeSpiderChart();
 
     function initializeSpiderChart() {
@@ -186,9 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 removeServiceBadge(label);
             }
         }
-
-
-        console.log('Selected categories:', Array.from(selectedCategories));
         updateSidebarHeight();
     });
 

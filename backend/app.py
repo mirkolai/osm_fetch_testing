@@ -43,6 +43,12 @@ async def serve_search():
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
+@app.get("/discoverArea")
+async def serve_discoverArea():
+    file_path = os.path.join(VIEWS_DIR, "discoverArea.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
 
 @app.post("/api/reverse_geocoding")
 def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
