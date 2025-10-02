@@ -18,36 +18,51 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
     :return: Lista dei POI filtrati
     """
     try:
+        #print("get_detailed_pois_by_node_id")
         distance_collection = db["distances_to_pois_walk"]
         pois_collection = db["pois"]
-
+        #print(1)
         # Calcola la distanza massima raggiungibile in metri
         max_distance = (vel * 1000 / 60) * min
 
         # Trova il documento con il node_id specificato
-        query = {"node_id": node_id}
-        document = distance_collection.find_one(query)
+        pipeline = [
+            {"$match": {"node_id": node_id}},
+            {"$unwind": "$PoIs"},
+            {"$match": {"PoIs.1": {"$lt": max_distance}}},
+            {
+                "$project": {
+                    "_id": 0,
+                    "poi_id": {"$arrayElemAt": ["$PoIs", 0]},
+                    "distance": {"$arrayElemAt": ["$PoIs", 1]}
+                }
+            }
+        ]
 
-        if not document:
-            return []
+        documents = list(distance_collection.aggregate(pipeline))
+        #print("documents")
+        #print(documents)
+        if len(documents)==0:
+            #print(2)
+            return 200,"not found",[],0
 
-        pois_data = document.get("PoIs", {})
+        pois_ids = [d["poi_id"] for d in documents]
+        pois_distances = {d["poi_id"]: d["distance"] for d in documents}
 
         # Se non ci sono POI per questo nodo, ritorna una lista vuota
-        if not pois_data:
-            return []
-
+        if not pois_ids:
+            #print(3)
+            return 200,"not found",[],0
+        #print(4)
         # Recupera i dettagli dei POI dalla collezione 'pois'
-        poi_ids = [poi_id for poi_id, poi_info in pois_data.items() if
-                   isinstance(poi_info, dict) and poi_info.get("distance") is not None and poi_info[
-                       "distance"] <= max_distance]
-        pois_details = {poi["pois_id"]: poi for poi in pois_collection.find({"pois_id": {"$in": poi_ids}})}
+
+        pois_details = {poi["pois_id"]: poi for poi in pois_collection.find({"pois_id": {"$in": pois_ids}})}
         total_count = len(pois_details)
-        print("TOT POIS in Poi: ", len(pois_details))
+        #print("TOT POIS in Poi: ", len(pois_details))
 
         # Creazione della lista dei POI con dettagli filtrati per distanza e categorie
         detailed_pois_list = []
-        for poi_id in poi_ids:
+        for poi_id in pois_ids:
             if poi_id in pois_details:
                 poi = pois_details[poi_id]
                 primary_category = poi["categories"].get("primary", "")
@@ -57,7 +72,7 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
                 if primary_category in categories: #or any(cat in categories for cat in alternate_categories):
                     detailed_pois_list.append({
                         "poi_id": poi_id,
-                        "distance": pois_data[poi_id]["distance"],
+                        "distance": pois_distances[poi_id],
                         "location": poi["location"],
                         "names": poi["names"],
                         "categories": poi["categories"]
@@ -69,4 +84,4 @@ def get_detailed_pois_by_node_id(node_id: int, min: int, vel: int, categories: L
         return 200, "OK", detailed_pois_list, total_count
 
     except Exception as e:
-        return []
+        return 200, e, [], 0

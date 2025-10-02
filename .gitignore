@@ -163,3 +163,4 @@ backend/mongo-dump
 backend/docker-compose.yml
 backend/Dockerfile
 backend/db.py
+db_init

@@ -1,6 +1,11 @@
 from typing import Union, List, Tuple, Dict
 
 from backend.db import db
+import logging
+logging.basicConfig(
+    #level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 
 def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
@@ -42,14 +47,19 @@ def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
 
 def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> (
         Tuple)[int, str, Union[Dict[str, Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
+    logging.info(f"get_isocronewalk_by_node_id ")
+    #print(f"get_isocronewalk_by_node_id {node_id}")
 
     collection = db["isochrone_walk"]
     # Query per trovare il documento con il node_id specificato
     query = {"node_id": node_id}
     document = collection.find_one(query)
-
+    #print(document)
     # Verifica se il documento esiste
     if not document:
+        print(f"No data found for the given node_id {node_id}")
+        logging.debug(f"No data found for the given node_id {node_id}")
+
         return 404, "No data found for the given node_id", None
 
     # Verifica se il campo isochrone esiste per il minuto e la velocità
@@ -71,4 +81,6 @@ def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> (
         }
         return 200, "OK", result
     else:
+        logging.debug(f"Dati dell'isocrona non trovati per i parametri specificati")
+
         return 404, "Dati dell'isocrona non trovati per i parametri specificati", None

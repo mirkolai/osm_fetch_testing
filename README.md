@@ -96,3 +96,23 @@ Quando hai terminato, puoi disattivare l'ambiente virtuale con:
 ```bash
 deactivate
 ```
+### **SetUp database**
+Assicurati di avere installato docker.
+Se possiedi la cartella db_init inseriscila nella cartella principale (root)
+all'interno della cartella db_init inserisci il file docker-compose che ti è stato inviato.
+apri un terminale in db_init ed esegui il comando
+```bash
+docker-compose up
+```
+opzionalmente con un applicazione come datagrip puoi visualizzare il DB inserendo i dati che trovi nel docker-compose
+
+### **Dev Fast Start**
+Una volta setuppato tutto per i successivi avii basterà avviare docker sul proprio dispositivo poi fare i seguenti due comandi:
+in db_init:
+```bash
+docker-compose up
+```
+e nella root:
+```bash
+uvicorn backend.app:app --reload
+```

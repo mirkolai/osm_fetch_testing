@@ -4,6 +4,18 @@ import { SpiderChart } from './components/SpiderChart.js';
 
 let spiderChart;
 
+// Funzione debounce
+function debounce(func, delay) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         searchInput: document.getElementById('city-search'),
@@ -110,7 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         setupSidebarToggle();
-        elements.searchInput.addEventListener('input', handleSearchInput);
+        elements.searchInput.addEventListener('input', debounce(handleSearchInput, 1500));
+        //elements.searchInput.addEventListener('input', handleSearchInput);
         elements.searchButton.addEventListener('click', handleSearch);
         elements.resetButton.addEventListener('click', handleReset);
         document.addEventListener('click', handleOutsideClick);

@@ -19,7 +19,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
 
     # 1) Calcolo area isocrona
     area_km2 = compute_area_km2_from_iso(isochrone_data)  # funzione vista sopra
-    print("KM2: ", area_km2)
+    #print("KM2: ", area_km2)
 
     # 2) Calcolo proximity (in minuti): POI più "lontano" in termini di tempo
     #    distance in metri, velocità vel (km/h) => tempo_min = distance / (vel*1000/60)
@@ -33,7 +33,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
             t = d_m / speed_m_min
             times.append(t)
         proximity_min = max(times)  # in minuti
-    print("PROXIMITY NON NORM: ", proximity_min)
+    #print("PROXIMITY NON NORM: ", proximity_min)
 
     # 3) Normalizzo proximity in [0..1]
     if isinstance(proximity_min, str) and proximity_min == "ND":
@@ -42,13 +42,13 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
         proximity_score = min(proximity_min / max_minutes, 1.0)
 
     # 4) Calcolo density
-    print("TOT POIS in Param: ", total_pois)
+   # print("TOT POIS in Param: ", total_pois)
 
     if total_pois == 0 or area_km2 == 0:
         density_raw = 0
     else:
         density_raw = total_pois/area_km2
-    print("DENSITY NON NORM: ", density_raw)
+    #print("DENSITY NON NORM: ", density_raw)
     # Normalizza [0..1], con > 100 => 1
     if density_raw > 100:
         density_score = 1.0
@@ -71,9 +71,9 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
                     if alt in counts:
                         counts[alt] += 1
                         break
-        print("NUMERI PER CATEGORIA")
-        for cat in categories:
-            print(cat, ":", counts[cat])
+        #print("NUMERI PER CATEGORIA")
+        #for cat in categories:
+            #print(cat, ":", counts[cat])
 
         # Entropia di Shannon (in base 2)
         total_pois = float(total_pois)
@@ -82,7 +82,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
             if counts[cat] > 0:
                 p = counts[cat] / total_pois
                 H -= p * math.log2(p)
-        print("ENTROPY NON NORM: ", H)
+        #print("ENTROPY NON NORM: ", H)
 
         # Normalizzi su log2(k)
         k = len(categories)
@@ -94,7 +94,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
 
     # 6) Calcolo PoiAccessibility = media (proximity_score, density_score, entropy_score)
     poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
-    print("POIS ACCECCIBILITY: ", poi_accessibility)
+    #print("POIS ACCECCIBILITY: ", poi_accessibility)
 
     # 7) Randomizzo la closeness per simulare
     # TODO: aggiornare in seguito con valore preso dal databse

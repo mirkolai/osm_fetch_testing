@@ -12,6 +12,11 @@ from backend.Isochrones import *
 from backend.Nodes import *
 from backend.db import db
 
+logging.basicConfig(
+    #level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 app = FastAPI()
 
 # Calcolo corretto dei percorsi basato sulla tua struttura
@@ -194,25 +199,34 @@ def search_proximity(request: IsochroneRequest):
         status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
 
         if status_code1 == 200:
-            print("Nodo trovato")
+            #print("Nodo trovato",node_id)
             status_code, message, result = get_isocronewalk_by_node_id(
                 node_id=node_id,
                 minute=request.min,
                 velocity=request.vel
             )
+            #print(status_code, message, result )
+            #print(1)
             if status_code == 200:
+                #print(2)
+                #print(result)
                 return result
             else:
+                #print(3)
                 raise HTTPException(status_code=status_code, detail=message)
+            #print(4)
+
         else:
             raise HTTPException(status_code=status_code1, detail=message)
 
     except HTTPException as http_exc:
         # Rilancia l'eccezione HTTP senza modifiche
+        print(http_exc)
         raise http_exc
     except Exception as e:
         # Log dell'errore non HTTP e restituzione di un errore generico
-        logging.error(f"Errore inatteso: {str(e)}")
+        #print(5)
+        logging.error(f"Errore inatteso 5: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
 
 
@@ -289,34 +303,42 @@ def get_pois_data_in_isochrone(request: PoisRequest):
             - **500**: Errore interno del server.
     """
     logging.info(f"Valori coordinate per pois in isocrone: lat={request.coords.lat}, lon={request.coords.lon}")
-
+    #print("get_pois_isochrone ")
     try:
         status_code1, message, node_id = get_id_node_by_coordinates(request.coords)
+        #print("get_id_node_by_coordinates ",status_code1,node_id)
 
         if status_code1 == 200:
             logging.info("Nodo trovato, ottenimento POI...")
+            #print("Nodo trovato, ottenimento POI...")
 
             status_code2, message2, pois_list, total_count = get_detailed_pois_by_node_id(
                 node_id, request.min, request.vel, request.categories
             )
+            #print("get_detailed_pois_by_node_id ", status_code2, node_id)
 
             if status_code2 == 200:
                 # Se vuoi loggare o usare total_count qui, puoi farlo:
                 logging.info(f"Numero totale di POI filtrati: {total_count}")
+                #print(f"Numero totale di POI filtrati: {total_count}")
                 # Ma al frontend ritorni solo la lista dei pois
                 return pois_list
             else:
+                print(f"errore di altro tipo 90")
+
                 # Se c'è un errore di altro tipo, lo gestisci come preferisci
                 raise HTTPException(status_code=status_code2, detail=message2)
 
         else:
+            print(f"errore di altro tipo 91")
+
             # HTTP 404 o 500 se get_id_node_by_coordinates fallisce
             raise HTTPException(status_code=status_code1, detail=message)
 
     except HTTPException as http_exc:
         raise http_exc  # Rilancia l'errore HTTP senza modificarlo
     except Exception as e:
-        logging.error(f"Errore inatteso: {str(e)}")
+        logging.error(f"Errore inatteso 92: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
 
 
@@ -382,15 +404,19 @@ def get_isochrone_parameters(req: PoisRequest):
             raise HTTPException(status_code=404, detail="Isochrone not found")
 
         # 2) /api/get_pois_isochrone
+        #print("2) /api/get_pois_isochrone")
         status_code2, message2, pois_resp, total_count = get_detailed_pois_by_node_id(
             node_id, req.min, req.vel, req.categories
         )
+        print("2.5)     if not isinstance(pois_resp, list):")
 
         if not isinstance(pois_resp, list):
             raise HTTPException(status_code=404, detail="PoIs not found")
 
-        print("Entra")
+        #print("Entra")
         # 3) Calcolo parametri
+        #print("3) Calcolo parametri")
+
         result = compute_isochrone_parameters(
             pois_data=pois_resp,
             isochrone_data=iso_resp,
@@ -486,7 +512,7 @@ async def find_poi_by_coordinates(coords: Coordinates):
         "location.coordinates": [coords.lat, coords.lon]  # attenzione a posizionamento lat/lon
     })
 
-    print("Query result:", poi)
+    #print("Query result:", poi)
 
     if poi:
         return {
