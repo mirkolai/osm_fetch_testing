@@ -10,8 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <a href="/" class="hover:text-gray-300">Home</a>
                     <a href="/search" class="hover:text-gray-300">Nearby search</a>
                     <a href="/discoverArea" class="hover:text-gray-300">Discover areas for you</a>
-                    <a href="#" class="hover:text-gray-300">Compare areas</a>
-                    <a href="#" class="hover:text-gray-300">Advanced functions</a>
+                    <a href="/compareAreas" class="hover:text-gray-300">Compare areas</a>
                 </div>
             </nav>
         `;

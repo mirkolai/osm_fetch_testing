@@ -65,6 +65,11 @@
 
             <div class="mb-4">
                 <label class="form-label">Select services to be displayed in the area</label>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <button class="btn btn-outline-primary btn-sm" type="button" id="select-all-categories">
+                        <i class="fas fa-square"></i> Select All Categories
+                    </button>
+                </div>
                 <div class="light-gray-container">
                     <div class="pointOfInterest-container" id="services-container"></div>
                 </div>
@@ -103,12 +108,49 @@
     document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('services-container');
         const selectedServicesDiv = document.querySelector('.selected-services');
+        const selectAllButton = document.getElementById('select-all-categories');
 
         Object.values(servicesList).forEach(category => {
             const element = document.createElement('service-category');
             element.setAttribute('title', category.title);
             element.setAttribute('services', JSON.stringify(category.services));
             container.appendChild(element);
+        });
+
+        let allSelected = false;
+        
+        selectAllButton.addEventListener('click', () => {
+            const serviceCategories = container.querySelectorAll('service-category');
+            
+            if (!allSelected) {
+                //seleziona tutto
+                serviceCategories.forEach(category => {
+                    const checkboxes = category.shadowRoot.querySelectorAll('input[type="checkbox"]');
+                    checkboxes.forEach(checkbox => {
+                        if (!checkbox.checked) {
+                            checkbox.checked = true;
+                            checkbox.dispatchEvent(new Event('change'));
+                        }
+                    });
+                });
+                
+                selectAllButton.innerHTML = '<i class="fas fa-check-square"></i> Deselect All Categories';
+                allSelected = true;
+            } else {
+                //deseleziona tutto
+                serviceCategories.forEach(category => {
+                    const checkboxes = category.shadowRoot.querySelectorAll('input[type="checkbox"]');
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox.checked) {
+                            checkbox.checked = false;
+                            checkbox.dispatchEvent(new Event('change'));
+                        }
+                    });
+                });
+                
+                selectAllButton.innerHTML = '<i class="fas fa-square"></i> Select All Categories';
+                allSelected = false;
+            }
         });
     });
 </script>
@@ -120,6 +162,6 @@
     });
 </script>
 <script type="module" src="../public/js/search.js"></script>
-<script src="/public/js/navbar.js"></script>
+<script src="/public/js/navbar.js?v=2.0"></script>
 </body>
 </html>
