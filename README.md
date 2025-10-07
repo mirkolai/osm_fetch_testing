@@ -116,3 +116,10 @@ e nella root:
 ```bash
 uvicorn backend.app:app --reload
 ```
+
+
+NOTE LORENZO PALEARI:
+
+per ora ho messo questo sistema per vedere se ho nel DB la città, poi dovrei migliorarlo:
+neighbourhoods.py, riga 24: if city_name and city_name.lower() not in ['torino', 'turin']:
+

@@ -10,6 +10,7 @@ from backend.Poi import *
 from backend.ReverseGeocoding import *
 from backend.Isochrones import *
 from backend.Nodes import *
+from backend.Neighbourhoods import *
 from backend.db import db
 
 logging.basicConfig(
@@ -68,6 +69,13 @@ async def serve_search():
 @app.get("/discoverArea")
 async def serve_discoverArea():
     file_path = os.path.join(VIEWS_DIR, "discoverArea.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
+
+@app.get("/compareAreas")
+async def serve_compareAreas():
+    file_path = os.path.join(VIEWS_DIR, "compareAreas.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
@@ -469,6 +477,106 @@ async def get_node_id(coords: Coordinates):
         status_code, message, node_id = get_id_node_by_coordinates(coords)
         if status_code == 200:
             return {"node_id": node_id}
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/get_all_neighbourhoods")
+async def get_all_neighbourhoods_endpoint(city: str = None):
+    """
+    Restituisce tutti i quartieri disponibili nel database per una città specifica.
+
+    ### Dettagli
+    - Recupera tutti i quartieri dalla collezione `neighbourhood_polygon`.
+    - Valida che la città richiesta sia supportata (attualmente solo Torino).
+    - Converte le coordinate da formato MongoDB [lon, lat] a formato Leaflet [lat, lon].
+    - Restituisce i dati strutturati per la visualizzazione su mappa.
+
+    ### Parametri:
+    - **city** (str, opzionale): Nome della città per cui recuperare i quartieri
+
+    ### Response
+    Lista di oggetti quartiere contenenti:
+    - `id`: ID del quartiere
+    - `coordinates`: Array di coordinate del poligono in formato Leaflet
+    - `bbox`: Bounding box del quartiere
+    - `properties`: Proprietà aggiuntive del quartiere
+
+    ### Esempio di utilizzo
+    ```bash
+    curl -X GET "http://localhost:8000/api/get_all_neighbourhoods?city=Torino"
+    ```
+
+    ### Esempio di risposta
+    ```json
+    [
+        {
+            "id": 1,
+            "coordinates": [
+                [
+                    [45.0703, 7.6869],
+                    [45.0704, 7.6870],
+                    ...
+                ]
+            ],
+            "bbox": [7.6869, 45.0703, 7.6870, 45.0704],
+            "properties": {}
+        }
+    ]
+    ```
+
+    ### Errori:
+    - **404**: Nessun quartiere trovato per la città specificata o città non supportata.
+    - **500**: Errore interno del server.
+    """
+    try:
+        status_code, message, neighbourhoods = get_all_neighbourhoods(city)
+        if status_code == 200:
+            return neighbourhoods
+        else:
+            raise HTTPException(status_code=status_code, detail=message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/get_neighbourhoods_by_coordinates")
+async def get_neighbourhoods_by_coordinates_endpoint(coords: Coordinates):
+    """
+    Trova i quartieri che contengono un punto specifico.
+
+    ### Dettagli
+    - Prende in ingresso coordinate (lat, lon) e ricerca i quartieri che contengono quel punto.
+    - Se la query geospaziale fallisce, restituisce tutti i quartieri disponibili.
+
+    ### Parametri:
+    - **coords**: `Coordinates`
+      - `lat` (float): latitudine
+      - `lon` (float): longitudine
+
+    ### Response
+    Lista di oggetti quartiere che contengono il punto specificato.
+
+    ### Esempio di utilizzo
+    ```bash
+    curl -X POST \\
+        -H "Content-Type: application/json" \\
+        -d '{
+            "lat": 45.0703,
+            "lon": 7.6869
+        }' \\
+        http://localhost:8000/api/get_neighbourhoods_by_coordinates
+    ```
+
+    ### Errori:
+    - **404**: Nessun quartiere trovato per le coordinate specificate.
+    - **500**: Errore interno del server.
+    """
+    try:
+        status_code, message, neighbourhoods = get_neighbourhoods_by_coordinates(coords.lat, coords.lon)
+        if status_code == 200:
+            return neighbourhoods
         else:
             raise HTTPException(status_code=status_code, detail=message)
     except Exception as e:

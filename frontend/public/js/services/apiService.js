@@ -135,4 +135,54 @@ export class ApiService {
             throw error;
         }
     }
+
+    static async fetchAllNeighbourhoods(cityName = null) {
+        try {
+            let url = '/api/get_all_neighbourhoods';
+            if (cityName) {
+                url += `?city=${encodeURIComponent(cityName)}`;
+            }
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching neighbourhoods:', error);
+            throw error;
+        }
+    }
+
+    static async fetchNeighbourhoodsByCoordinates(coordinates) {
+        try {
+            const response = await fetch('/api/get_neighbourhoods_by_coordinates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lat: coordinates[0],
+                    lon: coordinates[1]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching neighbourhoods by coordinates:', error);
+            throw error;
+        }
+    }
 }
