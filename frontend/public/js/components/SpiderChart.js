@@ -23,7 +23,8 @@ export class SpiderChart {
                     { axis: "Proximity", value: 0.2 },
                     { axis: "Density", value: 0.2 },
                     { axis: "Entropy", value: 0.2 },
-                    { axis: "Accessibility", value: 0.2 }
+                    { axis: "Accessibility", value: 0.2 },
+                    { axis: "Closeness", value: 0.2 }
                 ]
             }
         ];
@@ -33,9 +34,17 @@ export class SpiderChart {
 
     initChart() {
         this.cfg = this.options;
+        // Assicurati che tutti i dataset abbiano la stessa struttura degli assi
         this.allAxis = this.data[0].axes.map(i => i.axis);
         this.total = this.allAxis.length;
         this.radius = Math.min(this.cfg.width / 2, this.cfg.height / 2);
+        
+        // Verifica che tutti i dataset abbiano la stessa struttura
+        this.data.forEach((dataset, index) => {
+            if (dataset.axes.length !== this.total) {
+                console.warn(`Dataset ${index} has different number of axes (${dataset.axes.length}) than expected (${this.total})`);
+            }
+        });
 
         // Create the container
         const container = document.getElementById(this.containerId);
@@ -44,8 +53,16 @@ export class SpiderChart {
             return;
         }
 
-        // Create the SVG container
-        container.innerHTML = '';
+        // Preserve existing elements (like legend) and only clear SVG elements
+        const existingLegend = container.querySelector('.legend');
+        const existingTitle = container.querySelector('h6');
+        
+        // Remove only SVG elements, preserve other elements
+        const existingSvg = container.querySelector('svg');
+        if (existingSvg) {
+            existingSvg.remove();
+        }
+        
         this.svg = d3.select(`#${this.containerId}`).append("svg")
             .attr("width", this.cfg.width + this.cfg.margin)
             .attr("height", this.cfg.height + this.cfg.margin)
@@ -93,6 +110,9 @@ export class SpiderChart {
     }
 
     drawAxes() {
+        // remove existing axes 
+        this.g.selectAll(".axis").remove();
+        
         const axis = this.g.selectAll(".axis")
             .data(this.allAxis)
             .enter().append("g")
@@ -110,8 +130,10 @@ export class SpiderChart {
 
         // Draw axis labels
         axis.append("text")
-            .attr("class", "legend")
+            .attr("class", "axis-label")
             .style("font-size", "11px")
+            .style("fill", "#483d8b")
+            .style("font-weight", "500")
             .attr("text-anchor", "middle")
             .attr("dy", "0.35em")
             .attr("x", (d, i) => this.radius * this.cfg.labelFactor * Math.cos(this.angleSlice(i) - Math.PI / 2))
@@ -121,6 +143,10 @@ export class SpiderChart {
     }
 
     drawData() {
+        // remove existing data
+        this.g.selectAll(".radarWrapper").remove();
+        this.g.selectAll(".radarCircleWrapper").remove();
+        
         const radarLine = d3.lineRadial()
             .curve(d3.curveLinearClosed)
             .radius(d => d * this.radius)
@@ -136,7 +162,15 @@ export class SpiderChart {
         blobWrapper.append("path")
             .attr("class", "radarArea")
             .attr("d", d => radarLine(d.axes.map(p => p.value / this.cfg.maxValue)))
-            .style("fill", (d, i) => typeof this.cfg.color === "function" ? this.cfg.color(i) : this.cfg.color)
+            .style("fill", (d, i) => { // choose the color for the area
+                if (typeof this.cfg.color === "function") {
+                    return this.cfg.color(i);
+                } else if (Array.isArray(this.cfg.color)) {
+                    return this.cfg.color[i % this.cfg.color.length];
+                } else {
+                    return this.cfg.color;
+                }
+            })
             .style("fill-opacity", this.cfg.opacityArea)
             .on("mouseover", function() {
                 d3.select(this).transition().duration(200).style("fill-opacity", 0.7);
@@ -150,7 +184,15 @@ export class SpiderChart {
             .attr("class", "radarStroke")
             .attr("d", d => radarLine(d.axes.map(p => p.value / this.cfg.maxValue)))
             .style("stroke-width", this.cfg.strokeWidth + "px")
-            .style("stroke", (d, i) => typeof this.cfg.color === "function" ? this.cfg.color(i) : this.cfg.color)
+            .style("stroke", (d, i) => { // choose the color for the outline
+                if (typeof this.cfg.color === "function") {
+                    return this.cfg.color(i);
+                } else if (Array.isArray(this.cfg.color)) {
+                    return this.cfg.color[i % this.cfg.color.length];
+                } else {
+                    return this.cfg.color;
+                }
+            })
             .style("fill", "none")
             .style("filter", "url(#glow)");
 
@@ -162,7 +204,15 @@ export class SpiderChart {
             .attr("r", this.cfg.dotRadius)
             .attr("cx", (d, i) => this.radius * (d.value / this.cfg.maxValue) * Math.cos(this.angleSlice(i) - Math.PI / 2))
             .attr("cy", (d, i) => this.radius * (d.value / this.cfg.maxValue) * Math.sin(this.angleSlice(i) - Math.PI / 2))
-            .style("fill", (d, i, j) => typeof this.cfg.color === "function" ? this.cfg.color(j) : this.cfg.color)
+            .style("fill", (d, i, j) => { // choose the color for the circles
+                if (typeof this.cfg.color === "function") {
+                    return this.cfg.color(j);
+                } else if (Array.isArray(this.cfg.color)) {
+                    return this.cfg.color[j % this.cfg.color.length];
+                } else {
+                    return this.cfg.color;
+                }
+            })
             .style("fill-opacity", 0.8);
 
         // Create invisible circles for tooltips
@@ -212,7 +262,10 @@ export class SpiderChart {
 
     updateData(newData) {
         this.data = newData;
-        this.svg.remove();
+        // Remove only the SVG, not the entire container content
+        if (this.svg) {
+            this.svg.remove();
+        }
         this.initChart();
     }
 

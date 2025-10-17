@@ -1,6 +1,7 @@
 import { ApiService } from './services/apiService.js';
+import { SpiderChart } from './components/SpiderChart.js';
 
-// funzione debounce per evitare troppe chiamate
+// delay tra le chiamate
 function debounce(func, delay) {
     let timeoutId;
     return function (...args) {
@@ -11,31 +12,106 @@ function debounce(func, delay) {
     };
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina sia caricata
     const elements = {
-        searchInput: document.getElementById('city-search'),
-        suggestionsList: document.getElementById('suggestions'),
-        selectedAddressDiv: document.querySelector('.selected-address'),
-        searchButton: document.getElementById('search-btn'),
-        resetButton: document.getElementById('reset-btn')
+        searchInput: document.getElementById('city-search'), //barra indirizzo
+        suggestionsList: document.getElementById('suggestions'), //indirizzi suggeriti
+        selectedAddressDiv: document.querySelector('.selected-address'), //div per mostrare l'indirizzo selezionato
+        searchButton: document.getElementById('search-btn'), //bottone per ricercare
+        resetButton: document.getElementById('reset-btn'), //bottone per resettare
+        compareButton: document.getElementById('compare-btn') //bottone per confrontare
     };
 
-    let selectedCoordinates = null;
-    let selectedCityName = null;
-    let neighbourhoodLayers = []; // salviamo i layer per rimuoverli dopo
+    let selectedCoordinates = null; //coordinate selezionate
+    let selectedCityName = null; //nome della città selezionata
+    let neighbourhoodLayers = []; //zone colorate
+    let selectedNeighbourhoods = []; //quartieri selezionati
+    let nodeMarkers = []; // pallini 
+    let spiderCharts = []; //in caso in futuro voglia confrontare più di 2 quartieri
+
+    initializeSpiderCharts();
+
+    function initializeSpiderCharts() {
+
+        try {
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js error');
+                return;
+            }
+
+            // dati di default per il spider chart
+            const defaultData = [
+                {
+                    className: "metrics-quartiere1", // classe per il quartiere 1
+                    axes: [ //impostati tutti al valore di default
+                        { axis: "Proximity", value: 0.2 },
+                        { axis: "Density", value: 0.2 },
+                        { axis: "Entropy", value: 0.2 },
+                        { axis: "Accessibility", value: 0.2 },
+                        { axis: "Closeness", value: 0.2 }
+                    ]
+                },
+                {
+                    className: "metrics-quartiere2", // classe per il quartiere 2
+                    axes: [
+                        { axis: "Proximity", value: 0.2 },
+                        { axis: "Density", value: 0.2 },
+                        { axis: "Entropy", value: 0.2 },
+                        { axis: "Accessibility", value: 0.2 },
+                        { axis: "Closeness", value: 0.2 }
+                    ]
+                }
+            ];
+
+            const chart1 = document.getElementById('spider-chart-1'); // contenitore spiderchart
+            if (chart1) {
+                chart1.style.display = 'flex';
+                
+                // titolo del spider chart
+                const title1 = document.createElement('h6');
+                title1.textContent = 'Confronto Quartieri';
+                title1.className = 'spider-chart-title';
+                chart1.appendChild(title1);
+
+                // crea spider chart
+                const spiderChart1 = new SpiderChart('spider-chart-1', {
+                    width: 200,
+                    height: 200,
+                    margin: 100,
+                    maxValue: 1,
+                    levels: 5,
+                    labelFactor: 1.3, // Aumenta la distanza delle etichette dal centro
+                    color: d3.scaleOrdinal(['#483d8b', '#ff6b6b']), // Due colori diversi
+                    data: defaultData
+                });
+
+
+                spiderCharts.push({ id: 'chart1', chart: spiderChart1, container: chart1 }); // aggiunge il spider chart al array
+            }
+
+            // prendi e nascondi il secondo chart
+            const chart2 = document.getElementById('spider-chart-2');
+            if (chart2) {
+                chart2.style.display = 'none';
+            }
+
+        } catch (error) {
+            console.error('Error initializing spider chart:', error);
+        }
+    }
 
     function setupEventListeners() {
-        // setup del toggle della sidebar
+        // setup sidebar e bottone per nasconderla
         function setupSidebarToggle() {
             const sidebar = document.querySelector('.overlay-sidebar');
             const toggleBtn = document.getElementById('sidebar-toggle-btn');
-            const toggleIcon = toggleBtn.querySelector('i');
+            const toggleIcon = toggleBtn.querySelector('i'); // icona del bottone "<"
 
             toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
+                sidebar.classList.toggle('collapsed'); //se ha la classe la toglie, se non la ha la aggiunge
 
                 if (sidebar.classList.contains('collapsed')) {
-                    toggleIcon.classList.remove('bi-chevron-left');
+                    toggleIcon.classList.remove('bi-chevron-left'); 
                     toggleIcon.classList.add('bi-chevron-right');
                 } else {
                     toggleIcon.classList.remove('bi-chevron-right');
@@ -45,29 +121,235 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setupSidebarToggle();
-        elements.searchInput.addEventListener('input', debounce(handleSearchInput, 1500));
-        elements.searchButton.addEventListener('click', handleSearch);
-        elements.resetButton.addEventListener('click', handleReset);
-        document.addEventListener('click', handleOutsideClick);
+        elements.searchInput.addEventListener('input', debounce(handleSearchInput, 1500)); //quando inserisco qualcosa nella barra indirizzo, chiamo la funzione handleSearchInput
+        // funzioni da chiamare quando clicco sui bottoni
+        elements.searchButton.addEventListener('click', handleSearch); 
+        elements.resetButton.addEventListener('click', handleReset); 
+        elements.compareButton.addEventListener('click', handleCompare);
+        document.addEventListener('click', handleOutsideClick); //quando clicco fuori dalla barra indirizzo (ovunque)
     }
 
     function handleReset() {
         elements.searchInput.value = '';
         selectedCoordinates = null;
         selectedCityName = null;
+        selectedNeighbourhoods = [];
         elements.selectedAddressDiv.innerHTML = '';
         elements.suggestionsList.innerHTML = '';
+        updateSelectedNeighbourhoodsDisplay();
 
-        // puliamo i layer dei quartieri
+        // puliamo i quartieri i nodi e gli spider chart
         clearNeighbourhoodLayers();
+        clearNodeMarkers();
+        clearSpiderCharts();
+        
+        // puliamo le variabili globali
+        window.currentNeighbourhoods = null;
+        window.neighbourhoodLayers = {};
 
         if (window.map) {
             window.map.setView([45.0703, 7.6869], 13);
         }
     }
 
+    async function handleCompare() {
+        if (selectedNeighbourhoods.length === 0) {
+            alert('Per favore, seleziona almeno un quartiere per confrontare');
+            return;
+        }
+
+        if (selectedNeighbourhoods.length !== 2) {
+            alert('Devi selezionare esattamente 2 quartieri per confrontarli');
+            return;
+        }
+      
+
+        // Tutte le categorie disponibili
+        const allCategories = [
+            "bar", "cafe", "restaurant",
+            "electric_vehicle_charging_station",
+            "cinema", "internet_cafe", "music_venue",
+            "park", "plaza",
+            "sports_and_fitness_instruction", "sports_and_recreation_venue",
+            "barber", "beauty_salon",
+            "college_university", "educational_services", "school",
+            "atms",
+            "beverage_store", "drugstore", "food", "meat_shop", "pharmacy", "seafood_market", "shopping", "water_store",
+            "ambulance_and_ems_services", "childrens_hospital", "community_health_center", "dentist", "doctor", "emergency_room", "hospital", "medical_center", "urgent_care_clinic", "women's_health_clinic",
+            "pet_services", "veterinarian",
+            "children_hall", "civic_center", "community_center", "community_services", "family_service_center", "library", "police_department", "post_office", "railway_service",
+            "buddhist_temple", "church_cathedral", "hindu_temple", "mosque", "shinto_shrines", "sikh_temple", "synagogue", "temple",
+            "transportation",
+            "bike_repair_maintenance", "child_care_and_day_care", "community_gardens", "emergency_service", "laundry_services", "mailbox_center", "package_locker",
+            "public_plaza"
+        ];
+
+        // Puliamo i marcatori esistenti prima di iniziare
+        clearNodeMarkers();
+        clearSpiderCharts();
+        //non serve pulire le neighbourhoodLayers perchè selezionando un altro quartiere già si pulisce il layer precedente
+
+        // Per ogni quartiere selezionato... (per ora solo 2)
+        for (const neighbourhood of selectedNeighbourhoods) {
+            console.log(`\n=== Processing Neighbourhood ${neighbourhood.id} ===`);
+            
+            // raccoglie le metriche di tutti i nodi del quartiere per poter fare la media
+            const neighbourhoodMetrics = {
+                proximity: [],
+                density: [],
+                entropy: [],
+                accessibility: [],
+                closeness: []
+            };
+            
+            let nodeCoordinates = null;
+            
+             // Estrai le coordinate del quartiere
+            if (neighbourhood.coordinates && neighbourhood.coordinates.length > 0 && neighbourhood.coordinates[0]) {
+                nodeCoordinates = neighbourhood.coordinates[0]; //tutte le coordinate dei nodi di quel quartiere
+                console.log(`Found ${nodeCoordinates.length} nodes in neighbourhood ${neighbourhood.id}`);
+                
+                // Processa ogni nodo del quartiere
+                for (let i = 0; i < nodeCoordinates.length; i++) {
+                    const nodeCoords = nodeCoordinates[i];
+                    //se si interrompe posso vedere quale nodo ha dato problemi
+                    console.log(`\n--- Processing Node ${i + 1}/${nodeCoordinates.length} ---`);
+                    console.log(`Coordinates: [${nodeCoords[0]}, ${nodeCoords[1]}]`);
+                    
+                    // Aggiungi un marker sulla mappa per questo nodo
+                    let marker = null;
+                    if (window.map) {
+                        marker = L.circleMarker([nodeCoords[0], nodeCoords[1]], {
+                            radius: 6,
+                            fillColor: '#ff7800',
+                            color: '#000',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(window.map);
+                        
+                        // Aggiungi popup con informazioni del nodo
+                        marker.bindPopup(`
+                            <div class="popup-content">
+                                <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
+                                <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
+                                <p class="popup-info"><strong>Stato:</strong> In elaborazione...</p>
+                            </div>
+                        `);
+                        
+                        nodeMarkers.push(marker); //aggiunge il marker al array dei marker
+                    }
+                    
+                    try {
+                        // Chiama ApiService.runSearch per questo nodo
+                        const results = await ApiService.runSearch(
+                            [nodeCoords[0], nodeCoords[1]], // coordinates [lat, lon]
+                            15, // minutes
+                            5,  // velocity
+                            allCategories // tutte le categorie
+                        );
+                        
+                        const metrics = results.parameters;
+                        
+                        // Raccogli i risultati per il calcolo della media
+                        if (metrics.proximity_score !== null && metrics.proximity_score !== undefined) {
+                            neighbourhoodMetrics.proximity.push(metrics.proximity_score);
+                        }
+                        if (metrics.density_score !== null && metrics.density_score !== undefined) {
+                            neighbourhoodMetrics.density.push(metrics.density_score);
+                        }
+                        if (metrics.entropy_score !== null && metrics.entropy_score !== undefined) {
+                            neighbourhoodMetrics.entropy.push(metrics.entropy_score);
+                        }
+                        if (metrics.poi_accessibility !== null && metrics.poi_accessibility !== undefined) {
+                            neighbourhoodMetrics.accessibility.push(metrics.poi_accessibility);
+                        }
+                        if (metrics.closeness !== null && metrics.closeness !== undefined) {
+                            neighbourhoodMetrics.closeness.push(metrics.closeness);
+                        }
+                        
+                        // Aggiorna il marker con i risultati
+                        if (marker) {
+                            marker.setPopupContent(`
+                                <div class="popup-content">
+                                    <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
+                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                    <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
+                                    <p class="popup-info"><strong>Proximity:</strong> ${metrics.proximity_score || 'N/A'}</p>
+                                    <p class="popup-info"><strong>Density:</strong> ${metrics.density_score || 'N/A'}</p>
+                                    <p class="popup-info"><strong>Entropy:</strong> ${metrics.entropy_score || 'N/A'}</p>
+                                    <p class="popup-info"><strong>Accessibility:</strong> ${metrics.poi_accessibility || 'N/A'}</p>
+                                    <p class="popup-info"><strong>Closeness:</strong> ${metrics.closeness || 'N/A'}</p>
+                                </div>
+                            `);
+                            
+                            // Cambia colore del marker per indicare completamento
+                            marker.setStyle({
+                                fillColor: '#28a745',
+                                color: '#155724'
+                            });
+                        }
+                        
+                    } catch (error) {
+                        console.error(`Error processing node ${i + 1}:`, error);
+                        
+                        // Aggiorna il marker per indicare errore
+                        if (marker) {
+                            marker.setPopupContent(`
+                                <div class="popup-content">
+                                    <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
+                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                    <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
+                                    <p class="popup-info"><strong>Stato:</strong> <span class="error-message">Errore nell'elaborazione</span></p>
+                                </div>
+                            `);
+                            
+                            marker.setStyle({
+                                fillColor: '#dc3545',
+                                color: '#721c24'
+                            });
+                        }
+                    }
+                }
+            } else {
+                console.log(`No valid coordinates found for neighbourhood ${neighbourhood.id}`);
+            }
+            
+            // otteniamo i valori del quartiere con la media dei valori di ogni nodo
+            const averages = {
+                proximity: neighbourhoodMetrics.proximity.length > 0 ? 
+                    (neighbourhoodMetrics.proximity.reduce((sum, val) => sum + val, 0) / neighbourhoodMetrics.proximity.length).toFixed(4) : 'N/A',
+                density: neighbourhoodMetrics.density.length > 0 ? 
+                    (neighbourhoodMetrics.density.reduce((sum, val) => sum + val, 0) / neighbourhoodMetrics.density.length).toFixed(4) : 'N/A',
+                entropy: neighbourhoodMetrics.entropy.length > 0 ? 
+                    (neighbourhoodMetrics.entropy.reduce((sum, val) => sum + val, 0) / neighbourhoodMetrics.entropy.length).toFixed(4) : 'N/A',
+                accessibility: neighbourhoodMetrics.accessibility.length > 0 ? 
+                    (neighbourhoodMetrics.accessibility.reduce((sum, val) => sum + val, 0) / neighbourhoodMetrics.accessibility.length).toFixed(4) : 'N/A',
+                closeness: neighbourhoodMetrics.closeness.length > 0 ? 
+                    (neighbourhoodMetrics.closeness.reduce((sum, val) => sum + val, 0) / neighbourhoodMetrics.closeness.length).toFixed(4) : 'N/A'
+            };
+            
+            console.log(`VALORI QUARTIERE ${neighbourhood.id}:`);
+            console.log(`   Proximity: ${averages.proximity} (da ${neighbourhoodMetrics.proximity.length} nodi)`);
+            console.log(`   Density: ${averages.density} (da ${neighbourhoodMetrics.density.length} nodi)`);
+            console.log(`   Entropy: ${averages.entropy} (da ${neighbourhoodMetrics.entropy.length} nodi)`);
+            console.log(`   Accessibility: ${averages.accessibility} (da ${neighbourhoodMetrics.accessibility.length} nodi)`);
+            console.log(`   Closeness: ${averages.closeness} (da ${neighbourhoodMetrics.closeness.length} nodi)`);
+            
+            // Aggiorna lo spider chart con i dati di questo quartiere
+            initializeSpiderChart('spider-chart-1', neighbourhood.id, averages);
+        }
+
+        
+        // Stampa un riassunto finale del confronto
+        console.log(`\n🏆 RIASSUNTO FINALE - CONFRONTO TRA ${selectedNeighbourhoods.length} QUARTIERI:`);
+        console.log(`Quartieri analizzati: ${selectedNeighbourhoods.map(n => n.id).join(', ')}`);
+        console.log(`Totale nodi processati: ${nodeMarkers.length}`);
+    }
+
     function clearNeighbourhoodLayers() {
-        // rimuoviamo tutti i layer dei quartieri dalla mappa
+        // rimuoviamo tutti i contorni dei quartieri dalla mappa
         neighbourhoodLayers.forEach(layer => {
             if (window.map && window.map.hasLayer(layer)) {
                 window.map.removeLayer(layer);
@@ -75,6 +357,247 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         neighbourhoodLayers = [];
     }
+
+    function clearNodeMarkers() {
+        // rimuoviamo tutti i marcatori dei nodi dalla mappa
+        nodeMarkers.forEach(marker => {
+            if (window.map && window.map.hasLayer(marker)) {
+                window.map.removeLayer(marker);
+            }
+        });
+        nodeMarkers = [];
+    }
+
+    function clearSpiderCharts() {
+        // valori di default
+        const defaultData = [
+            {
+                className: "metrics-quartiere1",
+                axes: [
+                    { axis: "Proximity", value: 0.2 },
+                    { axis: "Density", value: 0.2 },
+                    { axis: "Entropy", value: 0.2 },
+                    { axis: "Accessibility", value: 0.2 },
+                    { axis: "Closeness", value: 0.2 }
+                ]
+            },
+            {
+                className: "metrics-quartiere2",
+                axes: [
+                    { axis: "Proximity", value: 0.2 },
+                    { axis: "Density", value: 0.2 },
+                    { axis: "Entropy", value: 0.2 },
+                    { axis: "Accessibility", value: 0.2 },
+                    { axis: "Closeness", value: 0.2 }
+                ]
+            }
+        ];
+
+        // Reset chart 
+        const chart1 = document.getElementById('spider-chart-1');
+        if (chart1) {
+            const title1 = chart1.querySelector('h6');
+            if (title1) {
+                title1.textContent = 'Confronto Quartieri';
+            }
+            
+            
+            const chart1Obj = spiderCharts.find(chart => chart.id === 'chart1');
+            if (chart1Obj) {
+                chart1Obj.chart.updateData(defaultData);
+                chart1Obj.id = 'chart1';
+            }
+        }
+
+    }
+
+    function initializeSpiderChart(containerId, neighborhoodId, averages) {
+        try {
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js is not available! Spider chart cannot be initialized.');
+                return;
+            }
+
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Spider chart container ${containerId} not found!`);
+                return;
+            }
+
+            // Mostra il container
+            container.style.display = 'flex';
+
+            // Aggiorna il titolo
+            const title = container.querySelector('h6');
+            if (title) {
+                title.textContent = 'Confronto Quartieri';
+                title.className = 'spider-chart-title';
+            }
+
+
+            // Trova lo spider chart esistente
+            const chartIndex = spiderCharts.findIndex(chart => chart.id === 'chart1');
+            if (chartIndex !== -1) {
+                // Determina se è il primo o secondo quartiere
+                const neighborhoodIndex = selectedNeighbourhoods.indexOf(selectedNeighbourhoods.find(n => n.id === neighborhoodId));
+                const className = neighborhoodIndex === 0 ? "metrics-quartiere1" : "metrics-quartiere2";
+                
+                // Ottieni i dati esistenti del chart
+                let currentData = spiderCharts[chartIndex].chart.data || [];
+                
+                // Se non ci sono dati, inizializza con valori di default
+                if (currentData.length === 0) {
+                    currentData = [
+                        {
+                            className: "metrics-quartiere1",
+                            axes: [
+                                { axis: "Proximity", value: 0.2 },
+                                { axis: "Density", value: 0.2 },
+                                { axis: "Entropy", value: 0.2 },
+                                { axis: "Accessibility", value: 0.2 },
+                                { axis: "Closeness", value: 0.2 }
+                            ]
+                        },
+                        {
+                            className: "metrics-quartiere2",
+                            axes: [
+                                { axis: "Proximity", value: 0.2 },
+                                { axis: "Density", value: 0.2 },
+                                { axis: "Entropy", value: 0.2 },
+                                { axis: "Accessibility", value: 0.2 },
+                                { axis: "Closeness", value: 0.2 }
+                            ]
+                        }
+                    ];
+                }
+                
+                // Aggiorna i dati del quartiere specifico
+                const neighborhoodDataIndex = currentData.findIndex(d => d.className === className);
+                if (neighborhoodDataIndex !== -1) {
+                    currentData[neighborhoodDataIndex] = {
+                        className: className,
+                        axes: [
+                            { axis: "Proximity", value: parseFloat(averages.proximity) || 0.2 },
+                            { axis: "Density", value: parseFloat(averages.density) || 0.2 },
+                            { axis: "Entropy", value: parseFloat(averages.entropy) || 0.2 },
+                            { axis: "Accessibility", value: parseFloat(averages.accessibility) || 0.2 },
+                            { axis: "Closeness", value: parseFloat(averages.closeness) || 0.2 }
+                        ]
+                    };
+                }
+
+                spiderCharts[chartIndex].chart.updateData(currentData);
+                console.log(`Spider chart updated for neighbourhood ${neighborhoodId} (${className})`);
+            }
+            
+        } catch (error) {
+            console.error(`Error updating spider chart for neighbourhood ${neighborhoodId}:`, error);
+        }
+    }
+
+    function toggleNeighbourhoodSelection(neighbourhood, layer) {
+        const neighbourhoodId = neighbourhood.id;
+        const existingIndex = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId);
+        
+        if (existingIndex !== -1) {
+            // Rimuovi dalla selezione
+            selectedNeighbourhoods.splice(existingIndex, 1);
+            // Ripristina il colore originale
+            layer.setStyle({
+                weight: 2,
+                fillOpacity: 0.3
+            });
+        } else {
+            // Controlla se abbiamo già raggiunto il limite di 2 quartieri
+            if (selectedNeighbourhoods.length >= 2) {
+                alert('Puoi selezionare al massimo 2 quartieri per il confronto');
+                return;
+            }
+            
+            // Aggiungi alla selezione
+            selectedNeighbourhoods.push(neighbourhood);
+            // Cambia il colore per indicare la selezione
+            layer.setStyle({
+                weight: 3,
+                fillOpacity: 0.6
+            });
+        }
+        
+        updateSelectedNeighbourhoodsDisplay();
+    }
+
+    function updateSelectedNeighbourhoodsDisplay() {
+        const container = document.getElementById('selected-neighbourhoods');
+        
+        if (selectedNeighbourhoods.length === 0) {
+            container.innerHTML = '<small class="text-muted">Nessun quartiere selezionato</small>';
+            return;
+        }
+        
+        // Aggiungi un messaggio se abbiamo raggiunto il limite massimo
+        let limitMessage = '';
+        if (selectedNeighbourhoods.length === 2) {
+            limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Massimo di 2 quartieri raggiunto</small>';
+        }
+        
+        container.innerHTML = limitMessage + selectedNeighbourhoods.map(neighbourhood => `
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded neighbourhood-item">
+                <span>
+                    <strong>Quartiere ${neighbourhood.id}</strong>
+                </span>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeNeighbourhood(${neighbourhood.id})">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function removeNeighbourhood(neighbourhoodId) {
+        // Rimuovi dalla lista
+        const index = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId);
+        if (index !== -1) {
+            selectedNeighbourhoods.splice(index, 1);
+        }
+        
+        // Ripristina il colore del layer sulla mappa
+        neighbourhoodLayers.forEach(layer => {
+            if (layer.neighbourhoodId === neighbourhoodId) {
+                layer.setStyle({
+                    weight: 2,
+                    fillOpacity: 0.3
+                });
+            }
+        });
+        
+        updateSelectedNeighbourhoodsDisplay();
+    }
+
+    // Rendi le funzioni accessibili globalmente per i click dei bottoni
+    window.removeNeighbourhood = removeNeighbourhood;
+    
+    window.toggleNeighbourhoodFromPopup = function(neighbourhoodId) {
+        // Trova il quartiere nei dati caricati
+        const neighbourhood = window.currentNeighbourhoods ? 
+            window.currentNeighbourhoods.find(n => n.id === neighbourhoodId) : null;
+        
+        if (!neighbourhood) {
+            return;
+        }
+        
+        // Trova il layer corrispondente
+        const layer = window.neighbourhoodLayers ? window.neighbourhoodLayers[neighbourhoodId] : null;
+        
+        if (!layer) {
+            return;
+        }
+        
+        toggleNeighbourhoodSelection(neighbourhood, layer);
+        
+        // Chiudi il popup dopo la selezione
+        if (layer.isPopupOpen()) {
+            layer.closePopup();
+        }
+    };
 
     function extractCityNameFromAddress(address) {
         // estraiamo il nome della città dall'indirizzo
@@ -134,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // estraiamo il nome della città dall'indirizzo
             selectedCityName = extractCityNameFromAddress(addressText);
 
-            // aggiorniamo la visualizzazione dell'indirizzo selezionato
+            // mostro i dati dell'indirizzo
             elements.selectedAddressDiv.innerHTML = `
                 <div class="alert alert-info">
                     <strong>Selected:</strong> ${addressText}<br>
@@ -176,6 +699,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.map || !neighbourhoods || neighbourhoods.length === 0) {
             return;
         }
+        
+        // Salviamo i dati dei quartieri globalmente per accesso dal popup
+        window.currentNeighbourhoods = neighbourhoods;
 
         // definiamo i colori per i quartieri
         const colors = [
@@ -197,29 +723,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     fillOpacity: 0.3
                 });
 
+                // salviamo l'ID del quartiere nel layer per riferimento
+                polygon.neighbourhoodId = neighbourhood.id;
+
                 // aggiungiamo popup con info del quartiere
                 polygon.bindPopup(`
-                    <div>
+                    <div class="neighbourhood-popup">
                         <h6>Quartiere ${neighbourhood.id || index + 1}</h6>
                         <p><strong>ID:</strong> ${neighbourhood.id || 'N/A'}</p>
                         <p><strong>Colore:</strong> ${color}</p>
+                        <button class="btn btn-sm btn-primary" onclick="toggleNeighbourhoodFromPopup(${neighbourhood.id})">
+                            Seleziona/Deseleziona
+                        </button>
                     </div>
                 `);
 
                 // aggiungiamo effetti hover
                 polygon.on('mouseover', function(e) {
-                    this.setStyle({
-                        weight: 3,
-                        fillOpacity: 0.5
-                    });
+                    if (!selectedNeighbourhoods.find(n => n.id === neighbourhood.id)) {
+                        this.setStyle({
+                            weight: 3,
+                            fillOpacity: 0.5
+                        });
+                    }
                 });
 
                 polygon.on('mouseout', function(e) {
-                    this.setStyle({
-                        weight: 2,
-                        fillOpacity: 0.3
-                    });
+                    if (!selectedNeighbourhoods.find(n => n.id === neighbourhood.id)) {
+                        this.setStyle({
+                            weight: 2,
+                            fillOpacity: 0.3
+                        });
+                    }
                 });
+
+                // Salviamo il riferimento del layer per poterlo trovare dopo
+                window.neighbourhoodLayers = window.neighbourhoodLayers || [];
+                window.neighbourhoodLayers[neighbourhood.id] = polygon;
 
                 // aggiungiamo alla mappa e salviamo il riferimento
                 polygon.addTo(window.map);
@@ -238,6 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleOutsideClick(event) {
+        // se clicco fuori dalla barra indirizzo, pulisco i suggerimenti
         if (!elements.searchInput.contains(event.target) && !elements.suggestionsList.contains(event.target)) {
             elements.suggestionsList.innerHTML = '';
         }
