@@ -411,4 +411,99 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupEventListeners();
+    
+    loadUserPreferences();
 });
+
+async function loadUserPreferences() {
+    try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            return null; // non fare niente se non autenticato
+        }
+
+        const response = await fetch('/api/auth/preferences', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const preferences = await response.json();
+            console.log('Loaded user preferences:', preferences);
+            applyPreferencesToUI(preferences);
+            return preferences;
+        } else {
+            console.log('Failed to load preferences, using default settings');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error loading user preferences:', error);
+        return null;
+    }
+}
+
+function applyPreferencesToUI(preferences) {
+    // time
+    const timeSelect = document.querySelector('.time-select');
+    if (timeSelect && preferences.min) {
+        timeSelect.value = `${preferences.min} min`;
+    }
+
+    // travel mode
+    const velocityToButton = {
+        3: 'fa-person-walking-with-cane',   
+        5: 'bi-person-walking',          
+        12: 'bi-bicycle',                 
+        20: 'bi-train-front'               
+    };
+
+    const travelModeButtons = document.querySelectorAll('.btn-group .btn');
+    travelModeButtons.forEach(button => {
+        button.classList.remove('active');
+        const icon = button.querySelector('i');
+        if (icon) {
+            const iconClass = Array.from(icon.classList).find(cls => 
+                velocityToButton[preferences.vel] === cls
+            );
+            if (iconClass) {
+                button.classList.add('active');
+            }
+        }
+    });
+
+    // services
+    if (preferences.categories && preferences.categories.length > 0) {
+        selectServicesInUI(preferences.categories);
+    }
+}
+
+function selectServicesInUI(categoryIds) {
+    // Clear 
+    document.querySelectorAll('service-category').forEach(category => {
+        const checkboxes = category.shadowRoot.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.dispatchEvent(new Event('change'));
+        });
+    });
+
+    document.querySelectorAll('service-category').forEach(category => {
+        const checkboxes = category.shadowRoot.querySelectorAll('input[type="checkbox"]');
+        const mainCategoryCheckbox = checkboxes[0]; //la categoria
+        const subCategoryCheckboxes = Array.from(checkboxes).slice(1); // sottocategorie
+        
+        const mainCategoryId = mainCategoryCheckbox.id;
+        const selectedSubCategories = subCategoryCheckboxes.filter(cb => categoryIds.includes(cb.id));
+        
+        if (categoryIds.includes(mainCategoryId)) {
+            mainCategoryCheckbox.checked = true;
+            mainCategoryCheckbox.dispatchEvent(new Event('change'));
+        } else if (selectedSubCategories.length > 0) {
+            selectedSubCategories.forEach(checkbox => {
+                checkbox.checked = true;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+        }
+    });
+}

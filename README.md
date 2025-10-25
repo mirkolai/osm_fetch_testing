@@ -97,9 +97,9 @@ Quando hai terminato, puoi disattivare l'ambiente virtuale con:
 deactivate
 ```
 ### **SetUp database**
-Assicurati di avere installato docker.
-Se possiedi la cartella db_init inseriscila nella cartella principale (root)
-all'interno della cartella db_init inserisci il file docker-compose che ti è stato inviato.
+Assicurati di avere installato docker e di esserti fatto mandare la cartella db_init e il file docker-compose.
+inserisci il file docker-compose dentro la cartella db_init.
+sposta la cartella db_init nella cartella principale del progetto
 apri un terminale in db_init ed esegui il comando
 ```bash
 docker-compose up
@@ -107,7 +107,7 @@ docker-compose up
 opzionalmente con un applicazione come datagrip puoi visualizzare il DB inserendo i dati che trovi nel docker-compose
 
 ### **Dev Fast Start**
-Una volta setuppato tutto per i successivi avii basterà avviare docker sul proprio dispositivo poi fare i seguenti due comandi:
+Una volta setuppato tutto per i successivi avii basterà avviare docker sul proprio dispositivo poi fare i seguenti due comandi.
 in db_init:
 ```bash
 docker-compose up
@@ -118,8 +118,19 @@ uvicorn backend.app:app --reload
 ```
 
 
-NOTE LORENZO PALEARI:
+## NOTE LORENZO PALEARI:
 
-per ora ho messo questo sistema per vedere se ho nel DB la città, poi dovrei migliorarlo:
+per semplicifare il "cambio di testimone" tra i developer di questo progetto, nel file auth.py ho fatto hardcoding della SECRETKEY, ricordarsi in produzione di spostarla.
+
 neighbourhoods.py, riga 24: if city_name and city_name.lower() not in ['torino', 'turin']:
+in questa fase dello sviluppo abbiamo solo torino, quindi questo codice va bene, ma và cambiato quando verranno aggiunte nuove città
 
+ToDo:
+controllo se ho lasciato codice superfluo dei test
+datetime.utcnow() in auth.py è deprecato
+preferences.dict() in app.py è deprecato
+aggiungere numero massimo di nodi prendibili, if(len>) prendi in modo casuale 10
+nodi in tinta con il quartiere
+grafico in tinta con il quartiere
+aggiungere % o .../10 o barra mentre analizza il quartiere
+controllare per schermi piu piccoli

@@ -315,11 +315,14 @@ nav a:hover {
 }
 
 .selected-services {
-    min-height: 40px;
+    height: 80px;
+    max-height: 80px;
     background-color: white;
     border: 1px solid #dee2e6;
     border-radius: 20px;
-    padding: 8px;
+    padding: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .form-check-input:checked {
@@ -341,6 +344,24 @@ nav a:hover {
 .selected-services .badge i {
     cursor: pointer;
     font-size: 14px;
+}
+
+.selected-services::-webkit-scrollbar {
+    width: 6px;
+}
+
+.selected-services::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.selected-services::-webkit-scrollbar-thumb {
+    background: #483d8b;
+    border-radius: 3px;
+}
+
+.selected-services::-webkit-scrollbar-thumb:hover {
+    background: #372e6b;
 }
 
 .icon-color {
@@ -385,11 +406,11 @@ nav a:hover {
 
 .light-gray-container {
     background-color: #f1f1f1;
-    padding: 16px;
+    padding: 12px;
     border-radius: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     border: 1px solid #dee2e6;
-    height: 150px;
+    height: 120px;
     overflow-y: auto;
 }
 

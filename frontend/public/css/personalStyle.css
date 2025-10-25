@@ -1,0 +1,47 @@
+.sidebar-buttons {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.selected-services-center .badge {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    margin: 0.125rem !important;
+}
+
+.services-container-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.selected-services-center {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
+    position: relative;
+}
+
+#settings-section .light-gray-container {
+    height: 300px !important;
+}
+
+
+
+.selected-services-center::-webkit-scrollbar {
+    width: 6px;
+}
+
+.selected-services-center::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.selected-services-center::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.selected-services-center::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

@@ -424,10 +424,8 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 return;
             }
 
-            // Mostra il container
             container.style.display = 'flex';
 
-            // Aggiorna il titolo
             const title = container.querySelector('h6');
             if (title) {
                 title.textContent = 'Confronto Quartieri';
@@ -445,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 // Ottieni i dati esistenti del chart
                 let currentData = spiderCharts[chartIndex].chart.data || [];
                 
-                // Se non ci sono dati, inizializza con valori di default
+                // se non ci sono dati, inizializza con valori di default
                 if (currentData.length === 0) {
                     currentData = [
                         {
@@ -471,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                     ];
                 }
                 
-                // Aggiorna i dati del quartiere specifico
+                // Aggiorna i dati del quartiere
                 const neighborhoodDataIndex = currentData.findIndex(d => d.className === className);
                 if (neighborhoodDataIndex !== -1) {
                     currentData[neighborhoodDataIndex] = {
@@ -500,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         const existingIndex = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId);
         
         if (existingIndex !== -1) {
-            // Rimuovi dalla selezione
+            // Rimuovi dai selezionati
             selectedNeighbourhoods.splice(existingIndex, 1);
             // Ripristina il colore originale
             layer.setStyle({
@@ -508,13 +506,12 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 fillOpacity: 0.3
             });
         } else {
-            // Controlla se abbiamo già raggiunto il limite di 2 quartieri
             if (selectedNeighbourhoods.length >= 2) {
                 alert('Puoi selezionare al massimo 2 quartieri per il confronto');
                 return;
             }
             
-            // Aggiungi alla selezione
+            // aggiungo alla lista dei selezionati
             selectedNeighbourhoods.push(neighbourhood);
             // Cambia il colore per indicare la selezione
             layer.setStyle({
@@ -534,7 +531,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             return;
         }
         
-        // Aggiungi un messaggio se abbiamo raggiunto il limite massimo
         let limitMessage = '';
         if (selectedNeighbourhoods.length === 2) {
             limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Massimo di 2 quartieri raggiunto</small>';
@@ -553,13 +549,11 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
     }
 
     function removeNeighbourhood(neighbourhoodId) {
-        // Rimuovi dalla lista
         const index = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId);
         if (index !== -1) {
             selectedNeighbourhoods.splice(index, 1);
         }
         
-        // Ripristina il colore del layer sulla mappa
         neighbourhoodLayers.forEach(layer => {
             if (layer.neighbourhoodId === neighbourhoodId) {
                 layer.setStyle({
@@ -572,11 +566,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         updateSelectedNeighbourhoodsDisplay();
     }
 
-    // Rendi le funzioni accessibili globalmente per i click dei bottoni
     window.removeNeighbourhood = removeNeighbourhood;
     
     window.toggleNeighbourhoodFromPopup = function(neighbourhoodId) {
-        // Trova il quartiere nei dati caricati
         const neighbourhood = window.currentNeighbourhoods ? 
             window.currentNeighbourhoods.find(n => n.id === neighbourhoodId) : null;
         
@@ -584,7 +576,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             return;
         }
         
-        // Trova il layer corrispondente
         const layer = window.neighbourhoodLayers ? window.neighbourhoodLayers[neighbourhoodId] : null;
         
         if (!layer) {
@@ -593,15 +584,13 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         
         toggleNeighbourhoodSelection(neighbourhood, layer);
         
-        // Chiudi il popup dopo la selezione
         if (layer.isPopupOpen()) {
             layer.closePopup();
         }
     };
 
     function extractCityNameFromAddress(address) {
-        // estraiamo il nome della città dall'indirizzo
-        // Nominatim usa il formato: "Nome Luogo, Provincia, Regione, Italia"
+        
         const parts = address.split(',');
         if (parts.length >= 1) {
             return parts[0].trim();
@@ -654,10 +643,8 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             const lon = parseFloat(li.dataset.lon);
             selectedCoordinates = [lat, lon];
             
-            // estraiamo il nome della città dall'indirizzo
             selectedCityName = extractCityNameFromAddress(addressText);
 
-            // mostro i dati dell'indirizzo
             elements.selectedAddressDiv.innerHTML = `
                 <div class="alert alert-info">
                     <strong>Selected:</strong> ${addressText}<br>
@@ -680,13 +667,10 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         }
 
         try {
-            // puliamo i layer esistenti dei quartieri
             clearNeighbourhoodLayers();
             
-            // prendiamo tutti i quartieri per la città selezionata
             const neighbourhoods = await ApiService.fetchAllNeighbourhoods(selectedCityName);
             
-            // mostriamo i quartieri sulla mappa
             displayNeighbourhoodsOnMap(neighbourhoods);
             
         } catch (error) {
@@ -700,10 +684,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             return;
         }
         
-        // Salviamo i dati dei quartieri globalmente per accesso dal popup
         window.currentNeighbourhoods = neighbourhoods;
 
-        // definiamo i colori per i quartieri
+        // colori per i quartieri
         const colors = [
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
             '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
@@ -714,7 +697,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             try {
                 const color = colors[index % colors.length];
                 
-                // creiamo il poligono dalle coordinate
                 const polygon = L.polygon(neighbourhood.coordinates, {
                     color: color,
                     weight: 2,
@@ -723,22 +705,19 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                     fillOpacity: 0.3
                 });
 
-                // salviamo l'ID del quartiere nel layer per riferimento
                 polygon.neighbourhoodId = neighbourhood.id;
 
-                // aggiungiamo popup con info del quartiere
+                // pop up quando clicchiamo sul quartiere
                 polygon.bindPopup(`
                     <div class="neighbourhood-popup">
                         <h6>Quartiere ${neighbourhood.id || index + 1}</h6>
-                        <p><strong>ID:</strong> ${neighbourhood.id || 'N/A'}</p>
-                        <p><strong>Colore:</strong> ${color}</p>
                         <button class="btn btn-sm btn-primary" onclick="toggleNeighbourhoodFromPopup(${neighbourhood.id})">
                             Seleziona/Deseleziona
                         </button>
                     </div>
                 `);
 
-                // aggiungiamo effetti hover
+                // effetti hover
                 polygon.on('mouseover', function(e) {
                     if (!selectedNeighbourhoods.find(n => n.id === neighbourhood.id)) {
                         this.setStyle({

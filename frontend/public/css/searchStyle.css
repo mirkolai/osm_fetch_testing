@@ -8,7 +8,7 @@ body {
     left: 45px;
     width: 400px;
     height: auto;
-    max-height: calc(100vh - 100px);
+    max-height: calc(100vh - 120px);
     background-color: #F8F7FA;
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -44,6 +44,7 @@ body {
 .sidebar-content {
     height: auto;
     overflow: visible;
+    padding: 0.75rem;
 }
 
 #suggestions {
@@ -64,7 +65,7 @@ body {
     left: 45px;
     width: 400px;
     height: auto;
-    max-height: calc(100vh - 100px);
+    max-height: calc(100vh - 120px);
     background-color: #F8F7FA;
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);

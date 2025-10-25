@@ -1,6 +1,6 @@
 import logging
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -12,6 +12,8 @@ from backend.Isochrones import *
 from backend.Nodes import *
 from backend.Neighbourhoods import *
 from backend.db import db
+from backend.auth import create_access_token, get_current_user
+from backend.users import create_user, authenticate_user, update_user_preferences, get_user_preferences
 
 logging.basicConfig(
     #level=logging.INFO,
@@ -76,6 +78,13 @@ async def serve_discoverArea():
 @app.get("/compareAreas")
 async def serve_compareAreas():
     file_path = os.path.join(VIEWS_DIR, "compareAreas.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
+
+@app.get("/personalArea")
+async def serve_personalArea():
+    file_path = os.path.join(VIEWS_DIR, "personal.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
@@ -632,3 +641,108 @@ async def find_poi_by_coordinates(coords: Coordinates):
         }
     else:
         raise HTTPException(status_code=404, detail="No node found at the given coordinates.")
+
+
+######## AUTHENTICATION ENDPOINTS
+
+@app.post("/api/auth/register", response_model=User)
+async def register_user(user: UserCreate):
+
+    try:
+        created_user = create_user(user) # crea l'utente nel db, se gia presente ritorna None
+        if created_user:
+            return created_user
+        else:
+            raise HTTPException(status_code=400, detail="Email already registered")
+    except HTTPException: #bubbling up dell'errore
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/auth/token", response_model=Token)
+async def login_user(user: UserLogin):
+    # autentica e restituisce JWT token
+    
+    try:
+        # Verifica credenziali utente nel database
+        authenticated_user = authenticate_user(user.email, user.password)
+        if not authenticated_user:
+            # Se credenziali non valide, restituisce errore 401
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Crea token JWT con l'email 
+        access_token = create_access_token(data={"sub": authenticated_user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_current_user_info(current_user: User = Depends(get_current_user)): # Depends: prima di tutto esegue get_current_user, che usa come parametro
+    # il parametro current_user è di tipo User
+    """
+    richiede autenticazione JWT
+    Restituisce le informazioni dell'utente corrente
+    
+    ### Headers:
+    - **Authorization**: Bearer <token>
+    
+    """
+    return current_user
+
+
+# semplicemente chiama update_user_preferences
+@app.post("/api/auth/preferences")
+async def save_user_preferences(
+    preferences: UserPreferences,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Save user preferences (time, travel mode, services)
+    Requires authentication
+    
+    ### Body:
+    - **min** (int): time in minutes (5, 10, 15, 20)
+    - **vel** (int): velocity in km/h (3, 5, 12, 20)
+    - **categories** (List[str]): array of service IDs
+    """
+    try:
+        success = update_user_preferences(current_user.email, preferences.dict()) # salva nel db l'oggetto dizionario
+        if success:
+            return {"message": "Preferences saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save preferences")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/auth/preferences", response_model=UserPreferences)
+async def get_user_preferences_endpoint(current_user: User = Depends(get_current_user)):
+    """
+    Get user preferences (time, travel mode, services)
+    Requires authentication
+    """
+
+    try:
+        preferences = get_user_preferences(current_user.email)
+        if preferences:
+            return UserPreferences(**preferences)
+        else:
+            # se non trova le preferenze, restituisce le default
+            return UserPreferences(
+                min=15,
+                vel=5,
+                categories=[]
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
