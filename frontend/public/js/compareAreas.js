@@ -1,5 +1,6 @@
 import { ApiService } from './services/apiService.js';
 import { SpiderChart } from './components/SpiderChart.js';
+import { servicesList } from './config/servicesList.js';
 
 // delay tra le chiamate
 function debounce(func, delay) {
@@ -123,6 +124,23 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         document.addEventListener('click', handleOutsideClick); //quando clicco fuori dalla barra indirizzo (ovunque)
     }
 
+    async function getAuthPreferences() {
+        try {
+            const token = localStorage.getItem('access_token');
+            if (!token) return null;
+            const res = await fetch('/api/auth/preferences', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (error) {
+            console.error('Error fetching auth preferences:', error);
+            return null;
+        }
+    }
+
     function handleReset() {
         elements.searchInput.value = '';
         selectedCoordinates = null;
@@ -162,30 +180,23 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             return;
         }
       
+        // Tutte le categorie disponibili prese da servicesList
+        const allCategories = Array.from(new Set(
+            Object.values(servicesList)
+                .flatMap(group => (group?.services || []).map(s => s.id))
+        ));
 
-        // Tutte le categorie disponibili
-        const allCategories = [
-            "bar", "cafe", "restaurant",
-            "electric_vehicle_charging_station",
-            "cinema", "internet_cafe", "music_venue",
-            "park", "plaza",
-            "sports_and_fitness_instruction", "sports_and_recreation_venue",
-            "barber", "beauty_salon",
-            "college_university", "educational_services", "school",
-            "atms",
-            "beverage_store", "drugstore", "food", "meat_shop", "pharmacy", "seafood_market", "shopping", "water_store",
-            "ambulance_and_ems_services", "childrens_hospital", "community_health_center", "dentist", "doctor", "emergency_room", "hospital", "medical_center", "urgent_care_clinic", "women's_health_clinic",
-            "pet_services", "veterinarian",
-            "children_hall", "civic_center", "community_center", "community_services", "family_service_center", "library", "police_department", "post_office", "railway_service",
-            "buddhist_temple", "church_cathedral", "hindu_temple", "mosque", "shinto_shrines", "sikh_temple", "synagogue", "temple",
-            "transportation",
-            "bike_repair_maintenance", "child_care_and_day_care", "community_gardens", "emergency_service", "laundry_services", "mailbox_center", "package_locker",
-            "public_plaza"
-        ];
+        // Preferenze utente se autenticato, altrimenti default
+        const defaults = { minutes: 15, velocity: 5, categories: allCategories };
+        const prefs = await getAuthPreferences();
+        const minutes = Number.isFinite(prefs?.min) ? prefs.min : defaults.minutes;
+        const velocity = Number.isFinite(prefs?.vel) ? prefs.vel : defaults.velocity;
+        const categories = Array.isArray(prefs?.categories) && prefs.categories.length > 0 ? prefs.categories : defaults.categories;
 
         // Puliamo i marcatori esistenti prima di iniziare
         clearNodeMarkers();
         clearSpiderCharts();
+        document.querySelectorAll('[id^="progress-"]').forEach(el => el.textContent = '');
         //non serve pulire le neighbourhoodLayers perchè selezionando un altro quartiere già si pulisce il layer precedente
 
         // Per ogni quartiere selezionato... (per ora solo 2)
@@ -252,9 +263,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                         // Chiama ApiService.runSearch per questo nodo
                         const results = await ApiService.runSearch(
                             [nodeCoords[0], nodeCoords[1]], // coordinates [lat, lon]
-                            15, // minutes
-                            5,  // velocity
-                            allCategories // tutte le categorie
+                            minutes, // minutes
+                            velocity,  // velocity
+                            categories // categorie da preferenze o default
                         );
                         
                         const metrics = results.parameters;
@@ -536,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         
         let limitMessage = '';
         if (selectedNeighbourhoods.length === 2) { //creo solo se ci sono 2 quartieri selezionati
-            limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Node selected </small>';
+            limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Max 2 </small>';
         }
         
         //aggiungi messaggio di limitazioe e i quartieri selezionati

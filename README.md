@@ -129,3 +129,5 @@ in questa fase dello sviluppo abbiamo solo torino, quindi questo codice va bene,
 Ottimizzazioni: codice duplicato, Race Condition, performance, error handling differenti.
 grafico in tinta con il quartiere
 controllare per schermi piu piccoli
+COMPARE AREAS SOLO PER LOGGATI
+parallelcordiantes 0-1 + pulsante per switchare tra chart + una linea è la media cittadina
