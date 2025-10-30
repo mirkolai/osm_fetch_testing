@@ -6,10 +6,10 @@ class AuthManager {
 
     init() {
         this.setupEventListeners();
-        this.checkAuthStatus();
+        this.checkAuthStatus(); //mostra benvenuto o pulsanti di login e registrazione
     }
 
-    setupEventListeners() {
+    setupEventListeners() { // bottoni login,registrazione, submit, logout, back
         document.getElementById('show-login-btn')?.addEventListener('click', () => {
             this.showLoginForm();
         });
@@ -41,12 +41,12 @@ class AuthManager {
         });
     }
 
-    async checkAuthStatus() {
-        if (this.isAuthenticated()) {
+    async checkAuthStatus() { // mostra benvenuto o pulsanti di login e registrazione
+        if (this.isAuthenticated()) { // se ha un token
             try {
-                const user = await this.getCurrentUser();
+                const user = await this.getCurrentUser(); //se il token è valido, recupera l'utente
                 if (user) {
-                    this.showWelcomeSection(user.email);
+                    this.showWelcomeSection(user.email); // mostra benvenuto
                 } else {
                     this.logout();
                 }
@@ -54,20 +54,20 @@ class AuthManager {
                 console.error('Error checking auth status:', error);
                 this.logout();
             }
-        } else {
+        } else { // se non autenticato mostra i pulsanti di login e registrazione
             this.showAuthButtons();
         }
     }
 
-    isAuthenticated() {
+    isAuthenticated() { // true se c'è un token
         return localStorage.getItem(this.tokenKey) !== null;
     }
 
-    getToken() {
+    getToken() { // recupera il token
         return localStorage.getItem(this.tokenKey);
     }
 
-    async register(email, password) {
+    async register(email, password) { //chiama l'API per registrare un nuovo utente
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
@@ -98,7 +98,7 @@ class AuthManager {
         }
     }
 
-    async login(email, password) {
+    async login(email, password) { //chiama l'API per fare il login
         try {
             const response = await fetch('/api/auth/token', {
                 method: 'POST',
@@ -136,7 +136,7 @@ class AuthManager {
         }
     }
 
-    async getCurrentUser() {
+    async getCurrentUser() { // chiama l'API per ottenere l'utente dal token
         try {
             const token = this.getToken();
             if (!token) return null;
@@ -158,7 +158,7 @@ class AuthManager {
         }
     }
 
-    async getUserPreferences() {
+    async getUserPreferences() { // chiama l'API per ottenere le preferenze dell'utente
         try {
             const token = this.getToken();
             if (!token) return null;
@@ -180,32 +180,31 @@ class AuthManager {
         }
     }
 
-    logout() {
+    logout() { //toglie il token, nasconde tutto e mostra i pulsanti di login e registrazione
         localStorage.removeItem(this.tokenKey);
         this.showAuthButtons();
         this.notifyAuthStateChange();
     }
 
-    async handleLogin() {
+    async handleLogin() { // cio che succede quando clicchiamo sul pulsante nel form di login
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
         const errorDiv = document.getElementById('login-error');
 
-        // Validate email in frontend
-        if (!email.includes('@')) {
+        // validazione email
+        if (!email.includes('@')) { 
             this.showError('login-error', 'Inserisci un indirizzo email valido');
             return;
         }
-        
         if (!email.includes('.') || email.split('@')[1].split('.').length < 2) {
             this.showError('login-error', 'Inserisci un indirizzo email valido');
             return;
         }
 
         try {
-            await this.login(email, password);
-            const user = await this.getCurrentUser();
-            await this.showWelcomeSection(user.email);
+            await this.login(email, password); // api login
+            const user = await this.getCurrentUser(); // api user
+            await this.showWelcomeSection(user.email); // mostra benvenuto
             this.hideError('login-error');
             this.notifyAuthStateChange();
         } catch (error) {
@@ -213,32 +212,28 @@ class AuthManager {
         }
     }
 
-    async handleRegister() {
+    async handleRegister() { // pulsante register post form
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
         const errorDiv = document.getElementById('register-error');
         const successDiv = document.getElementById('register-success');
 
-        // Validate email in frontend
+        // validazione email e password
         if (!email.includes('@')) {
             this.hideSuccess('register-success');
             this.showError('register-error', 'Inserisci un indirizzo email valido');
             return;
         }
-        
         if (!email.includes('.') || email.split('@')[1].split('.').length < 2) {
             this.hideSuccess('register-success');
             this.showError('register-error', 'Inserisci un indirizzo email valido');
             return;
         }
-
-        // Validate password in frontend
         if (password.length < 6) {
             this.hideSuccess('register-success');
             this.showError('register-error', 'Password deve essere di almeno 6 caratteri');
             return;
         }
-        
         if (password.length > 72) {
             this.hideSuccess('register-success');
             this.showError('register-error', 'Password non può essere più lunga di 72 caratteri');
@@ -246,15 +241,13 @@ class AuthManager {
         }
 
         try {
-            await this.register(email, password);
+            await this.register(email, password); // api register
+            //mostra risultato
             this.hideError('register-error');
             this.showSuccess('register-success', 'Registrazione completata! Ora puoi effettuare il login.');
+            document.getElementById('register-form-element').reset(); // pulisce il form
             
-            // Clear form
-            document.getElementById('register-form-element').reset();
-            
-            // Switch to login form after 2 seconds
-            setTimeout(() => {
+            setTimeout(() => { // mostra il form di login dopo 2 secondi
                 this.showLoginForm();
                 this.hideSuccess('register-success');
             }, 2000);
@@ -264,7 +257,7 @@ class AuthManager {
         }
     }
 
-    showAuthButtons() {
+    showAuthButtons() { // nasconde tutto e mostra i pulsanti di login e registrazione
         document.getElementById('auth-buttons').style.display = 'block';
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'none';
@@ -275,7 +268,7 @@ class AuthManager {
         document.getElementById('logout-container').style.display = 'none';
     }
 
-    showLoginForm() {
+    showLoginForm() { // nasconde tutto tranne il form di login
         document.getElementById('auth-buttons').style.display = 'none';
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
@@ -287,7 +280,7 @@ class AuthManager {
         this.hideError('login-error');
     }
 
-    showRegisterForm() {
+    showRegisterForm() { // nasconde tutto tranne il form di registrazione
         document.getElementById('auth-buttons').style.display = 'none';
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'block';
@@ -300,7 +293,7 @@ class AuthManager {
         this.hideSuccess('register-success');
     }
 
-    async showWelcomeSection(email) {
+    async showWelcomeSection(email) { // nasconde tutto e carica l'area personale
         document.getElementById('auth-buttons').style.display = 'none';
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'none';
@@ -311,7 +304,6 @@ class AuthManager {
         document.getElementById('logout-container').style.display = 'block';
         document.getElementById('welcome-message').textContent = `Welcome ${email}`;
         
-        // Load and apply user preferences
         await this.loadUserPreferences();
     }
 
@@ -321,7 +313,7 @@ class AuthManager {
         errorDiv.style.display = 'block';
     }
 
-    hideError(elementId) {
+    hideError(elementId) { // nasconde l'elemento passato
         const errorDiv = document.getElementById(elementId);
         errorDiv.style.display = 'none';
     }
@@ -444,7 +436,7 @@ class AuthManager {
         }
     }
 
-    notifyAuthStateChange() {
+    notifyAuthStateChange() { // notifica il cambio di stato dell'autenticazione
         window.dispatchEvent(new CustomEvent('authStateChanged'));
     }
 }
@@ -452,3 +444,4 @@ class AuthManager {
 document.addEventListener('DOMContentLoaded', function() {
     new AuthManager();
 });
+// la classe ci permette di avere piu contesti con i loro token

@@ -422,15 +422,14 @@ async function loadUserPreferences() {
             return null; // non fare niente se non autenticato
         }
 
-        const response = await fetch('/api/auth/preferences', {
+        const response = await fetch('/api/auth/preferences', { // richiede le preferenze dell'utente
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`  
             }
         });
 
-        if (response.ok) {
+        if (response.ok) { 
             const preferences = await response.json();
-            console.log('Loaded user preferences:', preferences);
             applyPreferencesToUI(preferences);
             return preferences;
         } else {

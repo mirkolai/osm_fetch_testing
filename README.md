@@ -118,19 +118,14 @@ uvicorn backend.app:app --reload
 ```
 
 
-## NOTE LORENZO PALEARI:
+## NOTE LORENZO:
 
 per semplicifare il "cambio di testimone" tra i developer di questo progetto, nel file auth.py ho fatto hardcoding della SECRETKEY, ricordarsi in produzione di spostarla.
 
 neighbourhoods.py, riga 24: if city_name and city_name.lower() not in ['torino', 'turin']:
 in questa fase dello sviluppo abbiamo solo torino, quindi questo codice va bene, ma và cambiato quando verranno aggiunte nuove città
 
-ToDo:
-controllo se ho lasciato codice superfluo dei test
-datetime.utcnow() in auth.py è deprecato
-preferences.dict() in app.py è deprecato
-aggiungere numero massimo di nodi prendibili, if(len>) prendi in modo casuale 10
-nodi in tinta con il quartiere
+###ToDo:
+Ottimizzazioni: codice duplicato, Race Condition, performance, error handling differenti.
 grafico in tinta con il quartiere
-aggiungere % o .../10 o barra mentre analizza il quartiere
 controllare per schermi piu piccoli

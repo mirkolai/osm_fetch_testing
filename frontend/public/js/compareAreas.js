@@ -16,10 +16,10 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
     const elements = {
         searchInput: document.getElementById('city-search'), //barra indirizzo
         suggestionsList: document.getElementById('suggestions'), //indirizzi suggeriti
-        selectedAddressDiv: document.querySelector('.selected-address'), //div per mostrare l'indirizzo selezionato
-        searchButton: document.getElementById('search-btn'), //bottone per ricercare
-        resetButton: document.getElementById('reset-btn'), //bottone per resettare
-        compareButton: document.getElementById('compare-btn') //bottone per confrontare
+        selectedAddressDiv: document.querySelector('.selected-address'), //mostra l'indirizzo selezionato
+        searchButton: document.getElementById('search-btn'), //bottone research
+        resetButton: document.getElementById('reset-btn'), //bottone reset
+        compareButton: document.getElementById('compare-btn') //bottone compare
     };
 
     let selectedCoordinates = null; //coordinate selezionate
@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
     let selectedNeighbourhoods = []; //quartieri selezionati
     let nodeMarkers = []; // pallini 
     let spiderCharts = []; //in caso in futuro voglia confrontare più di 2 quartieri
+    let neighbourhoodColors = {}; // mappa dei colori per quartiere
 
     initializeSpiderCharts();
 
@@ -64,15 +65,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             ];
 
             const chart1 = document.getElementById('spider-chart-1'); // contenitore spiderchart
-            if (chart1) {
+            if (chart1) { //se trova il contenitore
                 chart1.style.display = 'flex';
                 
-                // titolo del spider chart
-                const title1 = document.createElement('h6');
-                title1.textContent = 'Confronto Quartieri';
-                title1.className = 'spider-chart-title';
-                chart1.appendChild(title1);
-
                 // crea spider chart
                 const spiderChart1 = new SpiderChart('spider-chart-1', {
                     width: 200,
@@ -80,13 +75,12 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                     margin: 100,
                     maxValue: 1,
                     levels: 5,
-                    labelFactor: 1.3, // Aumenta la distanza delle etichette dal centro
+                    labelFactor: 1.3, //distanza etichette dal centro
                     color: d3.scaleOrdinal(['#483d8b', '#ff6b6b']), // Due colori diversi
                     data: defaultData
                 });
 
-
-                spiderCharts.push({ id: 'chart1', chart: spiderChart1, container: chart1 }); // aggiunge il spider chart al array
+                spiderCharts.push({ id: 'chart1', chart: spiderChart1, container: chart1 }); // aggiunge lo spider chart all'array
             }
 
             // prendi e nascondi il secondo chart
@@ -136,6 +130,10 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         selectedNeighbourhoods = [];
         elements.selectedAddressDiv.innerHTML = '';
         elements.suggestionsList.innerHTML = '';
+        
+        // cancello il progress counter
+        document.querySelectorAll('[id^="progress-"]').forEach(el => el.textContent = '');
+        
         updateSelectedNeighbourhoodsDisplay();
 
         // puliamo i quartieri i nodi e gli spider chart
@@ -146,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         // puliamo le variabili globali
         window.currentNeighbourhoods = null;
         window.neighbourhoodLayers = {};
+        neighbourhoodColors = {};
 
         if (window.map) {
             window.map.setView([45.0703, 7.6869], 13);
@@ -209,11 +208,19 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 nodeCoordinates = neighbourhood.coordinates[0]; //tutte le coordinate dei nodi di quel quartiere
                 console.log(`Found ${nodeCoordinates.length} nodes in neighbourhood ${neighbourhood.id}`);
                 
+                // Limita il numero massimo di nodi analizzabili a 25
+                const maxNodes = Math.min(nodeCoordinates.length, 25);
+                
+                // inizializzo il progress counter
+                const progressElement = document.getElementById(`progress-${neighbourhood.id}`);
+                if (progressElement) {
+                    progressElement.textContent = `0/${maxNodes}`;
+                }
+                
                 // Processa ogni nodo del quartiere
-                for (let i = 0; i < nodeCoordinates.length; i++) {
+                for (let i = 0; i < maxNodes; i++) {
                     const nodeCoords = nodeCoordinates[i];
-                    //se si interrompe posso vedere quale nodo ha dato problemi
-                    console.log(`\n--- Processing Node ${i + 1}/${nodeCoordinates.length} ---`);
+                    console.log(`\n--- Processing Node ${i + 1}/${maxNodes} ---`);
                     console.log(`Coordinates: [${nodeCoords[0]}, ${nodeCoords[1]}]`);
                     
                     // Aggiungi un marker sulla mappa per questo nodo
@@ -232,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                         marker.bindPopup(`
                             <div class="popup-content">
                                 <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
-                                <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${maxNodes}</p>
                                 <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
                                 <p class="popup-info"><strong>Stato:</strong> In elaborazione...</p>
                             </div>
@@ -274,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                             marker.setPopupContent(`
                                 <div class="popup-content">
                                     <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
-                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${maxNodes}</p>
                                     <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
                                     <p class="popup-info"><strong>Proximity:</strong> ${metrics.proximity_score || 'N/A'}</p>
                                     <p class="popup-info"><strong>Density:</strong> ${metrics.density_score || 'N/A'}</p>
@@ -285,9 +292,12 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                             `);
                             
                             // Cambia colore del marker per indicare completamento
+                            // Usa il colore del quartiere se disponibile, altrimenti usa il verde
+                            const neighbourhoodColor = neighbourhoodColors[neighbourhood.id] || '#28a745';
                             marker.setStyle({
-                                fillColor: '#28a745',
-                                color: '#155724'
+                                fillColor: neighbourhoodColor,
+                                color: '#000', // bordo nero 
+                                weight: 1
                             });
                         }
                         
@@ -299,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                             marker.setPopupContent(`
                                 <div class="popup-content">
                                     <h6 class="popup-title">Nodo Quartiere ${neighbourhood.id}</h6>
-                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${nodeCoordinates.length}</p>
+                                    <p class="popup-info"><strong>Posizione:</strong> ${i + 1}/${maxNodes}</p>
                                     <p class="popup-info"><strong>Coordinate:</strong> ${nodeCoords[0].toFixed(6)}, ${nodeCoords[1].toFixed(6)}</p>
                                     <p class="popup-info"><strong>Stato:</strong> <span class="error-message">Errore nell'elaborazione</span></p>
                                 </div>
@@ -310,6 +320,12 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                                 color: '#721c24'
                             });
                         }
+                    }
+                    
+                    // aggiorno il progress counter dopo ogni nodo
+                    const progressElement = document.getElementById(`progress-${neighbourhood.id}`);
+                    if (progressElement) {
+                        progressElement.textContent = `${i + 1}/${maxNodes}`;
                     }
                 }
             } else {
@@ -396,12 +412,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         // Reset chart 
         const chart1 = document.getElementById('spider-chart-1');
         if (chart1) {
-            const title1 = chart1.querySelector('h6');
-            if (title1) {
-                title1.textContent = 'Confronto Quartieri';
-            }
-            
-            
             const chart1Obj = spiderCharts.find(chart => chart.id === 'chart1');
             if (chart1Obj) {
                 chart1Obj.chart.updateData(defaultData);
@@ -425,13 +435,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             }
 
             container.style.display = 'flex';
-
-            const title = container.querySelector('h6');
-            if (title) {
-                title.textContent = 'Confronto Quartieri';
-                title.className = 'spider-chart-title';
-            }
-
 
             // Trova lo spider chart esistente
             const chartIndex = spiderCharts.findIndex(chart => chart.id === 'chart1');
@@ -495,9 +498,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
 
     function toggleNeighbourhoodSelection(neighbourhood, layer) {
         const neighbourhoodId = neighbourhood.id;
-        const existingIndex = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId);
+        const existingIndex = selectedNeighbourhoods.findIndex(n => n.id === neighbourhoodId); //controllo se il quartiere è già selezionato
         
-        if (existingIndex !== -1) {
+        if (existingIndex !== -1) { //se gia selezionato
             // Rimuovi dai selezionati
             selectedNeighbourhoods.splice(existingIndex, 1);
             // Ripristina il colore originale
@@ -505,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 weight: 2,
                 fillOpacity: 0.3
             });
-        } else {
+        } else { //se non era selezionato
             if (selectedNeighbourhoods.length >= 2) {
                 alert('Puoi selezionare al massimo 2 quartieri per il confronto');
                 return;
@@ -532,14 +535,17 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         }
         
         let limitMessage = '';
-        if (selectedNeighbourhoods.length === 2) {
-            limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Massimo di 2 quartieri raggiunto</small>';
+        if (selectedNeighbourhoods.length === 2) { //creo solo se ci sono 2 quartieri selezionati
+            limitMessage = '<small class="text-success d-block mb-2"><i class="bi bi-check-circle"></i> Node selected </small>';
         }
         
+        //aggiungi messaggio di limitazioe e i quartieri selezionati
+        //con anche la progress bar e il pulsante per rimuovere il quartiere
         container.innerHTML = limitMessage + selectedNeighbourhoods.map(neighbourhood => `
             <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded neighbourhood-item">
                 <span>
                     <strong>Quartiere ${neighbourhood.id}</strong>
+                    <span id="progress-${neighbourhood.id}" class="ms-2 text-muted"></span>
                 </span>
                 <button class="btn btn-sm btn-outline-danger" onclick="removeNeighbourhood(${neighbourhood.id})">
                     <i class="bi bi-x"></i>
@@ -568,7 +574,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
 
     window.removeNeighbourhood = removeNeighbourhood;
     
+    // funzione chiamata quando clicchiamo sul bottone "Seleziona/Deseleziona" del quartiere nel popup
     window.toggleNeighbourhoodFromPopup = function(neighbourhoodId) {
+        //recupera quartiere e layer
         const neighbourhood = window.currentNeighbourhoods ? 
             window.currentNeighbourhoods.find(n => n.id === neighbourhoodId) : null;
         
@@ -582,8 +590,9 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             return;
         }
         
+        //se trova entrambi, chiama la funzione per selezionare/deselezionare il quartiere
         toggleNeighbourhoodSelection(neighbourhood, layer);
-        
+        // e chiude il popup
         if (layer.isPopupOpen()) {
             layer.closePopup();
         }
@@ -635,28 +644,28 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         `;
     }
 
-    function attachSuggestionClickHandler(li) {
+    function attachSuggestionClickHandler(li) { //quando premi su un suggerimento
         li.addEventListener('click', () => {
             const addressText = li.textContent.trim();
             elements.searchInput.value = addressText;
             const lat = parseFloat(li.dataset.lat);
             const lon = parseFloat(li.dataset.lon);
-            selectedCoordinates = [lat, lon];
+            selectedCoordinates = [lat, lon]; //salva la posizione selezionata
             
             selectedCityName = extractCityNameFromAddress(addressText);
 
+            //mostra cosa hai selezionato
             elements.selectedAddressDiv.innerHTML = `
                 <div class="alert alert-info">
-                    <strong>Selected:</strong> ${addressText}<br>
                     <small>City: ${selectedCityName}</small><br>
                     <small>Coordinates: ${lat.toFixed(6)}, ${lon.toFixed(6)}</small>
                 </div>
             `;
 
-            if (window.map) {
+            if (window.map) { //centro la mappa sulla città selezionata
                 window.map.setView([lat, lon], 13);
             }
-            elements.suggestionsList.innerHTML = '';
+            elements.suggestionsList.innerHTML = ''; //pulisco i suggerimenti
         });
     }
 
@@ -693,11 +702,12 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
         ];
 
-        neighbourhoods.forEach((neighbourhood, index) => {
+        neighbourhoods.forEach((neighbourhood, index) => { //per ogni quartiere
             try {
-                const color = colors[index % colors.length];
+                const color = colors[index % colors.length]; //scelgo un colore
+                neighbourhoodColors[neighbourhood.id] = color; //lo salvo per quando voglio fare i nodi dello stesso colore
                 
-                const polygon = L.polygon(neighbourhood.coordinates, {
+                const polygon = L.polygon(neighbourhood.coordinates, { //creo quartiere
                     color: color,
                     weight: 2,
                     opacity: 0.8,
@@ -736,7 +746,6 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                     }
                 });
 
-                // Salviamo il riferimento del layer per poterlo trovare dopo
                 window.neighbourhoodLayers = window.neighbourhoodLayers || [];
                 window.neighbourhoodLayers[neighbourhood.id] = polygon;
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional #Optional[str] vuol dire che puo essere str o None
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -27,9 +27,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """crea un token JWT"""
     to_encode = data.copy() # copia il dizionario passato 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta # data corrente + quanto dura il token in giorni
+        expire = datetime.now(timezone.utc) + expires_delta # data corrente + quanto dura il token in giorni
     else: # se non specificato
-        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     
     to_encode.update({"exp": expire}) # aggiunge la data di scadenza al token
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

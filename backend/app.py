@@ -717,7 +717,7 @@ async def save_user_preferences(
     - **categories** (List[str]): array of service IDs
     """
     try:
-        success = update_user_preferences(current_user.email, preferences.dict()) # salva nel db l'oggetto dizionario
+        success = update_user_preferences(current_user.email, preferences.model_dump()) # salva nel db l'oggetto dizionario
         if success:
             return {"message": "Preferences saved successfully"}
         else:
