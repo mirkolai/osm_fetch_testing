@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="../public/css/searchStyle.css">
-    <link rel="stylesheet" href="../public/css/spiderChartStyle.css">
+    <link rel="stylesheet" href="../public/css/ChartsStyle.css">
 
 </head>
 
@@ -56,7 +56,7 @@
                 <button class="btn custom-primary small-btn" type="button" id="compare-btn">Compare</button>
             </div>
             <div class="text-center">
-                <small class="text-muted" style="font-size: 0.7rem;">
+                <small class="text-muted info-text-small">
                     <i class="bi bi-info-circle me-1"></i>
                     Log in to use your preferences
                 </small>
@@ -67,7 +67,11 @@
 
 <!-- Spider Chart Container -->
 <div class="spider-chart-container">
+    <button class="chart-swap-btn" id="chart-swap-btn" title="Toggle visualization">
+        <i class="bi bi-arrow-left-right"></i>
+    </button>
     <div id="spider-chart-1"></div> <!-- container per il primo spider chart -->
+    <div id="parallel-coordinates-1" class="hidden-chart"></div> <!-- container per parallel coordinates -->
     <div class="legend">
         <div class="legend-item">
             <div class="legend-color quartiere1"></div>
@@ -86,6 +90,7 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 
 <script type="module" src="../public/js/components/SpiderChart.js"></script>
+<script type="module" src="../public/js/components/ParallelCoordinates.js"></script>
 <script src="../public/js/map.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {

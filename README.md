@@ -114,6 +114,7 @@ docker-compose up
 ```
 e nella root:
 ```bash
+.venv\Scripts\activate
 uvicorn backend.app:app --reload
 ```
 
@@ -125,9 +126,9 @@ per semplicifare il "cambio di testimone" tra i developer di questo progetto, ne
 neighbourhoods.py, riga 24: if city_name and city_name.lower() not in ['torino', 'turin']:
 in questa fase dello sviluppo abbiamo solo torino, quindi questo codice va bene, ma và cambiato quando verranno aggiunte nuove città
 
-###ToDo:
+## ToDo:
 Ottimizzazioni: codice duplicato, Race Condition, performance, error handling differenti.
 grafico in tinta con il quartiere
 controllare per schermi piu piccoli
 COMPARE AREAS SOLO PER LOGGATI
-parallelcordiantes 0-1 + pulsante per switchare tra chart + una linea è la media cittadina
+aggiungere la linea della media cittadina nel parallelcordiantes

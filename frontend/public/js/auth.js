@@ -302,7 +302,7 @@ class AuthManager {
         document.getElementById('travel-settings-display').style.display = 'block';
         document.getElementById('selected-services-center').style.display = 'block';
         document.getElementById('logout-container').style.display = 'block';
-        document.getElementById('welcome-message').textContent = `Welcome ${email}`;
+        document.getElementById('welcome-message').textContent = `Welcome ${email.split('@')[0]}`;
         
         await this.loadUserPreferences();
     }

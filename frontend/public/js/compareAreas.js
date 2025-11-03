@@ -1,5 +1,6 @@
 import { ApiService } from './services/apiService.js';
 import { SpiderChart } from './components/SpiderChart.js';
+import { ParallelCoordinates } from './components/ParallelCoordinates.js';
 import { servicesList } from './config/servicesList.js';
 
 // delay tra le chiamate
@@ -28,10 +29,13 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
     let neighbourhoodLayers = []; //zone colorate
     let selectedNeighbourhoods = []; //quartieri selezionati
     let nodeMarkers = []; // pallini 
-    let spiderCharts = []; //in caso in futuro voglia confrontare più di 2 quartieri
+    let spiderCharts = [];
+    let parallelCharts = [];
     let neighbourhoodColors = {}; // mappa dei colori per quartiere
+    let currentChartType = 'spider'; // 'spider' o 'parallel'
 
     initializeSpiderCharts();
+    initializeParallelCharts();
 
     function initializeSpiderCharts() {
 
@@ -95,6 +99,59 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         }
     }
 
+    function initializeParallelCharts() {
+        try {
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js error');
+                return;
+            }
+
+            // dati di default per il parallel coordinates
+            const defaultData = [
+                {
+                    className: "metrics-quartiere1",
+                    axes: [
+                        { axis: "Proximity", value: 0.2 },
+                        { axis: "Density", value: 0.2 },
+                        { axis: "Entropy", value: 0.2 },
+                        { axis: "Accessibility", value: 0.2 },
+                        { axis: "Closeness", value: 0.2 }
+                    ]
+                },
+                {
+                    className: "metrics-quartiere2",
+                    axes: [
+                        { axis: "Proximity", value: 0.2 },
+                        { axis: "Density", value: 0.2 },
+                        { axis: "Entropy", value: 0.2 },
+                        { axis: "Accessibility", value: 0.2 },
+                        { axis: "Closeness", value: 0.2 }
+                    ]
+                }
+            ];
+
+            const chart1 = document.getElementById('parallel-coordinates-1');
+            if (chart1) {
+                chart1.style.display = 'none'; // nascondi il parallel chart all'avvio
+                
+                // crea parallel coordinates
+                const parallelChart1 = new ParallelCoordinates('parallel-coordinates-1', {
+                    width: 300,
+                    height: 250,
+                    margin: { top: 70, right: 0, bottom: 10, left: 0 },
+                    maxValue: 1,
+                    color: d3.scaleOrdinal(['#483d8b', '#ff6b6b']),
+                    data: defaultData
+                });
+
+                parallelCharts.push({ id: 'chart1', chart: parallelChart1, container: chart1 });
+            }
+
+        } catch (error) {
+            console.error('Error initializing parallel coordinates:', error);
+        }
+    }
+
     function setupEventListeners() {
         // setup sidebar e bottone per nasconderla
         function setupSidebarToggle() {
@@ -116,12 +173,36 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
         }
 
         setupSidebarToggle();
+        
+        // bottone per cambiare il tipo di chart
+        const swapButton = document.getElementById('chart-swap-btn');
+        if (swapButton) {
+            swapButton.addEventListener('click', toggleChartType);
+        }
+        
         elements.searchInput.addEventListener('input', debounce(handleSearchInput, 1500)); //quando inserisco qualcosa nella barra indirizzo, chiamo la funzione handleSearchInput
         // funzioni da chiamare quando clicco sui bottoni
         elements.searchButton.addEventListener('click', handleSearch); 
         elements.resetButton.addEventListener('click', handleReset); 
         elements.compareButton.addEventListener('click', handleCompare);
         document.addEventListener('click', handleOutsideClick); //quando clicco fuori dalla barra indirizzo (ovunque)
+    }
+
+    function toggleChartType() {
+        const spiderContainer = document.getElementById('spider-chart-1');
+        const parallelContainer = document.getElementById('parallel-coordinates-1');
+        
+        if (currentChartType === 'spider') {
+            // passa al parallel coordinates
+            spiderContainer.style.display = 'none';
+            parallelContainer.style.display = 'flex';
+            currentChartType = 'parallel';
+        } else {
+            // passa al spider chart
+            parallelContainer.style.display = 'none';
+            spiderContainer.style.display = 'flex';
+            currentChartType = 'spider';
+        }
     }
 
     async function getAuthPreferences() {
@@ -219,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 nodeCoordinates = neighbourhood.coordinates[0]; //tutte le coordinate dei nodi di quel quartiere
                 console.log(`Found ${nodeCoordinates.length} nodes in neighbourhood ${neighbourhood.id}`);
                 
-                // Limita il numero massimo di nodi analizzabili a 25
+                // max nodi: 25
                 const maxNodes = Math.min(nodeCoordinates.length, 25);
                 
                 // inizializzo il progress counter
@@ -228,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                     progressElement.textContent = `0/${maxNodes}`;
                 }
                 
-                // Processa ogni nodo del quartiere
+                // per ogni nodo del quartiere
                 for (let i = 0; i < maxNodes; i++) {
                     const nodeCoords = nodeCoordinates[i];
                     console.log(`\n--- Processing Node ${i + 1}/${maxNodes} ---`);
@@ -364,10 +445,21 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             console.log(`   Accessibility: ${averages.accessibility} (da ${neighbourhoodMetrics.accessibility.length} nodi)`);
             console.log(`   Closeness: ${averages.closeness} (da ${neighbourhoodMetrics.closeness.length} nodi)`);
             
-            // Aggiorna lo spider chart con i dati di questo quartiere
+            // Aggiorna i chart con i dati di questo quartiere
             initializeSpiderChart('spider-chart-1', neighbourhood.id, averages);
+            initializeParallelChart('parallel-coordinates-1', neighbourhood.id, averages);
         }
 
+        // assicurati che il chart visibile sia quello corretto
+        const spiderContainer = document.getElementById('spider-chart-1');
+        const parallelContainer = document.getElementById('parallel-coordinates-1');
+        if (currentChartType === 'spider') {
+            spiderContainer.style.display = 'flex';
+            parallelContainer.style.display = 'none';
+        } else {
+            spiderContainer.style.display = 'none';
+            parallelContainer.style.display = 'flex';
+        }
         
         // Stampa un riassunto finale del confronto
         console.log(`\n🏆 RIASSUNTO FINALE - CONFRONTO TRA ${selectedNeighbourhoods.length} QUARTIERI:`);
@@ -420,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             }
         ];
 
-        // Reset chart 
+        // Reset spider chart 
         const chart1 = document.getElementById('spider-chart-1');
         if (chart1) {
             const chart1Obj = spiderCharts.find(chart => chart.id === 'chart1');
@@ -430,6 +522,14 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             }
         }
 
+        // Reset parallel chart
+        const parallelChart1 = document.getElementById('parallel-coordinates-1');
+        if (parallelChart1) {
+            const parallelChart1Obj = parallelCharts.find(chart => chart.id === 'chart1');
+            if (parallelChart1Obj) {
+                parallelChart1Obj.chart.updateData(defaultData);
+            }
+        }
     }
 
     function initializeSpiderChart(containerId, neighborhoodId, averages) {
@@ -445,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 return;
             }
 
-            container.style.display = 'flex';
+            // Non modificare il display qui - sarà gestito da currentChartType
 
             // Trova lo spider chart esistente
             const chartIndex = spiderCharts.findIndex(chart => chart.id === 'chart1');
@@ -504,6 +604,79 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             
         } catch (error) {
             console.error(`Error updating spider chart for neighbourhood ${neighborhoodId}:`, error);
+        }
+    }
+
+    function initializeParallelChart(containerId, neighborhoodId, averages) {
+        try {
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js is not available! Parallel coordinates cannot be initialized.');
+                return;
+            }
+
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Parallel coordinates container ${containerId} not found!`);
+                return;
+            }
+
+            // Trova il parallel chart esistente
+            const chartIndex = parallelCharts.findIndex(chart => chart.id === 'chart1');
+            if (chartIndex !== -1) {
+                // Determina se è il primo o secondo quartiere
+                const neighborhoodIndex = selectedNeighbourhoods.indexOf(selectedNeighbourhoods.find(n => n.id === neighborhoodId));
+                const className = neighborhoodIndex === 0 ? "metrics-quartiere1" : "metrics-quartiere2";
+                
+                // Ottieni i dati esistenti del chart
+                let currentData = parallelCharts[chartIndex].chart.data || [];
+                
+                // se non ci sono dati, inizializza con valori di default
+                if (currentData.length === 0) {
+                    currentData = [
+                        {
+                            className: "metrics-quartiere1",
+                            axes: [
+                                { axis: "Proximity", value: 0.2 },
+                                { axis: "Density", value: 0.2 },
+                                { axis: "Entropy", value: 0.2 },
+                                { axis: "Accessibility", value: 0.2 },
+                                { axis: "Closeness", value: 0.2 }
+                            ]
+                        },
+                        {
+                            className: "metrics-quartiere2",
+                            axes: [
+                                { axis: "Proximity", value: 0.2 },
+                                { axis: "Density", value: 0.2 },
+                                { axis: "Entropy", value: 0.2 },
+                                { axis: "Accessibility", value: 0.2 },
+                                { axis: "Closeness", value: 0.2 }
+                            ]
+                        }
+                    ];
+                }
+                
+                // Aggiorna i dati del quartiere
+                const neighborhoodDataIndex = currentData.findIndex(d => d.className === className);
+                if (neighborhoodDataIndex !== -1) {
+                    currentData[neighborhoodDataIndex] = {
+                        className: className,
+                        axes: [
+                            { axis: "Proximity", value: parseFloat(averages.proximity) || 0.2 },
+                            { axis: "Density", value: parseFloat(averages.density) || 0.2 },
+                            { axis: "Entropy", value: parseFloat(averages.entropy) || 0.2 },
+                            { axis: "Accessibility", value: parseFloat(averages.accessibility) || 0.2 },
+                            { axis: "Closeness", value: parseFloat(averages.closeness) || 0.2 }
+                        ]
+                    };
+                }
+
+                parallelCharts[chartIndex].chart.updateData(currentData);
+                console.log(`Parallel coordinates updated for neighbourhood ${neighborhoodId} (${className})`);
+            }
+            
+        } catch (error) {
+            console.error(`Error updating parallel coordinates for neighbourhood ${neighborhoodId}:`, error);
         }
     }
 
