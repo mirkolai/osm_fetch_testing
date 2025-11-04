@@ -1,4 +1,7 @@
 
+# Preview
+![Demo dell'app](TesiVideo.gif)
+
 # FastAPI Application
 
 Benvenuto! Questa guida ti aiuterà a configurare l'ambiente e a eseguire questa applicazione **FastAPI** sulla tua macchina.
