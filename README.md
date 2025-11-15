@@ -122,16 +122,19 @@ uvicorn backend.app:app --reload
 ```
 
 
-## NOTE LORENZO:
+## Note Lorenzo - ToDo:
 
 per semplicifare il "cambio di testimone" tra i developer di questo progetto, nel file auth.py ho fatto hardcoding della SECRETKEY, ricordarsi in produzione di spostarla.
 
-neighbourhoods.py, riga 24: if city_name and city_name.lower() not in ['torino', 'turin']:
-in questa fase dello sviluppo abbiamo solo torino, quindi questo codice va bene, ma và cambiato quando verranno aggiunte nuove città
+migliorare la selezione della citta in compare areas, che ora prende solo cio che c'è prima della virgola e prende solo torino (neighbourhoods.py, riga 24)
 
-## ToDo:
-Ottimizzazioni: codice duplicato, Race Condition, performance, error handling differenti.
+per l'analisi di un intero quartiere ho usato solo i nodi di confine, gli stessi usati per disegnare i quartieri, è migliorabile analizzando nodi casuali all'interno del quartiere 
+
+Ottimizzazioni: codice duplicato, Race Condition, performance(analizzare i 2 quartieri in parallelo).
+
 grafico in tinta con il quartiere
 controllare per schermi piu piccoli
+
 COMPARE AREAS SOLO PER LOGGATI
+
 aggiungere la linea della media cittadina nel parallelcordiantes

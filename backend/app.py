@@ -362,11 +362,7 @@ def get_pois_data_in_isochrone(request: PoisRequest):
 @app.post("/api/get_isochrone_parameters")
 def get_isochrone_parameters(req: PoisRequest):
     """
-        Calcola alcuni parametri avanzati per l'isocrona, tra cui:
-        - Proximity
-        - Density
-        - Entropy
-        - Poi Accessibility
+        Calcola Proximity, Density, Entropy, Poi Accessibility
 
         ### Dettagli
         1. Calcola l'isocrona in base a **coords**, **min** e **vel**.

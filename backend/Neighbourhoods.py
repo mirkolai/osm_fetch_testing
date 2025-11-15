@@ -153,6 +153,5 @@ def get_neighbourhoods_by_coordinates(lat: float, lon: float) -> Tuple[int, str,
         
     except Exception as e:
         logging.error(f"Error finding neighbourhoods by coordinates: {str(e)}")
-        # se la query geospaziale fallisce, prendiamo tutti i quartieri
         logging.info("Falling back to get all neighbourhoods")
         return get_all_neighbourhoods()
