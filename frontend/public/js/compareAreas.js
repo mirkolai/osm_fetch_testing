@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             
              // Estrai le coordinate del quartiere
             if (neighbourhood.coordinates && neighbourhood.coordinates.length > 0 && neighbourhood.coordinates[0]) {
-                nodeCoordinates = neighbourhood.coordinates[0]; //tutte le coordinate dei nodi di quel quartiere
+                nodeCoordinates = neighbourhood.coordinates; //tutte le coordinate dei nodi di quel quartiere
                 console.log(`Found ${nodeCoordinates.length} nodes in neighbourhood ${neighbourhood.id}`);
                 
                 // max nodi: 25
@@ -312,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 // per ogni nodo del quartiere
                 for (let i = 0; i < maxNodes; i++) {
                     const nodeCoords = nodeCoordinates[i];
+                    console.log(nodeCoords)
                     console.log(`\n--- Processing Node ${i + 1}/${maxNodes} ---`);
                     console.log(`Coordinates: [${nodeCoords[0]}, ${nodeCoords[1]}]`);
                     
@@ -863,7 +864,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
             clearNeighbourhoodLayers();
             
             const neighbourhoods = await ApiService.fetchAllNeighbourhoods(selectedCityName);
-            
+            console.log(neighbourhoods)
             displayNeighbourhoodsOnMap(neighbourhoods);
             
         } catch (error) {
@@ -891,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => { // aspetta che la pagina s
                 const color = colors[index % colors.length]; //scelgo un colore
                 neighbourhoodColors[neighbourhood.id] = color; //lo salvo per quando voglio fare i nodi dello stesso colore
                 
-                const polygon = L.polygon(neighbourhood.coordinates, { //creo quartiere
+                const polygon = L.polygon(neighbourhood.borders, { //creo quartiere
                     color: color,
                     weight: 2,
                     opacity: 0.8,

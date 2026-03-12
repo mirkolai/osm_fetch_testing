@@ -641,7 +641,7 @@ async def get_neighbourhoods_by_coordinates_endpoint(coords: Coordinates):
 
 
 ######## API DI TESTING
-
+"""
 # Endpoint per trovare il nodo più vicino a un punto specifico
 @app.post("/api/nodes/nearest/")
 async def find_nearest_node(coords: Coordinates):
@@ -738,14 +738,14 @@ async def login_user(user: UserLogin):
 @app.get("/api/auth/me", response_model=User)
 async def get_current_user_info(current_user: User = Depends(get_current_user)): # Depends: prima di tutto esegue get_current_user, che usa come parametro
     # il parametro current_user è di tipo User
-    """
+    """"""
     richiede autenticazione JWT
     Restituisce le informazioni dell'utente corrente
     
     ### Headers:
     - **Authorization**: Bearer <token>
     
-    """
+    """""""
     return current_user
 
 
@@ -755,7 +755,7 @@ async def save_user_preferences(
     preferences: UserPreferences,
     current_user: User = Depends(get_current_user)
 ):
-    """
+    """"""
     Save user preferences (time, travel mode, services)
     Requires authentication
     
@@ -763,15 +763,7 @@ async def save_user_preferences(
     - **min** (int): time in minutes (5, 10, 15, 20)
     - **vel** (int): velocity in km/h (3, 5, 12, 20)
     - **categories** (List[str]): array of service IDs
-    """
-    print("qui")
-    import pydantic
-    print(pydantic.__version__)
-    print(current_user.email)
-    print("1")
-
-    print(preferences.model_dump())
-    print("2")
+    """"""
 
     try:
         success = update_user_preferences(current_user.email, preferences.model_dump()) # salva nel db l'oggetto dizionario
@@ -785,10 +777,10 @@ async def save_user_preferences(
 
 @app.get("/api/auth/preferences", response_model=UserPreferences)
 async def get_user_preferences_endpoint(current_user: User = Depends(get_current_user)):
-    """
+    """"""
     Get user preferences (time, travel mode, services)
     Requires authentication
-    """
+    """"""
 
     try:
         preferences = get_user_preferences(current_user.email)
@@ -803,3 +795,5 @@ async def get_user_preferences_endpoint(current_user: User = Depends(get_current
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
+
+"""

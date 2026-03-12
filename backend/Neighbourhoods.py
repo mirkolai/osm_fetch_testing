@@ -1,3 +1,4 @@
+import random
 from typing import Union, List, Tuple, Dict
 from backend.db import db
 import logging
@@ -42,7 +43,16 @@ def get_all_neighbourhoods(city_name: str = None) -> Tuple[int, str, Union[List[
                 # prendiamo la geometria del convex_hull
                 geometry = neighbourhood.get("geometry", {})
                 convex_hull = geometry.get("convex_hull", {})
-                
+                intersections = neighbourhood.get("nodes", {})
+                intersections = random.sample(intersections, 50)
+                print("intersection",intersections)
+                node_coordinates = []
+                for intersection in intersections:
+                    print("intersection",intersection)
+                    coordinate = db["nodes"].find_one({"node_id": int(intersection) })
+                    print("coordinate",coordinate)
+                    node_coordinates.append([coordinate["location"]["coordinates"][1], coordinate["location"]["coordinates"][0]])
+
                 if convex_hull and "features" in convex_hull:
                     features = convex_hull["features"]
                     
@@ -62,7 +72,8 @@ def get_all_neighbourhoods(city_name: str = None) -> Tuple[int, str, Union[List[
                                 
                                 neighbourhood_data = {
                                     "id": neighbourhood.get("id"),
-                                    "coordinates": polygon_coords,
+                                    "borders": polygon_coords,#polygon_coords,
+                                    "coordinates": node_coordinates,#polygon_coords,
                                     "bbox": bbox,
                                     "properties": feature.get("properties", {})
                                 }
