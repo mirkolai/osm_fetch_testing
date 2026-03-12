@@ -1,7 +1,7 @@
 export class ApiService {
     static async fetchPlaces(query) {
         try {
-            const response = await fetch('/api/reverse_geocoding', {
+            const response = await fetch('/api/geocoding', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: query })

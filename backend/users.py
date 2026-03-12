@@ -75,7 +75,12 @@ def authenticate_user(email: str, password: str) -> Optional[User]:
 
 def update_user_preferences(email: str, preferences: dict) -> bool:
     """aggiorna le preferenze dell'utente nel db"""
+    print("quo")
+    print(email,preferences)
     try:
+        resutls = db["users"].find()
+        for result in resutls:
+            print(result)
         result = db["users"].update_one( #nella tabella users, aggiorna le preferenze dell'utente con la email passata
             {"email": email},
             {"$set": {"preferences": preferences}}

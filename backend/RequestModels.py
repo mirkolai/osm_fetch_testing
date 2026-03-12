@@ -15,7 +15,7 @@ class Coordinates(BaseModel):
     lon: float
 
 
-class ReverseGeocodingRequest(BaseModel):
+class GeocodingRequest(BaseModel):
     text: str
 
 
@@ -61,3 +61,12 @@ class UserPreferences(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class ReverseGeocodingRequest(BaseModel):
+    lat: float  # Latitudine
+    lon: float  # Longitudine
+
+class Place(BaseModel):
+    name: str
+    importance: float
+    coordinates: List[float]

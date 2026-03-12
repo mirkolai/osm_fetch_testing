@@ -14,9 +14,9 @@ function updateNavbar() {
     //decido cosa deve essere il pulsante di autenticazione
     let personalAreaLink = '';
     if (isAuthenticated) {
-        personalAreaLink = `<a href="/personalArea" class="hover:text-gray-300">Area Personale</a>`;
+        personalAreaLink = `<a href="/personalArea" class="hover:text-gray-300">Personal Area</a>`;
     } else {
-        personalAreaLink = `<a href="/personalArea" class="hover:text-gray-300">Accedi</a>`;
+        personalAreaLink = `<a href="/personalArea" class="hover:text-gray-300">Login</a>`;
     }
 
     //html della navbar

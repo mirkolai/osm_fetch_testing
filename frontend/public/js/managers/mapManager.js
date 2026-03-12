@@ -3,12 +3,34 @@ export class MapManager {
         this.map = map;
         this.isochroneLayer = null;
         this.poiMarkers = [];
+        this.mainMarker = null;
     }
 
     clearPoiMarkers() {
         this.poiMarkers.forEach(marker => this.map.removeLayer(marker));
         this.poiMarkers = [];
     }
+
+    updateMainMarker(lat, lon, title = 'You are here') {
+        // Se esiste già un main marker lo rimuove (ma NON tocca i POI)
+        if (this.mainMarker) {
+            this.map.removeLayer(this.mainMarker);
+        }
+
+        const icon = L.divIcon({
+            html: `<i class="fa-solid fa-location-dot" style="color:#ff0000; font-size:28px;"></i>`,
+            className: 'main-marker-icon',
+            iconSize: [30, 30],
+            iconAnchor: [15, 30]
+        });
+
+        this.mainMarker = L.marker([lat, lon], { icon });
+
+        this.mainMarker.bindPopup(`<strong>${title}</strong>`);
+
+        this.mainMarker.addTo(this.map);
+    }
+
 
     addPoiMarkers(pois) {
         this.clearPoiMarkers();

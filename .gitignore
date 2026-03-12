@@ -164,3 +164,11 @@ backend/docker-compose.yml
 backend/Dockerfile
 backend/db.py
 db_init
+/test 1 mostra neighbourhoods.py
+/test2.py
+/test3.py
+/utils.py
+.idea/*
+/mongo_production/
+.idea/misc.xml
+.idea/osm_fetch_testing.iml

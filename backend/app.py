@@ -89,8 +89,8 @@ async def serve_personalArea():
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-@app.post("/api/reverse_geocoding")
-def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
+@app.post("/api/geocoding")
+def geocoding(request: GeocodingRequest) -> List[Place]:
     """
     Ricerca indirizzi tramite Nominatim e restituisce la posizione geocodificata.
 
@@ -152,6 +152,58 @@ def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
                                 "loc": [],
                                 "msg": message,
                                 "type": status_code}])
+
+
+
+
+
+
+@app.post("/api/reverse_geocoding")
+def app_reverse_geocoding(request: ReverseGeocodingRequest) -> List[Place]:
+    """
+    Esegui il reverse geocoding tramite Nominatim e restituisce il nome del luogo.
+
+    Questo endpoint consente di ottenere il nome del luogo a partire dalle coordinate (latitudine, longitudine).
+    L'implementazione utilizza il servizio di reverse geocoding di Nominatim basato su OpenStreetMap.
+
+    Parametri:
+    ----------
+    - **request**: `ReverseGeocodingRequest`
+        - `lat` (float): Latitudine del punto.
+        - `lon` (float): Longitudine del punto.
+
+    Risposta:
+    ---------
+    Una lista di oggetti `Place` contenente:
+    - `name` (str): Nome del luogo.
+    - `importance` (float): Indicatore di rilevanza.
+    - `coordinates` (List[float]): Le coordinate di latitudine e longitudine.
+
+    Errori:
+    -------
+    - **400**: Parametri non validi.
+    - **500**: Errore interno o servizio Nominatim non disponibile.
+    """
+    lat, lon = request.lat, request.lon
+    url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+
+    try:
+        response = requests.get(url)
+        data = response.json()
+
+        if 'error' in data:
+            raise HTTPException(status_code=500, detail="Errore nel reverse geocoding.")
+
+        # Estrarre il nome e la rilevanza dal risultato di Nominatim
+        result = [{
+            "name": data.get("display_name", "Luogo non trovato"),
+            "importance": data.get("importance", 0.0),
+            "coordinates": [lat, lon]
+        }]
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore nel servizio Nominatim: {str(e)}")
 
 
 @app.post("/api/get_isochrone")
@@ -712,6 +764,15 @@ async def save_user_preferences(
     - **vel** (int): velocity in km/h (3, 5, 12, 20)
     - **categories** (List[str]): array of service IDs
     """
+    print("qui")
+    import pydantic
+    print(pydantic.__version__)
+    print(current_user.email)
+    print("1")
+
+    print(preferences.model_dump())
+    print("2")
+
     try:
         success = update_user_preferences(current_user.email, preferences.model_dump()) # salva nel db l'oggetto dizionario
         if success:

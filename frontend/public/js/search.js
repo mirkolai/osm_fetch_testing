@@ -266,13 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSuggestionsList(places);
         } catch (error) {
             console.error('Error during search:', error);
-            elements.suggestionsList.innerHTML = '<li class="list-group-item">Errore durante la ricerca</li>';
+            elements.suggestionsList.innerHTML = '<li class="list-group-item">Error during search.</li>';
         }
     }
 
     function updateSuggestionsList(places) {
         if (!places || places.length === 0) {
-            elements.suggestionsList.innerHTML = '<li class="list-group-item">Nessun risultato trovato</li>';
+            elements.suggestionsList.innerHTML = '<li class="list-group-item">Result not found.</li>';
             return;
         }
 
@@ -294,6 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachSuggestionClickHandler(li) {
         li.addEventListener('click', () => {
             elements.searchInput.value = li.textContent.trim();
+            name = elements.searchInput.value;
             const lat = parseFloat(li.dataset.lat);
             const lon = parseFloat(li.dataset.lon);
             selectedCoordinates = [lat, lon];
@@ -301,6 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.map) {
                 window.map.setView([lat, lon], 13);
             }
+            mapManager.updateMainMarker(lat, lon,name);
+
             elements.suggestionsList.innerHTML = '';
         });
     }
@@ -323,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSearch() {
         if (!selectedCoordinates) {
-            alert('Per favore, seleziona prima una località dalla barra di ricerca');
+            alert('Please select a location from the search bar first.');
             return;
         }
 
@@ -350,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Error in handleSearch:', error);
-            alert('Errore durante la ricerca. Per favore riprova.');
+            alert('There was an error while searching. Please try again.');
         } finally {
             document.body.style.cursor = 'default';
             updateSidebarHeight();
