@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Study - Ringraziamenti</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        
+        .thanks-container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .thanks-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 60px 40px;
+            text-align: center;
+        }
+        
+        .thanks-icon {
+            font-size: 100px;
+            color: #667eea;
+            margin-bottom: 30px;
+            animation: bounce 0.6s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .thanks-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .thanks-subtitle {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        .thanks-message {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 40px;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .info-value {
+            font-size: 14px;
+            color: #333;
+            word-break: break-all;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 40px;
+        }
+        
+        .btn-action {
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .btn-outline-secondary {
+            background: white;
+            border: 2px solid #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-outline-secondary:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .progress-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #e8f4f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 24px;
+        }
+        
+        .checkmark {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            animation: scaleIn 0.6s ease-out;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="thanks-container">
+        <div class="thanks-card">
+            <div class="progress-circle">
+                <div class="checkmark">
+                    <i class="bi bi-check-lg"></i>
+                </div>
+            </div>
+            
+            <h1 class="thanks-title">Grazie!</h1>
+            
+            <p class="thanks-subtitle">
+                Il tuo contributo è stato registrato con successo
+            </p>
+            
+            <p class="thanks-message">
+                Grazie mille per aver partecipato a questo studio sulla accessibilità dei servizi urbani. 
+                Il tuo feedback è preziosissimo per aiutarci a comprendere meglio come le persone 
+                percepiscono la disponibilità e l'accessibilità dei servizi nel loro quartiere.
+                <br><br>
+                I dati che hai fornito verranno utilizzati esclusivamente per scopi di ricerca 
+                e contribuiranno allo sviluppo di strategie di pianificazione urbana più inclusive 
+                e accessibili.
+            </p>
+            
+            <div class="info-box">
+                <div class="info-label"><i class="bi bi-check-circle me-2"></i>Sessione Completata</div>
+                <div class="info-value" id="session-info">
+                    <!-- Session info will be inserted here -->
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-label"><i class="bi bi-info-circle me-2"></i>Informazioni sulla Privacy</div>
+                <div class="info-value" style="font-size: 13px;">
+                    I tuoi dati sono completamente anonimizzati e identificati solo mediante l'ID della sessione. 
+                    Nessun dato personale verrà conservato o condiviso con terzi.
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="btn btn-primary-custom btn-action" onclick="downloadData()">
+                    <i class="bi bi-download me-2"></i> Scarica i Tuoi Dati
+                </button>
+                <a href="/" class="btn btn-outline-secondary btn-action">
+                    <i class="bi bi-house me-2"></i> Torna alla Home
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let sessionId = sessionStorage.getItem('session_id');
+        
+        if (!sessionId) {
+            alert('Errore: Session non trovata.');
+            window.location.href = '/userstudy/welcome';
+        }
+        
+        document.getElementById('session-info').textContent = `ID Sessione: ${sessionId}`;
+        
+        // Marca la sessione come completata
+        async function completeSession() {
+            try {
+                const response = await fetch('/api/userstudy/session/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+                
+                const data = await response.json();
+                console.log('Sessione marcata come completata:', data);
+            } catch (error) {
+                console.error('Errore nel completamento della sessione:', error);
+            }
+        }
+        
+        async function downloadData() {
+            try {
+                const response = await fetch('/api/userstudy/session/get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    // Crea un file JSON con i dati
+                    const dataStr = JSON.stringify(data.session, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    
+                    // Crea un link di download
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `userstudy_data_${sessionId}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Errore nel download dei dati. Prova di nuovo.');
+                }
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore di rete. Prova di nuovo.');
+            }
+        }
+        
+        // Al caricamento della pagina, marca la sessione come completata
+        window.addEventListener('load', completeSession);
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@ import logging
 import os
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from backend.RequestModels import *
 from backend.Parameters import *
@@ -14,6 +14,7 @@ from backend.Neighbourhoods import *
 from backend.db import db
 from backend.auth import create_access_token, get_current_user
 from backend.users import create_user, authenticate_user, update_user_preferences, get_user_preferences
+from backend.userstudy_routes import router as userstudy_router
 
 logging.basicConfig(
     #level=logging.INFO,
@@ -32,59 +33,75 @@ VIEWS_DIR = os.path.join(FRONTEND_DIR, "views")
 app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 app.mount("/views", StaticFiles(directory=VIEWS_DIR), name="views")
 
+# Registra i route dello user study
+app.include_router(userstudy_router)
+
 
 # Modello per i dati del nodo
 
 
 @app.get("/")
-async def serve_frontend():
-    file_path = os.path.join(VIEWS_DIR, "index.html")
+async def root():
+    return RedirectResponse(url="/userstudy/welcome", status_code=302)
+
+
+# ============================================================
+# USER STUDY ROUTES
+# No authentication required - Completely anonymous sessions
+# ============================================================
+
+@app.get("/userstudy/welcome")
+async def serve_userstudy_welcome():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_welcome.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-
-@app.get("/search")
-async def serve_search():
-    """
-        Ritorna la pagina principale del frontend.
-
-        ### Dettagli
-        Questa rotta serve il file `index.html` dal progetto frontend, se presente.
-        Utilizzata principalmente per l’accesso iniziale all’applicazione.
-
-        ### Response
-        - **200**: Restituisce la pagina HTML se il file esiste.
-        - **404**: Restituisce un JSON con `{"error": "File not found"}` se non esiste il file `index.html`.
-
-        ### Esempio di utilizzo
-        ```bash
-        # GET sulla root dell'app
-        curl -X GET http://localhost:8000/
-        ```
-    """
-    file_path = os.path.join(VIEWS_DIR, "search.html")
+@app.get("/userstudy/questionnaire1")
+async def serve_userstudy_questionnaire1():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_questionnaire1.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-@app.get("/discoverArea")
-async def serve_discoverArea():
-    file_path = os.path.join(VIEWS_DIR, "discoverArea.html")
+@app.get("/userstudy/questionnaire2")
+async def serve_userstudy_questionnaire2():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_questionnaire2.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-@app.get("/compareAreas")
-async def serve_compareAreas():
-    file_path = os.path.join(VIEWS_DIR, "compareAreas.html")
+@app.get("/userstudy/search")
+async def serve_userstudy_search():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_search.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
 
-@app.get("/personalArea")
-async def serve_personalArea():
-    file_path = os.path.join(VIEWS_DIR, "personal.html")
+@app.get("/userstudy/personal")
+async def serve_userstudy_personal():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_personal.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
+
+@app.get("/userstudy/results")
+async def serve_userstudy_results():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_results.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
+
+@app.get("/userstudy/questionnaire3")
+async def serve_userstudy_questionnaire3():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_questionnaire3.html")
+    if not os.path.exists(file_path):
+        return {"error": "File not found", "path": file_path}
+    return FileResponse(file_path)
+
+@app.get("/userstudy/thanks")
+async def serve_userstudy_thanks():
+    file_path = os.path.join(VIEWS_DIR, "userstudy_thanks.html")
     if not os.path.exists(file_path):
         return {"error": "File not found", "path": file_path}
     return FileResponse(file_path)
@@ -641,7 +658,7 @@ async def get_neighbourhoods_by_coordinates_endpoint(coords: Coordinates):
 
 
 ######## API DI TESTING
-"""
+
 # Endpoint per trovare il nodo più vicino a un punto specifico
 @app.post("/api/nodes/nearest/")
 async def find_nearest_node(coords: Coordinates):
@@ -738,14 +755,14 @@ async def login_user(user: UserLogin):
 @app.get("/api/auth/me", response_model=User)
 async def get_current_user_info(current_user: User = Depends(get_current_user)): # Depends: prima di tutto esegue get_current_user, che usa come parametro
     # il parametro current_user è di tipo User
-    """"""
+    """
     richiede autenticazione JWT
     Restituisce le informazioni dell'utente corrente
     
     ### Headers:
     - **Authorization**: Bearer <token>
     
-    """""""
+    """
     return current_user
 
 
@@ -755,7 +772,7 @@ async def save_user_preferences(
     preferences: UserPreferences,
     current_user: User = Depends(get_current_user)
 ):
-    """"""
+    """
     Save user preferences (time, travel mode, services)
     Requires authentication
     
@@ -763,7 +780,7 @@ async def save_user_preferences(
     - **min** (int): time in minutes (5, 10, 15, 20)
     - **vel** (int): velocity in km/h (3, 5, 12, 20)
     - **categories** (List[str]): array of service IDs
-    """"""
+    """
 
     try:
         success = update_user_preferences(current_user.email, preferences.model_dump()) # salva nel db l'oggetto dizionario
@@ -777,10 +794,10 @@ async def save_user_preferences(
 
 @app.get("/api/auth/preferences", response_model=UserPreferences)
 async def get_user_preferences_endpoint(current_user: User = Depends(get_current_user)):
-    """"""
+    """
     Get user preferences (time, travel mode, services)
     Requires authentication
-    """"""
+    """
 
     try:
         preferences = get_user_preferences(current_user.email)
@@ -796,4 +813,3 @@ async def get_user_preferences_endpoint(current_user: User = Depends(get_current
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-"""

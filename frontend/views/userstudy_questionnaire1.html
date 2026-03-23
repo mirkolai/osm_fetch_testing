@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Study - Questionario 1</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .questionnaire-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .questionnaire-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar-container {
+            margin-bottom: 30px;
+        }
+        
+        .step-progress {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-section h5 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .form-check {
+            margin-bottom: 12px;
+        }
+        
+        .form-check-input {
+            border-color: #ddd;
+            cursor: pointer;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .form-check-label {
+            cursor: pointer;
+            margin-left: 8px;
+            color: #555;
+        }
+        
+        .form-select {
+            border-color: #ddd;
+            color: #555;
+        }
+        
+        .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-nav {
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: space-between;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .error-message {
+            display: none;
+            color: #d32f2f;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="questionnaire-container">
+        <div class="questionnaire-card">
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="step-progress">Passo 1 / 7 - Dati Demografici</div>
+                <div class="progress">
+                    <div class="progress-bar" style="width: 14.3%"></div>
+                </div>
+            </div>
+            
+            <h2 style="color: #333; margin-bottom: 30px;">Dati Demografici</h2>
+            
+            <div id="error-message" class="error-message"></div>
+            
+            <form id="demographics-form">
+                <!-- Age Group -->
+                <div class="form-section">
+                    <h5>1. Qual è la tua fascia d'età?</h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="<18" id="age1">
+                        <label class="form-check-label" for="age1">&lt; 18 anni</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="18-24" id="age2">
+                        <label class="form-check-label" for="age2">18 – 24</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="25-34" id="age3">
+                        <label class="form-check-label" for="age3">25 – 34</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="35-44" id="age4">
+                        <label class="form-check-label" for="age4">35 – 44</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="45-54" id="age5">
+                        <label class="form-check-label" for="age5">45 – 54</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="55-64" id="age6">
+                        <label class="form-check-label" for="age6">55 – 64</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="age_group" value="65+" id="age7">
+                        <label class="form-check-label" for="age7">65+</label>
+                    </div>
+                </div>
+                
+                <!-- Gender -->
+                <div class="form-section">
+                    <h5>2. In quale genere ti identifichi?</h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gender" value="donna" id="gender1">
+                        <label class="form-check-label" for="gender1">Donna</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gender" value="uomo" id="gender2">
+                        <label class="form-check-label" for="gender2">Uomo</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gender" value="altro" id="gender3">
+                        <label class="form-check-label" for="gender3">Altro</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gender" value="non-rispondere" id="gender4">
+                        <label class="form-check-label" for="gender4">Preferisco non rispondere</label>
+                    </div>
+                </div>
+                
+                <!-- Education Level -->
+                <div class="form-section">
+                    <h5>3. Qual è il tuo livello di istruzione più alto completato?</h5>
+                    <select class="form-select" name="education_level" required>
+                        <option value="">Seleziona un'opzione</option>
+                        <option value="media">Scuola dell'obbligo (licenza media o inferiore)</option>
+                        <option value="superiore">Diploma di scuola superiore</option>
+                        <option value="triennale">Laurea triennale</option>
+                        <option value="magistrale">Laurea magistrale / Specialistica / Ciclo unico</option>
+                        <option value="master_dottorato">Master / Dottorato di ricerca / Specializzazione post-laurea</option>
+                    </select>
+                </div>
+                
+                <!-- Education Field -->
+                <div class="form-section">
+                    <h5>4. Qual è il tuo ambito di istruzione principale?</h5>
+                    <select class="form-select" name="education_field" required>
+                        <option value="">Seleziona un'opzione</option>
+                        <option value="umanistico">Umanistico / Letterario</option>
+                        <option value="linguistico">Linguistico / Turistico</option>
+                        <option value="scientifico">Scientifico</option>
+                        <option value="informatico">Informatico</option>
+                        <option value="comunicazione">Comunicazione / ICT</option>
+                        <option value="economico">Economico</option>
+                        <option value="giuridico">Giuridico / Politico</option>
+                        <option value="medico">Medico / Sanitario</option>
+                        <option value="psicologico">Psicologico / Sociale / Educativo</option>
+                        <option value="artistico">Artistico / Design / Architettura</option>
+                        <option value="ingegneristico">Ingegneristico</option>
+                        <option value="agrario">Agrario / Agroalimentare</option>
+                        <option value="sportivo">Sportivo / Motorio</option>
+                    </select>
+                </div>
+                
+                <!-- Occupation -->
+                <div class="form-section">
+                    <h5>5. Qual è la tua attuale occupazione principale?</h5>
+                    <select class="form-select" name="occupation" required>
+                        <option value="">Seleziona un'opzione</option>
+                        <option value="studente">Studente</option>
+                        <option value="studente_lavoratore">Studente lavoratore</option>
+                        <option value="lavoratore_dipendente">Lavoratore dipendente</option>
+                        <option value="autonomo">Lavoratore autonomo / Libero professionista</option>
+                        <option value="imprenditore">Imprenditore / Titolare d'azienda</option>
+                        <option value="disoccupato">Disoccupato / in cerca di occupazione</option>
+                        <option value="pensionato">Pensionato</option>
+                        <option value="casalingo">Casalinga/o</option>
+                    </select>
+                </div>
+                
+                <!-- Transport Modes -->
+                <div class="form-section">
+                    <h5>6. Quali sono i mezzi di trasporto che utilizzi più frequentemente?</h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="auto" id="transport1">
+                        <label class="form-check-label" for="transport1">Auto</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="mezzi_pubblici" id="transport2">
+                        <label class="form-check-label" for="transport2">Mezzi pubblici</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="moto" id="transport3">
+                        <label class="form-check-label" for="transport3">Moto/scooter</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="bicicletta" id="transport4">
+                        <label class="form-check-label" for="transport4">Bicicletta/monopattino</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="piedi" id="transport5">
+                        <label class="form-check-label" for="transport5">A piedi</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="transport_modes" value="treno" id="transport6">
+                        <label class="form-check-label" for="transport6">Treno</label>
+                    </div>
+                </div>
+                
+                <!-- Housing Type -->
+                <div class="form-section">
+                    <h5>7. In che tipo di abitazione vivi?</h5>
+                    <select class="form-select" name="housing_type" required>
+                        <option value="">Seleziona un'opzione</option>
+                        <option value="appartamento">Appartamento</option>
+                        <option value="casa_indipendente">Casa indipendente</option>
+                        <option value="villetta_schiera">Villetta a schiera</option>
+                        <option value="coliving">Co-living</option>
+                        <option value="cohousing">Co-housing</option>
+                        <option value="universitaria">Residenza universitaria</option>
+                    </select>
+                </div>
+                
+                <!-- Urban Area -->
+                <div class="form-section">
+                    <h5>8. In quale area urbana vivi?</h5>
+                    <select class="form-select" name="urban_area" required>
+                        <option value="">Seleziona un'opzione</option>
+                        <option value="centro">Centro città</option>
+                        <option value="periferia">Periferia</option>
+                        <option value="suburbana">Area suburbana / Comuni limitrofi</option>
+                        <option value="rurale">Zona rurale / Campagna</option>
+                    </select>
+                </div>
+                
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button type="button" class="btn btn-outline-secondary btn-nav" onclick="history.back()">
+                        <i class="bi bi-arrow-left me-2"></i> Indietro
+                    </button>
+                    <button type="submit" class="btn btn-primary-custom btn-nav">
+                        Avanti <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <div id="loading-spinner" class="loading-spinner">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Caricamento...</span>
+                </div>
+                <p>Salvataggio in corso...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('demographics-form');
+        const errorMessage = document.getElementById('error-message');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        
+        let sessionId = sessionStorage.getItem('session_id');
+        
+        if (!sessionId) {
+            errorMessage.textContent = 'Errore: Session non trovata. Torna alla pagina di inizio.';
+            errorMessage.style.display = 'block';
+        }
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.style.display = 'none';
+            
+            // Raccogliere i dati del form
+            const formData = new FormData(form);
+            
+            // Verificare che tutti i campi obbligatori siano compilati
+            if (!formData.get('age_group') || !formData.get('gender')) {
+                errorMessage.textContent = 'Errore: Compila tutti i campi obbligatori.';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            // Raccogliere i checkbox di transport_modes
+            const transportModes = [];
+            document.querySelectorAll('input[name="transport_modes"]:checked').forEach(checkbox => {
+                transportModes.push(checkbox.value);
+            });
+            
+            const demographics = {
+                age_group: formData.get('age_group'),
+                gender: formData.get('gender'),
+                education_level: formData.get('education_level'),
+                education_field: formData.get('education_field'),
+                occupation: formData.get('occupation'),
+                transport_modes: transportModes,
+                housing_type: formData.get('housing_type'),
+                urban_area: formData.get('urban_area')
+            };
+            
+            loadingSpinner.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/userstudy/demographics/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        demographics: demographics
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    // Vai al prossimo passo
+                    window.location.href = '/userstudy/questionnaire2';
+                } else {
+                    errorMessage.textContent = `Errore: ${data.detail || 'Non è stato possibile salvare i dati.'}`;
+                    errorMessage.style.display = 'block';
+                    loadingSpinner.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Errore:', error);
+                errorMessage.textContent = 'Errore di rete. Prova di nuovo.';
+                errorMessage.style.display = 'block';
+                loadingSpinner.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

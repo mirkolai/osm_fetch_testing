@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Study - Questionario 3</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .questionnaire-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .questionnaire-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar-container {
+            margin-bottom: 30px;
+        }
+        
+        .step-progress {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .form-section h5 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .form-section-desc {
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border: none;
+        }
+        
+        .input-number {
+            width: 80px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 8px;
+        }
+        
+        .input-number:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .textarea-custom {
+            width: 100%;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .textarea-custom:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            outline: none;
+        }
+        
+        .btn-nav {
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: space-between;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .error-message {
+            display: none;
+            color: #d32f2f;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 8px;
+        }
+        
+        .form-section:last-of-type {
+            border-bottom: none;
+        }
+        
+        .section-divider {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            margin: 30px 0 20px 0;
+            padding: 15px 15px;
+            border-radius: 4px;
+        }
+        
+        .section-divider h6 {
+            color: #667eea;
+            font-weight: 600;
+            margin: 0;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="questionnaire-container">
+        <div class="questionnaire-card">
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="step-progress">Passo 6 / 7 - Valutazione Post-Esplorazione</div>
+                <div class="progress">
+                    <div class="progress-bar" style="width: 85.7%"></div>
+                </div>
+            </div>
+            
+            <h2 style="color: #333; margin-bottom: 30px;">La Tua Percezione Dopo l'Esplorazione</h2>
+            
+            <p style="color: #888; margin-bottom: 25px;">
+                Dopo aver esplorato la mappa interattiva, valutiamo nuovamente come percepisci il tuo quartiere.
+            </p>
+            
+            <div id="error-message" class="error-message"></div>
+            
+            <form id="postexploration-form">
+                <!-- Accessibility -->
+                <div class="form-section">
+                    <h5>Accessibilità (Comodità)</h5>
+                    <p class="form-section-desc">Quanto ritieni accessibile il tuo quartiere in termini di facilità nel fruire dei servizi?</p>
+                    <div class="slider-labels">
+                        <span>Per nulla accessibile</span>
+                        <span>Molto accessibile</span>
+                    </div>
+                    <input type="range" name="accessibility" min="0" max="5" value="2" class="slider" id="accessibility">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="accessibility-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Proximity Average -->
+                <div class="form-section">
+                    <h5>Vicinanza (Distanza media)</h5>
+                    <p class="form-section-desc">Quanto tempo impieghi a piedi al massimo per raggiungere in media i servizi essenziali?</p>
+                    <div class="slider-container">
+                        <span>Minuti:</span>
+                        <input type="number" name="proximity_avg_minutes" class="input-number" min="0" max="180" value="15" required>
+                    </div>
+                </div>
+                
+                <!-- Proximity Max -->
+                <div class="form-section">
+                    <h5>Vicinanza (Distanza massima)</h5>
+                    <p class="form-section-desc">Quanto tempo impieghi a raggiungere il più distante dei servizi essenziali a piedi?</p>
+                    <div class="slider-container">
+                        <span>Minuti:</span>
+                        <input type="number" name="proximity_max_minutes" class="input-number" min="0" max="180" value="30" required>
+                    </div>
+                </div>
+                
+                <!-- Density -->
+                <div class="form-section">
+                    <h5>Densità (Quantità)</h5>
+                    <p class="form-section-desc">Come valuteresti la quantità complessiva di servizi disponibili a breve distanza da casa tua?</p>
+                    <div class="slider-labels">
+                        <span>Nessuno</span>
+                        <span>Tanti</span>
+                    </div>
+                    <input type="range" name="density" min="0" max="5" value="2" class="slider" id="density">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="density-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Entropy -->
+                <div class="form-section">
+                    <h5>Varietà (Diversità)</h5>
+                    <p class="form-section-desc">Come valuteresti la varietà tipologica dei servizi vicini a casa tua?</p>
+                    <div class="slider-labels">
+                        <span>Nessuna varietà</span>
+                        <span>Molta varietà</span>
+                    </div>
+                    <input type="range" name="entropy" min="0" max="5" value="2" class="slider" id="entropy">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="entropy-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Closeness -->
+                <div class="form-section">
+                    <h5>Connettività (Collegamento)</h5>
+                    <p class="form-section-desc">Quanto ritieni che il tuo quartiere sia ben collegato al resto della città utilizzando modalità sostenibili?</p>
+                    <div class="slider-labels">
+                        <span>Per nulla collegato</span>
+                        <span>Molto collegato</span>
+                    </div>
+                    <input type="range" name="closeness" min="0" max="5" value="2" class="slider" id="closeness">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="closeness-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Question Divider -->
+                <div class="section-divider">
+                    <h6><i class="bi bi-question-circle me-2"></i>Domande Aggiuntive</h6>
+                </div>
+                
+                <!-- Platform Understanding -->
+                <div class="form-section">
+                    <h5>Impatto della Piattaforma sulla Comprensione</h5>
+                    <p class="form-section-desc">Quanto l'utilizzo della piattaforma ti ha aiutato a comprendere con maggiore precisione le reali distanze e i tempi per raggiungere i servizi?</p>
+                    <div class="slider-labels">
+                        <span>Per niente</span>
+                        <span>Moltissimo</span>
+                    </div>
+                    <input type="range" name="platform_understanding_help" min="0" max="5" value="2" class="slider" id="understanding">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="understanding-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Opinion Revision -->
+                <div class="form-section">
+                    <h5>Revisione della Tua Opinione</h5>
+                    <p class="form-section-desc">In che misura i risultati personalizzati della piattaforma ti hanno portato a rivedere la tua opinione iniziale sulla qualità dei servizi nella tua zona?</p>
+                    <div class="slider-labels">
+                        <span>Per niente</span>
+                        <span>Moltissimo</span>
+                    </div>
+                    <input type="range" name="opinion_revision" min="0" max="5" value="2" class="slider" id="opinion">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="slider-value" id="opinion-value">2</span> / 5
+                    </div>
+                </div>
+                
+                <!-- Comments -->
+                <div class="form-section" style="border-bottom: none;">
+                    <h5>Commenti Finali</h5>
+                    <p class="form-section-desc">Hai altri commenti o osservazioni sulla percezione della tua zona o sull'impatto che questa piattaforma ha avuto su di te?</p>
+                    <textarea name="additional_comments" class="textarea-custom" placeholder="Scrivi qui i tuoi commenti..."></textarea>
+                </div>
+                
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button type="button" class="btn btn-outline-secondary btn-nav" onclick="history.back()">
+                        <i class="bi bi-arrow-left me-2"></i> Indietro
+                    </button>
+                    <button type="submit" class="btn btn-primary-custom btn-nav">
+                        Avanti <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <div id="loading-spinner" class="loading-spinner">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Caricamento...</span>
+                </div>
+                <p>Salvataggio in corso...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Update slider values display
+        const sliders = document.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+            const valueSpan = document.getElementById(`${slider.id}-value`);
+            if (valueSpan) {
+                slider.addEventListener('input', (e) => {
+                    valueSpan.textContent = e.target.value;
+                });
+            }
+        });
+        
+        const form = document.getElementById('postexploration-form');
+        const errorMessage = document.getElementById('error-message');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        
+        let sessionId = sessionStorage.getItem('session_id');
+        
+        if (!sessionId) {
+            errorMessage.textContent = 'Errore: Session non trovata. Torna alla pagina di inizio.';
+            errorMessage.style.display = 'block';
+        }
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.style.display = 'none';
+            
+            const formData = new FormData(form);
+            
+            const postexploration = {
+                accessibility: parseInt(formData.get('accessibility')),
+                proximity_avg_minutes: parseInt(formData.get('proximity_avg_minutes')),
+                proximity_max_minutes: parseInt(formData.get('proximity_max_minutes')),
+                density: parseInt(formData.get('density')),
+                entropy: parseInt(formData.get('entropy')),
+                closeness: parseInt(formData.get('closeness')),
+                platform_understanding_help: parseInt(formData.get('platform_understanding_help')),
+                opinion_revision: parseInt(formData.get('opinion_revision')),
+                additional_comments: formData.get('additional_comments') || ''
+            };
+            
+            loadingSpinner.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/userstudy/postexploration/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        postexploration: postexploration
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    window.location.href = '/userstudy/thanks';
+                } else {
+                    errorMessage.textContent = `Errore: ${data.detail || 'Non è stato possibile salvare i dati.'}`;
+                    errorMessage.style.display = 'block';
+                    loadingSpinner.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Errore:', error);
+                errorMessage.textContent = 'Errore di rete. Prova di nuovo.';
+                errorMessage.style.display = 'block';
+                loadingSpinner.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

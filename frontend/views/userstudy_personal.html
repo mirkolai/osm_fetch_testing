@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Study - Selezione Categorie</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../public/css/style.css">
+    <link rel="stylesheet" href="../public/css/ChartsStyle.css">
+    <link rel="stylesheet" href="../public/css/personalStyle.css">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .container-custom {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .card-custom {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar-container {
+            margin-bottom: 30px;
+        }
+        
+        .step-progress {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+        }
+        
+        .section-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 25px;
+            font-size: 18px;
+        }
+        
+        .section-description {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .settings-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .setting-group {
+            margin-bottom: 20px;
+        }
+        
+        .setting-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .form-select {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+        
+        .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .categories-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .category-item {
+            position: relative;
+        }
+        
+        .category-checkbox {
+            display: none;
+        }
+        
+        .category-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-weight: 500;
+            font-size: 13px;
+            gap: 8px;
+            color: #555;
+            background: white;
+        }
+        
+        .category-checkbox:checked + .category-label {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
+        
+        .category-label:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .selected-categories {
+            background: #f0f0ff;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .selected-categories.show {
+            display: block;
+        }
+        
+        .category-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin: 5px 5px 5px 0;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: space-between;
+        }
+        
+        .btn-nav {
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .btn-primary-custom:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 15px;
+            display: none;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-custom">
+        <div class="card-custom">
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="step-progress">Passo 4 / 7 - Selezione Categorie</div>
+                <div class="progress">
+                    <div class="progress-bar" style="width: 57.1%"></div>
+                </div>
+            </div>
+            
+            <h2 class="section-title">
+                <i class="bi bi-map me-2"></i> Configura l'Esplorazione
+            </h2>
+            
+            <p class="section-description">
+                Seleziona i parametri di viaggio e le categorie di servizi che desideri visualizzare.
+            </p>
+            
+            <!-- Settings Section -->
+            <div class="settings-section">
+                <div class="setting-group">
+                    <div class="setting-label"><i class="bi bi-clock me-2"></i> Tempo di Viaggio</div>
+                    <select class="form-select" id="travel-time" required>
+                        <option value="">Seleziona il tempo</option>
+                        <option value="5">5 minuti</option>
+                        <option value="10">10 minuti</option>
+                        <option value="15" selected>15 minuti</option>
+                        <option value="20">20 minuti</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <div class="setting-label"><i class="bi bi-person-walking me-2"></i> Modalità di Viaggio</div>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="travel-mode" id="mode-walking" value="walking" checked>
+                        <label class="btn btn-outline-primary" for="mode-walking">
+                            <i class="bi bi-person-walking"></i> A piedi
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="travel-mode" id="mode-cane" value="walking_cane">
+                        <label class="btn btn-outline-primary" for="mode-cane">
+                            <i class="fa-solid fa-person-walking-with-cane"></i> Con bastone
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Categories Section -->
+            <div>
+                <div class="setting-label"><i class="bi bi-tags me-2"></i> Categorie di Servizi</div>
+                <p class="section-description">
+                    Seleziona le categorie di servizi che desideri visualizzare sulla mappa.
+                </p>
+                
+                <div class="categories-container" id="categories-container">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Selected Categories -->
+            <div class="selected-categories" id="selected-categories">
+                <strong style="color: #667eea;">Categorie selezionate:</strong>
+                <div id="selected-badges" style="margin-top: 10px;"></div>
+            </div>
+            
+            <div class="error-message" id="error-message"></div>
+            
+            <!-- Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn btn-outline-secondary btn-nav" onclick="history.back()">
+                    <i class="bi bi-arrow-left me-2"></i> Indietro
+                </button>
+                <button type="button" class="btn btn-primary-custom btn-nav" id="btn-next" disabled>
+                    Avanti <i class="bi bi-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../public/js/userstudy_personal.js"></script>
+</body>
+</html>

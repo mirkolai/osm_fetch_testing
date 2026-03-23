@@ -25,13 +25,18 @@ function updateNavbar() {
             <div class="font-bold text-lg">
                 UNITED-AND-CLOSE
             </div>
+
             <div class="links">
-                <a href="/" class="hover:text-gray-300">Home</a>
+                <div class="font-bold text-lg">
+                    Turin, Italy
+                </div>
+                <!--<a href="/" class="hover:text-gray-300">Home</a>
                 <a href="/search" class="hover:text-gray-300">Nearby search</a>
-                <!-- <a href="/discoverArea" class="hover:text-gray-300">Discover areas for you</a> -->
+                <a href="/discoverArea" class="hover:text-gray-300">Discover areas for you</a>
                 <a href="/compareAreas" class="hover:text-gray-300">Compare areas</a>
-                ${personalAreaLink}
+                ${personalAreaLink} -->
             </div>
+
         </nav>
     `;
 }
