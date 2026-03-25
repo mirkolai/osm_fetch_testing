@@ -5,12 +5,9 @@
 
 let currentSessionId = sessionStorage.getItem('session_id');
 let sessionData = null;
-let defaultAnalysis = null;
 let personalizedAnalysis = null;
 let map = null;
-let defaultLayer = null;
 let personalizedLayer = null;
-let defaultChart = null;
 let personalizedChart = null;
 
 if (!currentSessionId) {
@@ -183,38 +180,72 @@ function initializeMap() {
 
 // Disegna isochrone sulla mappa
 function drawIsochrone(analysisData, layerGroup, color = '#667eea', opacity = 0.1) {
-    if (!analysisData || !analysisData.isochrone || !analysisData.isochrone.geometry) {
-        console.log('drawIsochrone: mancano dati isochrone', analysisData);
+    console.log('drawIsochrone chiamata con:', analysisData);
+    if (!analysisData || !analysisData.isochrone) {
+        console.log('drawIsochrone: mancano dati isochrone completamente', analysisData);
         return;
     }
     
-    const geometry = analysisData.isochrone.geometry;
-    console.log('drawIsochrone geometry type:', geometry.type);
-    console.log('drawIsochrone geometry:', geometry);
+    console.log('drawIsochrone isochrone object:', analysisData.isochrone);
+    console.log('drawIsochrone isochrone keys:', Object.keys(analysisData.isochrone));
     
-    if (geometry.type === 'Polygon') {
-        console.log('Numero di coordinate nel poligono:', geometry.coordinates[0].length);
+    if (!analysisData.isochrone.convex_hull) {
+        console.log('drawIsochrone: manca convex_hull, provo geometry...');
+        if (analysisData.isochrone.geometry) {
+            console.log('drawIsochrone: trovato geometry invece di convex_hull');
+            // Fallback per geometry
+            const geometry = analysisData.isochrone.geometry;
+            if (geometry.type === 'Polygon' && geometry.coordinates && geometry.coordinates.length > 0) {
+                const coordinates = geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                const polygon = L.polygon(coordinates, {
+                    color: color,
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: color,
+                    fillOpacity: opacity
+                });
+                polygon.addTo(layerGroup);
+                console.log('Poligono aggiunto dalla geometry');
+                return;
+            }
+        }
+        console.log('drawIsochrone: non trovato né convex_hull né geometry valida');
+        return;
+    }
+    
+    const convexHull = analysisData.isochrone.convex_hull;
+    console.log('drawIsochrone convex_hull:', convexHull);
+    console.log('drawIsochrone convex_hull.coordinates:', convexHull.coordinates);
+    
+    if (convexHull.coordinates && convexHull.coordinates.length > 0 && convexHull.coordinates[0].length > 0) {
+        console.log('Numero di coordinate nel poligono:', convexHull.coordinates[0].length);
         
-        // Le coordinate in GeoJSON sono [lon, lat], dobbiamo convertirle a [lat, lon] per Leaflet
-        const coordinates = geometry.coordinates[0].map(coord => {
+        // Le coordinate sono già nel formato [lon, lat], dobbiamo convertirle a [lat, lon] per Leaflet
+        const coordinates = convexHull.coordinates[0].map(coord => {
             console.log('Coordinata originale:', coord, '-> convertita:', [coord[1], coord[0]]);
             return [coord[1], coord[0]];
         });
         
-        console.log('Creando poligono con', coordinates.length, 'punti - primo:', coordinates[0], 'ultimo:', coordinates[coordinates.length-1]);
+        console.log('Coordinate convertite per Leaflet:', coordinates);
         
+        // Crea il poligono
         const polygon = L.polygon(coordinates, {
             color: color,
+            weight: 2,
+            opacity: 0.8,
             fillColor: color,
-            fillOpacity: opacity,
-            weight: 2
+            fillOpacity: opacity
         });
         
-        console.log('Poligono creato, lo aggiungo al layer...');
-        layerGroup.addLayer(polygon);
-        console.log('✓ Poligono aggiunto al layer');
+        polygon.addTo(layerGroup);
+        console.log('Poligono aggiunto alla mappa');
     } else {
-        console.log('drawIsochrone: geometry type non è Polygon:', geometry.type);
+        console.log('drawIsochrone: convex_hull.coordinates non valido o vuoto');
+        console.log('convex_hull.coordinates exists:', !!convexHull.coordinates);
+        console.log('convex_hull.coordinates.length:', convexHull.coordinates ? convexHull.coordinates.length : 'N/A');
+        if (convexHull.coordinates && convexHull.coordinates.length > 0) {
+            console.log('convex_hull.coordinates[0].length:', convexHull.coordinates[0].length);
+        }
     }
 }
 
@@ -227,8 +258,8 @@ function drawPOIs(analysisData, layerGroup) {
     
     console.log(`Inizio disegno ${analysisData.pois.length} POI`);
     
-    // Limita a 100 POI per evitare blocchi
-    const poisToDisplay = analysisData.pois.slice(0, 100);
+    // Disegna tutti i POI senza limite
+    const poisToDisplay = analysisData.pois;
     let count = 0;
     
     // Usa batching per non bloccare il thread
@@ -311,40 +342,22 @@ async function loadSessionData() {
     }
 }
 
-// Carica analisi default (15 min, walking, tutte le categorie)
-async function loadDefaultAnalysis() {
-    if (!sessionData || !sessionData.selected_coordinates) return false;
-    
-    try {
-        const coords = sessionData.selected_coordinates;
-        const response = await fetch('/api/userstudy/analyze-area', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                session_id: currentSessionId,
-                latitude: coords.lat,
-                longitude: coords.lon
-            })
-        });
-        
-        const data = await response.json();
-        if (response.ok && data.status === 'success') {
-            defaultAnalysis = data;
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Errore nel caricamento analisi default:', error);
-        return false;
-    }
-}
-
 // Carica analisi personalizzata con i dati dell'utente
 async function loadPersonalizedAnalysis() {
     if (!sessionData || !sessionData.selected_coordinates) return false;
     
     try {
         const coords = sessionData.selected_coordinates;
+        const travelTime = sessionData.travel_time || 15;
+        const travelMode = sessionData.travel_mode || 'walking';
+        const categories = sessionData.selected_categories || [];
+        
+        console.log('Caricamento analisi personalizzata con parametri:');
+        console.log('  - Coordinate:', coords);
+        console.log('  - Tempo:', travelTime);
+        console.log('  - Modalità:', travelMode);
+        console.log('  - Categorie:', categories);
+        
         const response = await fetch('/api/userstudy/analyze-personalized', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -352,9 +365,9 @@ async function loadPersonalizedAnalysis() {
                 session_id: currentSessionId,
                 latitude: coords.lat,
                 longitude: coords.lon,
-                travel_time: sessionData.travel_time || 15,
-                travel_mode: sessionData.travel_mode || 'walking',
-                categories: sessionData.selected_categories || []
+                travel_time: travelTime,
+                travel_mode: travelMode,
+                categories: categories
             })
         });
         
@@ -463,7 +476,7 @@ function drawSpiderChart(elementId, data) {
         .style('stroke-width', 2);
 }
 
-// Carica i dati a default (15 min, walking, tutte le categorie) e personalizati
+// Carica i dati personalizzati basati sulle scelte dell'utente
 async function loadAndDisplay() {
     console.log('=== INIZIO loadAndDisplay ===');
     document.getElementById('loading-spinner').style.display = 'block';
@@ -479,25 +492,23 @@ async function loadAndDisplay() {
             return;
         }
         console.log('✓ Sessione caricata', sessionData);
+        console.log('  - Coordinate selezionate:', sessionData.selected_coordinates);
+        console.log('  - Tempo selezionato:', sessionData.travel_time);
+        console.log('  - Modalità selezionata:', sessionData.travel_mode);
+        console.log('  - Categorie selezionate:', sessionData.selected_categories);
         
         // Inizializza la mappa
         console.log('2. Inizializzazione mappa...');
         initializeMap();
         console.log('✓ Mappa inizializzata');
         
-        // Carica entrambe le analisi in parallelo
-        console.log('3. Caricamento analisi in parallelo...');
-        const [defaultOk, personalizedOk] = await Promise.all([
-            loadDefaultAnalysis(),
-            loadPersonalizedAnalysis()
-        ]);
+        // Carica solo l'analisi personalizzata basata sulle scelte dell'utente
+        console.log('3. Caricamento analisi personalizzata...');
+        const personalizedOk = await loadPersonalizedAnalysis();
         
-        console.log(`✓ Analisi caricate - Default: ${defaultOk}, Personalizzata: ${personalizedOk}`);
-        if (defaultAnalysis) {
-            console.log(`  - Default: ${defaultAnalysis.pois?.length || 0} POI, parametri:`, defaultAnalysis.parameters);
-        }
+        console.log(`✓ Analisi personalizzata caricata: ${personalizedOk}`);
         if (personalizedAnalysis) {
-            console.log(`  - Personalizzata: ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.parameters);
+            console.log(`  - ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.parameters);
         }
         
         // Visualizza le informazioni della sessione
@@ -505,18 +516,8 @@ async function loadAndDisplay() {
         displaySessionInfo();
         console.log('✓ Info sessione visualizzate');
         
-        // Disegna i dati sulla mappa
-        console.log('5. Disegno layer sulla mappa...');
-        if (defaultAnalysis) {
-            console.log('  - Disegnando layer default...');
-            defaultLayer = L.featureGroup();
-            drawIsochrone(defaultAnalysis, defaultLayer, '#999999', 0.05);
-            defaultLayer.addTo(map);
-            console.log('  ✓ Isochrone default disegnato');
-            drawPOIs(defaultAnalysis, defaultLayer);
-            console.log('  ✓ POI default in coda di disegno');
-        }
-        
+        // Disegna i dati personalizzati sulla mappa
+        console.log('5. Disegno layer personalizzato sulla mappa...');
         if (personalizedAnalysis) {
             console.log('  - Disegnando layer personalizzato...');
             personalizedLayer = L.featureGroup();
@@ -525,6 +526,8 @@ async function loadAndDisplay() {
             console.log('  ✓ Isochrone personalizzato disegnato');
             drawPOIs(personalizedAnalysis, personalizedLayer);
             console.log('  ✓ POI personalizzati in coda di disegno');
+        } else {
+            console.log('  ⚠️ Nessuna analisi personalizzata disponibile');
         }
         
         // Centra la mappa sulle coordinate selezionate
@@ -535,21 +538,8 @@ async function loadAndDisplay() {
             console.log('✓ Mappa centrata');
         }
         
-        // Disegna i spider chart
-        console.log('7. Disegno spider chart...');
-        if (defaultAnalysis && defaultAnalysis.parameters) {
-            const defaultData = {
-                'Prossimità': defaultAnalysis.parameters.proximity_score,
-                'Densità': defaultAnalysis.parameters.density_score,
-                'Varietà': defaultAnalysis.parameters.entropy_score,
-                'Accessibilità': defaultAnalysis.parameters.poi_accessibility,
-                'Connettività': defaultAnalysis.parameters.closeness
-            };
-            console.log('  - Disegnando chart default...');
-            drawSpiderChart('spider-chart-default', defaultData);
-            console.log('  ✓ Chart default disegnato');
-        }
-        
+        // Disegna il spider chart personalizzato
+        console.log('7. Disegno spider chart personalizzato...');
         if (personalizedAnalysis && personalizedAnalysis.parameters) {
             const personalizedData = {
                 'Prossimità': personalizedAnalysis.parameters.proximity_score,
@@ -561,6 +551,8 @@ async function loadAndDisplay() {
             console.log('  - Disegnando chart personalizzato...');
             drawSpiderChart('spider-chart-personalized', personalizedData);
             console.log('  ✓ Chart personalizzato disegnato');
+        } else {
+            console.log('  ⚠️ Nessun dato per il chart personalizzato');
         }
         
         // Mostra i contenitori
