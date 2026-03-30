@@ -4,7 +4,24 @@ let currentSessionId = sessionStorage.getItem('session_id');
 let selectedStreet = null;
 let selectedCoords = null;
 let analysisComplete = false;
+let streetSelectionLocked = false;
 let spiderChart = null;
+
+function createSessionAndRedirectToWelcome() {
+    fetch('/api/userstudy/session/create', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.status === 'success' && data.session_id) {
+                sessionStorage.setItem('session_id', data.session_id);
+            }
+        })
+        .catch(error => {
+            console.error('Errore nella creazione sessione:', error);
+        })
+        .finally(() => {
+            window.location.href = '/userstudy/welcome';
+        });
+}
 
 let torinoCenter = [45.0703, 7.6869];
 let torinoMaxBounds = [[44.99, 7.58], [45.15, 7.78]];
@@ -28,8 +45,7 @@ const btnViewAnalysis = document.getElementById('btn-view-analysis');
 
 // Session check
 if (!currentSessionId) {
-    alert('Errore: Session non trovata. Torna alla pagina di inizio.');
-    window.location.href = '/userstudy/welcome';
+    createSessionAndRedirectToWelcome();
     throw new Error('No session ID found');
 }
 
@@ -77,6 +93,10 @@ const debouncedSearch = debounce(handleSearchInput, 1500);
 citySearch.addEventListener('input', debouncedSearch);
 
 async function handleSearchInput() {
+    if (streetSelectionLocked) {
+        return;
+    }
+
     const query = citySearch.value.trim();
     errorMessage.classList.remove('show');
     
@@ -122,7 +142,23 @@ async function handleSearchInput() {
     }
 }
 
+function setStreetSelectionLocked(locked) {
+    streetSelectionLocked = locked;
+    citySearch.readOnly = locked;
+    citySearch.style.backgroundColor = locked ? '#f8f9fa' : '';
+    citySearch.style.cursor = locked ? 'not-allowed' : '';
+
+    if (locked) {
+        suggestionsList.innerHTML = '';
+        suggestionsList.classList.remove('show');
+    }
+}
+
 function selectStreet(result) {
+    if (streetSelectionLocked) {
+        return;
+    }
+
     selectedStreet = result.name;
     selectedCoords = {
         lat: result.coordinates[0],
@@ -182,7 +218,8 @@ async function analyzeArea() {
         showError('Per favore, seleziona una via prima di analizzare.');
         return;
     }
-    
+
+    setStreetSelectionLocked(true);
     btnAnalyze.disabled = true;
     loadingSpinner.classList.add('show');
     errorMessage.classList.remove('show');
@@ -228,6 +265,7 @@ async function analyzeArea() {
     } catch (error) {
         console.error('Errore nell\'analisi:', error);
         showError('Errore nell\'analisi dell\'area. Prova di nuovo.');
+        setStreetSelectionLocked(false);
         btnAnalyze.disabled = false;
     } finally {
         loadingSpinner.classList.remove('show');

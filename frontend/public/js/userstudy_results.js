@@ -5,14 +5,33 @@
 
 let currentSessionId = sessionStorage.getItem('session_id');
 let sessionData = null;
+let defaultAnalysis = null;
 let personalizedAnalysis = null;
 let map = null;
+let defaultLayer = null;
 let personalizedLayer = null;
+let defaultChart = null;
 let personalizedChart = null;
 
+function createSessionAndRedirectToWelcome() {
+    fetch('/api/userstudy/session/create', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.status === 'success' && data.session_id) {
+                sessionStorage.setItem('session_id', data.session_id);
+            }
+        })
+        .catch(error => {
+            console.error('Errore nella creazione sessione:', error);
+        })
+        .finally(() => {
+            window.location.href = '/userstudy/welcome';
+        });
+}
+
 if (!currentSessionId) {
-    alert('Errore: Session non trovata.');
-    window.location.href = '/userstudy/welcome';
+    createSessionAndRedirectToWelcome();
+    throw new Error('No session ID found');
 }
 
 // Configurazione mappa Torino
@@ -180,73 +199,56 @@ function initializeMap() {
 
 // Disegna isochrone sulla mappa
 function drawIsochrone(analysisData, layerGroup, color = '#667eea', opacity = 0.1) {
-    console.log('drawIsochrone chiamata con:', analysisData);
     if (!analysisData || !analysisData.isochrone) {
-        console.log('drawIsochrone: mancano dati isochrone completamente', analysisData);
+        console.log('drawIsochrone: mancano dati isochrone', analysisData);
         return;
     }
-    
-    console.log('drawIsochrone isochrone object:', analysisData.isochrone);
-    console.log('drawIsochrone isochrone keys:', Object.keys(analysisData.isochrone));
-    
-    if (!analysisData.isochrone.convex_hull) {
-        console.log('drawIsochrone: manca convex_hull, provo geometry...');
-        if (analysisData.isochrone.geometry) {
-            console.log('drawIsochrone: trovato geometry invece di convex_hull');
-            // Fallback per geometry
-            const geometry = analysisData.isochrone.geometry;
-            if (geometry.type === 'Polygon' && geometry.coordinates && geometry.coordinates.length > 0) {
-                const coordinates = geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-                const polygon = L.polygon(coordinates, {
-                    color: color,
-                    weight: 2,
-                    opacity: 0.8,
-                    fillColor: color,
-                    fillOpacity: opacity
-                });
-                polygon.addTo(layerGroup);
-                console.log('Poligono aggiunto dalla geometry');
-                return;
-            }
-        }
-        console.log('drawIsochrone: non trovato né convex_hull né geometry valida');
-        return;
-    }
-    
-    const convexHull = analysisData.isochrone.convex_hull;
-    console.log('drawIsochrone convex_hull:', convexHull);
-    console.log('drawIsochrone convex_hull.coordinates:', convexHull.coordinates);
-    
-    if (convexHull.coordinates && convexHull.coordinates.length > 0 && convexHull.coordinates[0].length > 0) {
-        console.log('Numero di coordinate nel poligono:', convexHull.coordinates[0].length);
-        
-        // Le coordinate sono già nel formato [lon, lat], dobbiamo convertirle a [lat, lon] per Leaflet
-        const coordinates = convexHull.coordinates[0].map(coord => {
-            console.log('Coordinata originale:', coord, '-> convertita:', [coord[1], coord[0]]);
-            return [coord[1], coord[0]];
-        });
-        
-        console.log('Coordinate convertite per Leaflet:', coordinates);
-        
-        // Crea il poligono
-        const polygon = L.polygon(coordinates, {
-            color: color,
-            weight: 2,
-            opacity: 0.8,
-            fillColor: color,
-            fillOpacity: opacity
-        });
-        
-        polygon.addTo(layerGroup);
-        console.log('Poligono aggiunto alla mappa');
+
+    // Sostegno a due formati: { isochrone: { geometry: { type, coordinates } } } e { isochrone: { convex_hull: { coordinates: [...] } } }
+    let coordinates = null;
+    if (analysisData.isochrone.geometry && analysisData.isochrone.geometry.type === 'Polygon') {
+        coordinates = analysisData.isochrone.geometry.coordinates[0];
+        console.log('drawIsochrone: formato geometry Polygon rilevato');
+    } else if (analysisData.isochrone.convex_hull && analysisData.isochrone.convex_hull.coordinates) {
+        coordinates = analysisData.isochrone.convex_hull.coordinates[0];
+        console.log('drawIsochrone: formato convex_hull rilevato');
     } else {
-        console.log('drawIsochrone: convex_hull.coordinates non valido o vuoto');
-        console.log('convex_hull.coordinates exists:', !!convexHull.coordinates);
-        console.log('convex_hull.coordinates.length:', convexHull.coordinates ? convexHull.coordinates.length : 'N/A');
-        if (convexHull.coordinates && convexHull.coordinates.length > 0) {
-            console.log('convex_hull.coordinates[0].length:', convexHull.coordinates[0].length);
-        }
+        console.log('drawIsochrone: formato isochrone non supportato', analysisData.isochrone);
+        return;
     }
+
+    // Controllo contenuto coordinate
+    if (!Array.isArray(coordinates) || coordinates.length === 0) {
+        console.log('drawIsochrone: coordinate non valide', coordinates);
+        return;
+    }
+
+    const polygonCoords = coordinates.map(coord => {
+        // Se i punti sono [lon, lat] oppure [lat, lon]
+        if (coord.length >= 2) {
+            // Controllo se sembra lon/lat (longitude range -180..180)
+            if (Math.abs(coord[0]) <= 180 && Math.abs(coord[0]) >= 0 && Math.abs(coord[1]) <= 90) {
+                return [coord[1], coord[0]]; // lon/lat -> lat/lon
+            }
+            return [coord[0], coord[1]]; // già lat/lon
+        }
+        return null;
+    }).filter(p => p);
+
+    if (polygonCoords.length === 0) {
+        console.log('drawIsochrone: coordinate convertite non valide', coordinates);
+        return;
+    }
+
+    console.log('drawIsochrone: disegno poligono con', polygonCoords.length, 'punti');
+
+    const polygon = L.polygon(polygonCoords, {
+        color: color,
+        fillColor: color,
+        fillOpacity: opacity,
+        weight: 2
+    });
+    layerGroup.addLayer(polygon);
 }
 
 // Disegna POI sulla mappa
@@ -258,8 +260,9 @@ function drawPOIs(analysisData, layerGroup) {
     
     console.log(`Inizio disegno ${analysisData.pois.length} POI`);
     
-    // Disegna tutti i POI senza limite
-    const poisToDisplay = analysisData.pois;
+    // Mostra tutti i POI (o imposta un limite alto se serve)
+    const MAX_POI = 1000;
+    const poisToDisplay = analysisData.pois.slice(0, Math.min(MAX_POI, analysisData.pois.length));
     let count = 0;
     
     // Usa batching per non bloccare il thread
@@ -342,22 +345,40 @@ async function loadSessionData() {
     }
 }
 
+// Carica analisi default (15 min, walking, tutte le categorie)
+async function loadDefaultAnalysis() {
+    if (!sessionData || !sessionData.selected_coordinates) return false;
+    
+    try {
+        const coords = sessionData.selected_coordinates;
+        const response = await fetch('/api/userstudy/analyze-area', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: currentSessionId,
+                latitude: coords.lat,
+                longitude: coords.lon
+            })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.status === 'success') {
+            defaultAnalysis = data;
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Errore nel caricamento analisi default:', error);
+        return false;
+    }
+}
+
 // Carica analisi personalizzata con i dati dell'utente
 async function loadPersonalizedAnalysis() {
     if (!sessionData || !sessionData.selected_coordinates) return false;
     
     try {
         const coords = sessionData.selected_coordinates;
-        const travelTime = sessionData.travel_time || 15;
-        const travelMode = sessionData.travel_mode || 'walking';
-        const categories = sessionData.selected_categories || [];
-        
-        console.log('Caricamento analisi personalizzata con parametri:');
-        console.log('  - Coordinate:', coords);
-        console.log('  - Tempo:', travelTime);
-        console.log('  - Modalità:', travelMode);
-        console.log('  - Categorie:', categories);
-        
         const response = await fetch('/api/userstudy/analyze-personalized', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -365,9 +386,9 @@ async function loadPersonalizedAnalysis() {
                 session_id: currentSessionId,
                 latitude: coords.lat,
                 longitude: coords.lon,
-                travel_time: travelTime,
-                travel_mode: travelMode,
-                categories: categories
+                travel_time: sessionData.travel_time || 15,
+                travel_mode: sessionData.travel_mode || 'walking',
+                categories: sessionData.selected_categories || []
             })
         });
         
@@ -410,8 +431,8 @@ function displaySessionInfo() {
     }
 }
 
-// Disegna spider chart
-function drawSpiderChart(elementId, data) {
+// Disegna spider chart in sovrapposizione di default (oggettivo) e personalized (soggettivo)
+function drawSpiderChart(elementId, dataSoggettivo, dataOggettivo) {
     const svgWidth = 280;
     const svgHeight = 280;
     
@@ -428,11 +449,12 @@ function drawSpiderChart(elementId, data) {
     const g = svg.append('g')
         .attr('transform', `translate(${svgWidth / 2}, ${svgHeight / 2})`);
     
+    const keys = Object.keys(dataSoggettivo); // assumiamo stessi campi
     const radius = 80;
-    const angleSlice = Math.PI * 2 / Object.keys(data).length;
+    const angleSlice = Math.PI * 2 / keys.length;
     
-    // Disegna i raggi
-    Object.keys(data).forEach((key, i) => {
+    // RAGGI + LABEL
+    keys.forEach((key, i) => {
         const angle = angleSlice * i - Math.PI / 2;
         const x = radius * Math.cos(angle);
         const y = radius * Math.sin(angle);
@@ -440,43 +462,116 @@ function drawSpiderChart(elementId, data) {
         g.append('line')
             .attr('x1', 0).attr('y1', 0)
             .attr('x2', x).attr('y2', y)
-            .style('stroke', '#ddd').style('stroke-width', 1);
+            .style('stroke', '#ddd');
         
         g.append('text')
-            .attr('x', x * 1.2).attr('y', y * 1.2)
+            .attr('x', x * 1.2)
+            .attr('y', y * 1.2)
             .attr('text-anchor', 'middle')
             .style('font-size', '11px')
             .style('fill', '#666')
             .text(key);
     });
     
-    // Disegna i livelli circolari
+    // CERCHI DI LIVELLO (scala 0-1)
     for (let i = 1; i <= 5; i++) {
-        const r = (radius / 5) * i;
+        const level = i / 5;
         g.append('circle')
-            .attr('cx', 0).attr('cy', 0).attr('r', r)
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .attr('r', radius * level)
             .style('fill', 'none')
-            .style('stroke', '#e0e0e0')
-            .style('stroke-width', 0.5);
+            .style('stroke', '#e0e0e0');
+
+        // Etichetta del livello
+        g.append('text')
+            .attr('x', 0)
+            .attr('y', -radius * level - 4)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '9px')
+            .style('fill', '#999')
+            .text(level.toFixed(1));
     }
     
-    // Disegna il poligono dei dati
-    const points = Object.values(data).map((value, i) => {
-        const angle = angleSlice * i - Math.PI / 2;
-        const r = (radius / 5) * value;
-        return [r * Math.cos(angle), r * Math.sin(angle)];
-    });
-    
     const line = d3.line();
+    
+    // FUNZIONE PER CREARE I PUNTI (scala 0-1)
+    function getPoints(data) {
+        return keys.map((key, i) => {
+            const angle = angleSlice * i - Math.PI / 2;
+            const value = Math.max(0, Math.min(1, data[key]));
+            const r = radius * value;
+            return [r * Math.cos(angle), r * Math.sin(angle)];
+        });
+    }
+    
+    // POLIGONO OGGETTIVO (default) primo
+    const pointsOggettivo = getPoints(dataOggettivo);
     g.append('path')
-        .attr('d', line(points) + 'Z')
+        .attr('d', line(pointsOggettivo) + 'Z')
+        .style('fill', '#f56565')
+        .style('fill-opacity', 0.25)
+        .style('stroke', '#f56565')
+        .style('stroke-width', 2);
+    
+    // POLIGONO SOGGETTIVO (personalizzato) sopra
+    const pointsSoggettivo = getPoints(dataSoggettivo);
+    g.append('path')
+        .attr('d', line(pointsSoggettivo) + 'Z')
         .style('fill', '#667eea')
-        .style('fill-opacity', 0.3)
+        .style('fill-opacity', 0.35)
         .style('stroke', '#667eea')
         .style('stroke-width', 2);
+
+    // Legenda
+    const legendWidth = 120;
+    const legendHeight = 60;
+    const legend = svg.append('g')
+        .attr('transform', `translate(${svgWidth - legendWidth - 10}, ${svgHeight - legendHeight - 10})`);
+
+    legend.append('rect')
+        .attr('width', legendWidth)
+        .attr('height', legendHeight)
+        .attr('fill', '#fff')
+        .attr('stroke', '#ccc')
+        .attr('rx', 6)
+        .attr('ry', 6)
+        .style('opacity', 0.9);
+
+    legend.append('rect')
+        .attr('x', 10)
+        .attr('y', 10)
+        .attr('width', 14)
+        .attr('height', 14)
+        .attr('fill', '#f56565')
+        .style('opacity', 0.25)
+        .attr('stroke', '#f56565');
+
+    legend.append('text')
+        .attr('x', 30)
+        .attr('y', 22)
+        .style('font-size', '11px')
+        .style('fill', '#333')
+        .text('Default (Step 3)');
+
+    legend.append('rect')
+        .attr('x', 10)
+        .attr('y', 32)
+        .attr('width', 14)
+        .attr('height', 14)
+        .attr('fill', '#667eea')
+        .style('opacity', 0.35)
+        .attr('stroke', '#667eea');
+
+    legend.append('text')
+        .attr('x', 30)
+        .attr('y', 44)
+        .style('font-size', '11px')
+        .style('fill', '#333')
+        .text('Personalizzato (Step 5)');
 }
 
-// Carica i dati personalizzati basati sulle scelte dell'utente
+// Carica i dati a default (15 min, walking, tutte le categorie) e personalizati
 async function loadAndDisplay() {
     console.log('=== INIZIO loadAndDisplay ===');
     document.getElementById('loading-spinner').style.display = 'block';
@@ -492,23 +587,25 @@ async function loadAndDisplay() {
             return;
         }
         console.log('✓ Sessione caricata', sessionData);
-        console.log('  - Coordinate selezionate:', sessionData.selected_coordinates);
-        console.log('  - Tempo selezionato:', sessionData.travel_time);
-        console.log('  - Modalità selezionata:', sessionData.travel_mode);
-        console.log('  - Categorie selezionate:', sessionData.selected_categories);
         
         // Inizializza la mappa
         console.log('2. Inizializzazione mappa...');
         initializeMap();
         console.log('✓ Mappa inizializzata');
         
-        // Carica solo l'analisi personalizzata basata sulle scelte dell'utente
-        console.log('3. Caricamento analisi personalizzata...');
-        const personalizedOk = await loadPersonalizedAnalysis();
+        // Carica entrambe le analisi in parallelo
+        console.log('3. Caricamento analisi in parallelo...');
+        const [defaultOk, personalizedOk] = await Promise.all([
+            loadDefaultAnalysis(),
+            loadPersonalizedAnalysis()
+        ]);
         
-        console.log(`✓ Analisi personalizzata caricata: ${personalizedOk}`);
+        console.log(`✓ Analisi caricate - Default: ${defaultOk}, Personalizzata: ${personalizedOk}`);
+        if (defaultAnalysis) {
+            console.log(`  - Default: ${defaultAnalysis.pois?.length || 0} POI, parametri:`, defaultAnalysis.parameters);
+        }
         if (personalizedAnalysis) {
-            console.log(`  - ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.parameters);
+            console.log(`  - Personalizzata: ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.parameters);
         }
         
         // Visualizza le informazioni della sessione
@@ -516,8 +613,18 @@ async function loadAndDisplay() {
         displaySessionInfo();
         console.log('✓ Info sessione visualizzate');
         
-        // Disegna i dati personalizzati sulla mappa
-        console.log('5. Disegno layer personalizzato sulla mappa...');
+        // Disegna i dati sulla mappa
+        console.log('5. Disegno layer sulla mappa...');
+        if (defaultAnalysis) {
+            console.log('  - Disegnando layer default...');
+            defaultLayer = L.featureGroup();
+            drawIsochrone(defaultAnalysis, defaultLayer, '#999999', 0.05);
+            defaultLayer.addTo(map);
+            console.log('  ✓ Isochrone default disegnato');
+            drawPOIs(defaultAnalysis, defaultLayer);
+            console.log('  ✓ POI default in coda di disegno');
+        }
+        
         if (personalizedAnalysis) {
             console.log('  - Disegnando layer personalizzato...');
             personalizedLayer = L.featureGroup();
@@ -526,8 +633,6 @@ async function loadAndDisplay() {
             console.log('  ✓ Isochrone personalizzato disegnato');
             drawPOIs(personalizedAnalysis, personalizedLayer);
             console.log('  ✓ POI personalizzati in coda di disegno');
-        } else {
-            console.log('  ⚠️ Nessuna analisi personalizzata disponibile');
         }
         
         // Centra la mappa sulle coordinate selezionate
@@ -538,21 +643,37 @@ async function loadAndDisplay() {
             console.log('✓ Mappa centrata');
         }
         
-        // Disegna il spider chart personalizzato
-        console.log('7. Disegno spider chart personalizzato...');
-        if (personalizedAnalysis && personalizedAnalysis.parameters) {
-            const personalizedData = {
+        // Disegna i spider chart (default + personalized nello stesso chart)
+        console.log('7. Disegno spider chart...');
+        if (defaultAnalysis && defaultAnalysis.parameters && personalizedAnalysis && personalizedAnalysis.parameters) {
+            const oggettivoData = {
+                'Prossimità': defaultAnalysis.parameters.proximity_score,
+                'Densità': defaultAnalysis.parameters.density_score,
+                'Varietà': defaultAnalysis.parameters.entropy_score,
+                'Accessibilità': defaultAnalysis.parameters.poi_accessibility,
+                'Connettività': defaultAnalysis.parameters.closeness
+            };
+            const soggettivoData = {
                 'Prossimità': personalizedAnalysis.parameters.proximity_score,
                 'Densità': personalizedAnalysis.parameters.density_score,
                 'Varietà': personalizedAnalysis.parameters.entropy_score,
                 'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
                 'Connettività': personalizedAnalysis.parameters.closeness
             };
-            console.log('  - Disegnando chart personalizzato...');
-            drawSpiderChart('spider-chart-personalized', personalizedData);
+            console.log('  - Disegnando chart con entrambi i dataset (oggettivo+personale)');
+            drawSpiderChart('spider-chart-personalized', soggettivoData, oggettivoData);
+            console.log('  ✓ Chart personalizzato disegnato con entrambi i dataset');
+        } else if (personalizedAnalysis && personalizedAnalysis.parameters) {
+            const soggettivoData = {
+                'Prossimità': personalizedAnalysis.parameters.proximity_score,
+                'Densità': personalizedAnalysis.parameters.density_score,
+                'Varietà': personalizedAnalysis.parameters.entropy_score,
+                'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
+                'Connettività': personalizedAnalysis.parameters.closeness
+            };
+            console.log('  - Disegnando chart personalizzato da personalizedAnalysis');
+            drawSpiderChart('spider-chart-personalized', soggettivoData, soggettivoData);
             console.log('  ✓ Chart personalizzato disegnato');
-        } else {
-            console.log('  ⚠️ Nessun dato per il chart personalizzato');
         }
         
         // Mostra i contenitori
@@ -586,16 +707,29 @@ async function markResultsViewed() {
     }
 }
 
+// Configura il bottone "Avanti" per navigare a questionnaire 3
+function setupNextButton() {
+    const btnNext = document.getElementById('btn-next');
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            console.log('Navigating to questionnaire 3');
+            window.location.href = '/userstudy/questionnaire3';
+        });
+    }
+}
+
 // Avvia il caricamento
 // Controlliamo se il documento è già caricato prima di aspettare l'evento
 if (document.readyState === 'loading') {
     // Dom ancora non pronto, aspettiamo
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOMContentLoaded event');
+        setupNextButton();
         loadAndDisplay();
     });
 } else {
     // Dom già pronto, eseguiamo subito
     console.log('DOM già pronto, eseguiamo subito');
+    setupNextButton();
     loadAndDisplay();
 }

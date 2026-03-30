@@ -228,7 +228,7 @@
         let sessionId = sessionStorage.getItem('session_id');
         
         if (!sessionId) {
-            alert('Errore: Session non trovata.');
+            console.warn('Session non trovata, redirect a /userstudy/welcome');
             window.location.href = '/userstudy/welcome';
         }
         

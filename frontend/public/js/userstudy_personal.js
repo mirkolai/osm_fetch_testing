@@ -2,9 +2,24 @@ let currentSessionId = sessionStorage.getItem('session_id');
 let selectedCategories = new Set();
 let selectedCategoryObjects = {}; // Mappa categoria padre -> array di categorie figlio selezionate
 
+function createSessionAndRedirectToWelcome() {
+    fetch('/api/userstudy/session/create', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.status === 'success' && data.session_id) {
+                sessionStorage.setItem('session_id', data.session_id);
+            }
+        })
+        .catch(error => {
+            console.error('Errore nella creazione sessione:', error);
+        })
+        .finally(() => {
+            window.location.href = '/userstudy/welcome';
+        });
+}
+
 if (!currentSessionId) {
-    alert('Errore: Session non trovata. Torna alla pagina di inizio.');
-    window.location.href = '/userstudy/welcome';
+    createSessionAndRedirectToWelcome();
     throw new Error('No session ID found');
 }
 
