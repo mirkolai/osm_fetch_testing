@@ -298,7 +298,7 @@
     </div>
     
     <script>
-        // Update slider values display
+        // Mantiene allineata l'etichetta numerica con il valore corrente di ciascuno slider.
         const sliders = document.querySelectorAll('input[type="range"]');
         sliders.forEach(slider => {
             const valueSpan = document.getElementById(`${slider.id}-value`);
@@ -313,6 +313,7 @@
         const errorMessage = document.getElementById('error-message');
         const loadingSpinner = document.getElementById('loading-spinner');
 
+        // Se manca la sessione, ne crea una nuova e forza il rientro all'inizio del percorso guidato.
         function createSessionAndRedirectToWelcome() {
             fetch('/api/userstudy/session/create', { method: 'POST' })
                 .then(response => response.json())
@@ -335,12 +336,14 @@
             createSessionAndRedirectToWelcome();
         }
         
+        // Salva la percezione iniziale dell'utente trasformando i valori form in numeri coerenti col backend.
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             errorMessage.style.display = 'none';
             
             const formData = new FormData(form);
             
+            // Gli slider e gli input number arrivano come stringhe: li normalizziamo subito per il payload JSON.
             const preexploration = {
                 accessibility: parseInt(formData.get('accessibility')),
                 proximity_avg_minutes: parseInt(formData.get('proximity_avg_minutes')),
@@ -367,6 +370,7 @@
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'success') {
+                    // Dopo il questionario iniziale l'utente passa alla selezione della via da analizzare.
                     window.location.href = '/userstudy/search';
                 } else {
                     errorMessage.textContent = `Errore: ${data.detail || 'Non è stato possibile salvare i dati.'}`;

@@ -155,6 +155,81 @@
         .spinner-border {
             color: #667eea;
         }
+
+        /* Modal styles (same interaction pattern as step 3) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content-box {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-title {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #spider-chart-modal {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chart-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .chart-info h6 {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .chart-info p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 
@@ -206,24 +281,29 @@
             </div>
         </div>
         
-        <!-- Spider Chart -->
-        <div class="spider-chart-section" id="chart-container" style="display: none;">
-            <div>
-                <div style="font-size: 13px; font-weight: 600; color: #667eea; margin-bottom: 10px;">
-                    <i class="bi bi-bar-chart-line me-2"></i> Analisi dei tuoi parametri
-                </div>
-                <div id="spider-chart-personalized"></div>
-                <p style="font-size: 11px; color: #999; margin-top: 8px; text-align: center;">
-                    Basato sui tuoi parametri selezionati
-                </p>
-            </div>
-        </div>
-        
         <!-- Buttons -->
         <div class="button-group">
+            <button type="button" class="btn btn-outline-secondary btn-nav" id="btn-analyze">
+                <i class="bi bi-bar-chart-line me-2"></i> Analizza
+            </button>
             <button type="button" class="btn btn-primary-custom btn-nav" id="btn-next">
                 Avanti <i class="bi bi-arrow-right ms-2"></i>
             </button>
+        </div>
+    </div>
+
+    <!-- Modal: Spider chart -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-content-box">
+            <button class="modal-close" id="modal-close">&times;</button>
+            <h5 class="modal-title">Analisi dei Parametri</h5>
+            <div id="spider-chart-modal"></div>
+            <div class="chart-info">
+                <h6>Confronto tra analisi</h6>
+                <p>Rosso: default (step 3)</p>
+                <p>Blu: personalizzato (step 5)</p>
+                <p>I valori sono normalizzati su scala 0-1.</p>
+            </div>
         </div>
     </div>
 

@@ -232,9 +232,10 @@
             window.location.href = '/userstudy/welcome';
         }
         
+        // Mostra all'utente l'identificativo anonimo con cui la sua partecipazione è stata salvata.
         document.getElementById('session-info').textContent = `ID Sessione: ${sessionId}`;
         
-        // Marca la sessione come completata
+        // Notifica al backend che il percorso è stato completato fino alla schermata finale.
         async function completeSession() {
             try {
                 const response = await fetch('/api/userstudy/session/complete', {
@@ -250,6 +251,7 @@
             }
         }
         
+        // Permette all'utente di scaricare in locale il record JSON associato alla sua sessione.
         async function downloadData() {
             try {
                 const response = await fetch('/api/userstudy/session/get', {
@@ -261,12 +263,12 @@
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'success') {
-                    // Crea un file JSON con i dati
+                    // Serializza la sessione ricevuta e la trasforma in un file scaricabile dal browser.
                     const dataStr = JSON.stringify(data.session, null, 2);
                     const dataBlob = new Blob([dataStr], { type: 'application/json' });
                     const url = URL.createObjectURL(dataBlob);
                     
-                    // Crea un link di download
+                    // Usa un anchor temporaneo per avviare il download senza uscire dalla pagina.
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `userstudy_data_${sessionId}.json`;
@@ -283,7 +285,7 @@
             }
         }
         
-        // Al caricamento della pagina, marca la sessione come completata
+        // L'aggiornamento di stato viene inviato non appena la pagina finale è visibile all'utente.
         window.addEventListener('load', completeSession);
     </script>
 </body>

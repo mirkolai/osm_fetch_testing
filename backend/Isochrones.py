@@ -47,30 +47,23 @@ def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
 
 def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> (
         Tuple)[int, str, Union[Dict[str, Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
+    """Recupera la geometria semplificata dell'isocrona per nodo, minuti e velocità."""
     logging.info(f"get_isocronewalk_by_node_id ")
-    #print(f"get_isocronewalk_by_node_id {node_id}")
 
     collection = db["isochrone_walk"]
-    # Query per trovare il documento con il node_id specificato
     query = {"node_id": node_id}
     document = collection.find_one(query)
-    #print(document)
-    # Verifica se il documento esiste
+
     if not document:
         print(f"No data found for the given node_id {node_id}")
         logging.debug(f"No data found for the given node_id {node_id}")
 
         return 404, "No data found for the given node_id", None
 
-    # Verifica se il campo isochrone esiste per il minuto e la velocità
     isochrone_data = document.get("isochrone", {}).get(str(minute), {}).get(str(velocity), {})
 
-    # Log di debug per vedere cosa viene trovato
-    # print(f"Document trovato: {document}")
-    # print(f"isochrone_data per {minute} minuti e velocità {velocity}: {isochrone_data}")
-
     if isochrone_data:
-        # Estrazione dei dati concave_hull
+        # Il frontend usa solo coordinates e bbox del convex_hull, quindi la risposta viene già ridotta.
         result = {
             "node_id": document["node_id"],
             "convex_hull": {

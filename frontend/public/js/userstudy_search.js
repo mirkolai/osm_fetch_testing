@@ -7,6 +7,7 @@ let analysisComplete = false;
 let streetSelectionLocked = false;
 let spiderChart = null;
 
+// Crea una sessione anonima di fallback e riporta l'utente all'inizio del flow.
 function createSessionAndRedirectToWelcome() {
     fetch('/api/userstudy/session/create', { method: 'POST' })
         .then(response => response.json())
@@ -25,9 +26,7 @@ function createSessionAndRedirectToWelcome() {
 
 let torinoCenter = [45.0703, 7.6869];
 let torinoMaxBounds = [[44.99, 7.58], [45.15, 7.78]];
-
-// DEBUG MODE: Set to true to disable bounding box and zoom limits for testing
-const DEBUG_MODE = true;
+const torinoBounds = L.latLngBounds(torinoMaxBounds);
 
 // DOM Elements
 const citySearch = document.getElementById('city-search');
@@ -49,36 +48,25 @@ if (!currentSessionId) {
     throw new Error('No session ID found');
 }
 
-// Initialize map with DEBUG_MODE support
-const mapConfig = {
-    minZoom: DEBUG_MODE ? 0 : 12,
-    maxZoom: DEBUG_MODE ? 28 : 18
-};
-
-// Only add bounding box constraints if not in debug mode
-if (!DEBUG_MODE) {
-    mapConfig.maxBounds = torinoMaxBounds;
-    mapConfig.maxBoundsViscosity = 1.0;
-}
-
-const map = L.map('map', mapConfig).setView(torinoCenter, 13);
+// In step 3 la mappa resta vincolata all'area di Torino e non consente zoom-out oltre la soglia minima.
+const map = L.map('map', {
+    minZoom: 12,
+    maxZoom: 18,
+    maxBounds: torinoMaxBounds,
+    maxBoundsViscosity: 1.0
+}).setView(torinoCenter, 13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
     maxZoom: 19
 }).addTo(map);
 
-// Log debug info
-if (DEBUG_MODE) {
-    console.warn('⚠️ MAP DEBUG MODE ENABLED - Bounding box and zoom limits are DISABLED');
-}
-
 // Layer groups for map elements
 let selectedMarker = null;
 let isochroneLayer = null;
 let poiMarkers = [];
 
-// Debounce function
+// Restituisce una versione ritardata della callback per limitare le chiamate al geocoding.
 function debounce(func, delay) {
     let timeoutId;
     return function (...args) {
@@ -92,6 +80,7 @@ const debouncedSearch = debounce(handleSearchInput, 1500);
 
 citySearch.addEventListener('input', debouncedSearch);
 
+// Interroga il backend di geocoding e popola il dropdown dei suggerimenti.
 async function handleSearchInput() {
     if (streetSelectionLocked) {
         return;
@@ -117,6 +106,7 @@ async function handleSearchInput() {
         
         suggestionsList.innerHTML = '';
         if (results && results.length > 0) {
+            // Limita i risultati mostrati e salva nelle righe solo i dati minimi necessari alla selezione.
             results.slice(0, 5).forEach(result => {
                 const item = document.createElement('li');
                 item.className = 'list-group-item';
@@ -142,6 +132,7 @@ async function handleSearchInput() {
     }
 }
 
+// Blocca o sblocca il campo via dopo l'analisi per evitare cambi incoerenti di stato.
 function setStreetSelectionLocked(locked) {
     streetSelectionLocked = locked;
     citySearch.readOnly = locked;
@@ -154,15 +145,42 @@ function setStreetSelectionLocked(locked) {
     }
 }
 
+// Salva la via selezionata, aggiorna la mappa e abilita il bottone di analisi.
 function selectStreet(result) {
     if (streetSelectionLocked) {
         return;
     }
 
+    const candidateLat = result.coordinates[0];
+    const candidateLon = result.coordinates[1];
+
+    // Se la via è fuori area consentita, mostra subito errore e non permettere l'analisi.
+    if (!torinoBounds.contains([candidateLat, candidateLon])) {
+        showError('Indirizzo fuori area consentita. Seleziona una via dentro la città di Torino.');
+
+        selectedStreet = null;
+        selectedCoords = null;
+        btnAnalyze.disabled = true;
+        btnNext.disabled = true;
+        btnViewAnalysis.classList.remove('show');
+        selectedStreetInfo.classList.remove('show');
+
+        if (selectedMarker) {
+            map.removeLayer(selectedMarker);
+            selectedMarker = null;
+        }
+        clearMapElements();
+        suggestionsList.innerHTML = '';
+        suggestionsList.classList.remove('show');
+        return;
+    }
+
+    errorMessage.classList.remove('show');
+
     selectedStreet = result.name;
     selectedCoords = {
-        lat: result.coordinates[0],
-        lon: result.coordinates[1]
+        lat: candidateLat,
+        lon: candidateLon
     };
     
     citySearch.value = result.name;
@@ -172,7 +190,7 @@ function selectStreet(result) {
     btnNext.disabled = true;
     btnViewAnalysis.classList.remove('show');
     
-    // Update map
+    // Aggiorna il marker della via selezionata e pulisce eventuali risultati precedenti.
     if (selectedMarker) {
         map.removeLayer(selectedMarker);
     }
@@ -198,6 +216,7 @@ function selectStreet(result) {
     btnAnalyze.disabled = false;
 }
 
+// Rimuove isocrona e marker POI dalla mappa mantenendo il marker principale della via.
 function clearMapElements() {
     if (isochroneLayer) {
         map.removeLayer(isochroneLayer);
@@ -213,6 +232,7 @@ function clearMapElements() {
 // Analyze button
 btnAnalyze.addEventListener('click', analyzeArea);
 
+// Esegue l'analisi di default dello step 3 e visualizza i risultati preliminari sulla mappa.
 async function analyzeArea() {
     if (!selectedStreet || !selectedCoords) {
         showError('Per favore, seleziona una via prima di analizzare.');
@@ -241,7 +261,7 @@ async function analyzeArea() {
             throw new Error(data.detail || 'Errore nell\'analisi dell\'area');
         }
         
-        // Clear old elements
+        // Riparte sempre da una mappa pulita per evitare sovrapposizioni da analisi precedenti.
         clearMapElements();
         
         // Visualize isochrone
@@ -272,6 +292,7 @@ async function analyzeArea() {
     }
 }
 
+// Disegna il poligono dell'isocrona a partire dal convex hull restituito dal backend.
 function drawIsochrone(convexHull) {
     if (!convexHull.coordinates || convexHull.coordinates.length === 0) {
         return;
@@ -289,6 +310,7 @@ function drawIsochrone(convexHull) {
     }).addTo(map);
 }
 
+// Traduce una categoria Overture/POI in una icona FontAwesome coerente con la legenda visuale.
 function getIconClassForCategory(category) {
     const normalizedCategory = category ? category.toLowerCase() : '';
 
@@ -415,6 +437,7 @@ function getIconClassForCategory(category) {
     return null;
 }
 
+// Disegna tutti i POI raggiungibili usando marker iconici o circle marker di fallback.
 function drawPOIs(pois) {
     console.log('Iniziando disegnamento POIs. Total:', pois.length);
     
@@ -439,7 +462,7 @@ function drawPOIs(pois) {
                 
                 let marker;
                 
-                // Create marker with icon or circle
+                // Se esiste una icona tematica usiamo un divIcon, altrimenti un marker circolare standard.
                 if (iconClass) {
                     const icon = L.divIcon({
                         html: `<i class="${iconClass}" style="color: #483d8b; font-size: 22px;"></i>`,
@@ -478,6 +501,7 @@ function drawPOIs(pois) {
     console.log(`Totale POIs disegnati: ${poiMarkers.length}`);
 }
 
+// Mostra il radar chart modale dei parametri calcolati nello step 3.
 function showSpiderChartModal(parameters) {
     // Initialize spider chart
     const chartData = [
@@ -493,6 +517,7 @@ function showSpiderChartModal(parameters) {
         }
     ];
     
+    // Se il grafico esiste già lo aggiorna, altrimenti lo inizializza una sola volta.
     if (spiderChart) {
         spiderChart.updateData(chartData);
     } else {
@@ -530,6 +555,7 @@ btnViewAnalysis.addEventListener('click', () => {
 // Next button
 btnNext.addEventListener('click', proceedToNextStep);
 
+// Salva la via scelta nella sessione e porta l'utente allo step di personalizzazione.
 async function proceedToNextStep() {
     if (!analysisComplete) {
         showError('Per favore, analizza l\'area prima di procedere.');
@@ -573,6 +599,7 @@ async function proceedToNextStep() {
     }
 }
 
+// Visualizza un messaggio di errore nello spazio dedicato del pannello laterale.
 function showError(message) {
     errorMessage.textContent = message;
     errorMessage.classList.add('show');

@@ -371,7 +371,7 @@
     </div>
     
     <script>
-        // Update slider values display
+        // Tiene aggiornati i badge numerici accanto agli slider del questionario finale.
         const sliders = document.querySelectorAll('input[type="range"]');
         sliders.forEach(slider => {
             const valueSpan = document.getElementById(`${slider.id}-value`);
@@ -386,6 +386,7 @@
         const errorMessage = document.getElementById('error-message');
         const loadingSpinner = document.getElementById('loading-spinner');
 
+        // Ripristina un contesto valido se la pagina viene aperta senza sessione attiva.
         function createSessionAndRedirectToWelcome() {
             fetch('/api/userstudy/session/create', { method: 'POST' })
                 .then(response => response.json())
@@ -408,12 +409,14 @@
             createSessionAndRedirectToWelcome();
         }
         
+        // Salva la percezione post-esplorazione e le domande aggiuntive prima della chiusura del flow.
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             errorMessage.style.display = 'none';
             
             const formData = new FormData(form);
             
+            // Il payload combina metriche numeriche confrontabili con un eventuale commento libero finale.
             const postexploration = {
                 accessibility: parseInt(formData.get('accessibility')),
                 proximity_avg_minutes: parseInt(formData.get('proximity_avg_minutes')),
@@ -443,6 +446,7 @@
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'success') {
+                    // L'ultimo submit chiude il questionario e porta alla schermata finale di ringraziamento.
                     window.location.href = '/userstudy/thanks';
                 } else {
                     errorMessage.textContent = `Errore: ${data.detail || 'Non è stato possibile salvare i dati.'}`;

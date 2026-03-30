@@ -8,21 +8,18 @@ import pyproj
 
 def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max_minutes=60, categories=None):
     """
-    Calcola i parametri:
-    - Proximity
-    - Density
-    - Entropy
-    - Poi Accessibility
+    Calcola le metriche aggregate mostrate nei grafici dello user study.
+
+    Le metriche vengono tutte ricondotte nell'intervallo 0-1, così il frontend
+    può confrontarle nello stesso radar chart senza altra normalizzazione.
     """
     if categories is None:
         categories = []
 
-    # 1) Calcolo area isocrona
-    area_km2 = compute_area_km2_from_iso(isochrone_data)  # funzione vista sopra
-    #print("KM2: ", area_km2)
+    # L'area dell'isocrona è la base per density e per interpretare il numero di POI.
+    area_km2 = compute_area_km2_from_iso(isochrone_data)
 
-    # 2) Calcolo proximity (in minuti): POI più "lontano" in termini di tempo
-    #    distance in metri, velocità vel (km/h) => tempo_min = distance / (vel*1000/60)
+    # La proximity è il tempo massimo richiesto per raggiungere un POI nell'insieme filtrato.
     if not pois_data:
         proximity_min = "ND"
     else:
@@ -35,47 +32,39 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
         proximity_min = max(times)  # in minuti
     #print("PROXIMITY NON NORM: ", proximity_min)
 
-    # 3) Normalizzo proximity in [0..1]
     if isinstance(proximity_min, str) and proximity_min == "ND":
         proximity_score = 0.0
     else:
         proximity_score = min(proximity_min / max_minutes, 1.0)
 
-    # 4) Calcolo density
-   # print("TOT POIS in Param: ", total_pois)
-
+    # La density rapporta il numero totale di POI all'area dell'isocrona.
     if total_pois == 0 or area_km2 == 0:
         density_raw = 0
     else:
         density_raw = total_pois/area_km2
-    #print("DENSITY NON NORM: ", density_raw)
-    # Normalizza [0..1], con > 100 => 1
+
+    # Oltre 100 POI/km^2 la metrica viene saturata a 1 per evitare valori estremi.
     if density_raw > 100:
         density_score = 1.0
     else:
         density_score = density_raw / 100.0
 
-    # 5) Calcolo entropia
+    # L'entropia misura quanto le categorie sono distribuite in modo vario.
     if total_pois == 0:
         entropy_score = 0.0
     else:
-        # Conta quante volte appare ogni categoria
         counts = {cat: 0 for cat in categories}
         for poi in pois_data:
             primary = poi["categories"]["primary"]
             if primary in counts:
                 counts[primary] += 1
             else:
-                # se non è nella primary, guarda le alternate
+                # Se la categoria primaria non rientra nel filtro, prova con le alternate.
                 for alt in poi["categories"].get("alternate", []):
                     if alt in counts:
                         counts[alt] += 1
                         break
-        #print("NUMERI PER CATEGORIA")
-        #for cat in categories:
-            #print(cat, ":", counts[cat])
 
-        # Entropia di Shannon (in base 2)
         total_pois = float(total_pois)
         H = 0.0
         for cat in categories:
@@ -84,7 +73,6 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
                 H -= p * math.log2(p)
         #print("ENTROPY NON NORM: ", H)
 
-        # Normalizzi su log2(k)
         k = len(categories)
         max_H = math.log2(k) if k > 1 else 1.0
         if max_H > 0:
@@ -92,12 +80,10 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
         else:
             entropy_score = 0.0
 
-    # 6) Calcolo PoiAccessibility = media (proximity_score, density_score, entropy_score)
+    # PoiAccessibility sintetizza le tre metriche principali in un unico punteggio medio.
     poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
-    #print("POIS ACCECCIBILITY: ", poi_accessibility)
 
-    # 7) Randomizzo la closeness per simulare
-    # TODO: aggiornare in seguito con valore preso dal databse
+    # La closeness non è ancora disponibile nel dataset finale, quindi resta simulata.
     closeness_random = random.random()
 
     return {
@@ -117,7 +103,7 @@ def compute_area_km2_from_iso(isochrone_data: dict) -> float:
     try:
         coords = isochrone_data["convex_hull"]["coordinates"]  # poligono in GeoJSON
 
-        # Costruisci un dict GeoJSON "minimo" di tipo Polygon
+        # Costruisce una geometria GeoJSON minima che shapely può convertire in poligono.
         polygon_geojson = {
             "type": "Polygon",
             "coordinates": coords
@@ -125,7 +111,7 @@ def compute_area_km2_from_iso(isochrone_data: dict) -> float:
 
         polygon_wgs84 = shape(polygon_geojson)  # shapely geometry in WGS84
 
-        # Proiezione in metri (EPSG:3857 o altra proiezione consona)
+        # La trasformazione in EPSG:3857 serve per ottenere un'area metrica leggibile in m^2.
         project = pyproj.Transformer.from_crs(
             "EPSG:4326",  # WGS84
             "EPSG:3857",  # proiezione metrica
@@ -136,5 +122,5 @@ def compute_area_km2_from_iso(isochrone_data: dict) -> float:
         area_m2 = polygon_m.area
         area_km2 = area_m2 / 1_000_000.0
         return area_km2
-    except:
+    except Exception:
         return 0.0

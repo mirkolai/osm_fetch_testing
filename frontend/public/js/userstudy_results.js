@@ -10,9 +10,9 @@ let personalizedAnalysis = null;
 let map = null;
 let defaultLayer = null;
 let personalizedLayer = null;
-let defaultChart = null;
-let personalizedChart = null;
+let hasOpenedAnalysisModal = false;
 
+// Crea una nuova sessione e riporta l'utente all'ingresso se questo step viene aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
     fetch('/api/userstudy/session/create', { method: 'POST' })
         .then(response => response.json())
@@ -40,8 +40,10 @@ const TORINO_BOUNDS = [
     [44.99, 7.58],   // Sud-Ovest
     [45.15, 7.78]    // Nord-Est
 ];
+const MAP_MIN_ZOOM = 12;
+const MAP_MAX_ZOOM = 18;
 
-// FontAwesome icon mapping per categorie (aggiornato)
+// Mappa le categorie dei POI alle icone usate nella visualizzazione su mappa.
 function getIconClassForCategory(category) {
     const normalizedCategory = category ? category.toLowerCase() : '';
 
@@ -168,9 +170,7 @@ function getIconClassForCategory(category) {
     return 'fa-solid fa-location-dot';
 }
 
-// Ottieni il colore per una categoria - RIMOSSO (non più usato)
-
-// Crea un divIcon con FontAwesome
+// Costruisce l'icona Leaflet per un POI a partire dalla sua categoria principale.
 function createPOIIcon(category) {
     const iconClass = getIconClassForCategory(category);
     
@@ -182,14 +182,17 @@ function createPOIIcon(category) {
     });
 }
 
-// Inizializza la mappa
+// Inizializza la mappa Leaflet limitandola all'area di interesse di Torino.
 function initializeMap() {
     map = L.map('map', {
         maxBounds: TORINO_BOUNDS,
         maxBoundsViscosity: 1.0,
-        minZoom: 12,
-        maxZoom: 18
+        minZoom: MAP_MIN_ZOOM,
+        maxZoom: MAP_MAX_ZOOM
     }).setView(TORINO_CENTER, 13);
+
+    // Applica nuovamente i vincoli dopo l'inizializzazione per evitare override involontari.
+    map.setMaxBounds(TORINO_BOUNDS);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
@@ -197,7 +200,7 @@ function initializeMap() {
     }).addTo(map);
 }
 
-// Disegna isochrone sulla mappa
+// Disegna l'isocrona supportando sia il formato geometry sia il formato convex_hull del backend.
 function drawIsochrone(analysisData, layerGroup, color = '#667eea', opacity = 0.1) {
     if (!analysisData || !analysisData.isochrone) {
         console.log('drawIsochrone: mancano dati isochrone', analysisData);
@@ -223,6 +226,7 @@ function drawIsochrone(analysisData, layerGroup, color = '#667eea', opacity = 0.
         return;
     }
 
+    // Normalizza il formato coordinate in [lat, lon] prima di passarlo a Leaflet.
     const polygonCoords = coordinates.map(coord => {
         // Se i punti sono [lon, lat] oppure [lat, lon]
         if (coord.length >= 2) {
@@ -251,7 +255,7 @@ function drawIsochrone(analysisData, layerGroup, color = '#667eea', opacity = 0.
     layerGroup.addLayer(polygon);
 }
 
-// Disegna POI sulla mappa
+// Disegna i POI del layer corrente in piccoli batch per non bloccare il rendering della pagina.
 function drawPOIs(analysisData, layerGroup) {
     if (!analysisData || !analysisData.pois || analysisData.pois.length === 0) {
         console.log('Nessun POI da disegnare');
@@ -269,6 +273,7 @@ function drawPOIs(analysisData, layerGroup) {
     const batchSize = 20;
     let batchIndex = 0;
     
+    // Processa una finestra di marker per volta così la UI resta reattiva anche con molti POI.
     function drawBatch() {
         const start = batchIndex * batchSize;
         const end = Math.min(start + batchSize, poisToDisplay.length);
@@ -324,7 +329,7 @@ function drawPOIs(analysisData, layerGroup) {
     drawBatch();
 }
 
-// Carica i dati della sessione
+// Recupera la sessione corrente per popolare riepilogo e parametri degli endpoint successivi.
 async function loadSessionData() {
     try {
         const response = await fetch('/api/userstudy/session/get', {
@@ -345,7 +350,7 @@ async function loadSessionData() {
     }
 }
 
-// Carica analisi default (15 min, walking, tutte le categorie)
+// Carica l'analisi baseline dello step 3 con parametri standard e tutte le categorie.
 async function loadDefaultAnalysis() {
     if (!sessionData || !sessionData.selected_coordinates) return false;
     
@@ -373,7 +378,7 @@ async function loadDefaultAnalysis() {
     }
 }
 
-// Carica analisi personalizzata con i dati dell'utente
+// Carica l'analisi personalizzata basata sulle scelte fatte nello step 4.
 async function loadPersonalizedAnalysis() {
     if (!sessionData || !sessionData.selected_coordinates) return false;
     
@@ -404,7 +409,7 @@ async function loadPersonalizedAnalysis() {
     }
 }
 
-// Visualizza le informazioni della sessione
+// Trasferisce nella sidebar i dettagli scelti dall'utente negli step precedenti.
 function displaySessionInfo() {
     if (!sessionData) return;
     
@@ -431,7 +436,41 @@ function displaySessionInfo() {
     }
 }
 
-// Disegna spider chart in sovrapposizione di default (oggettivo) e personalized (soggettivo)
+// Prepara i dataset per il radar chart partendo dalle analisi disponibili.
+function buildChartDatasets() {
+    if (defaultAnalysis && defaultAnalysis.parameters && personalizedAnalysis && personalizedAnalysis.parameters) {
+        const oggettivoData = {
+            'Prossimità': defaultAnalysis.parameters.proximity_score,
+            'Densità': defaultAnalysis.parameters.density_score,
+            'Varietà': defaultAnalysis.parameters.entropy_score,
+            'Accessibilità': defaultAnalysis.parameters.poi_accessibility,
+            'Connettività': defaultAnalysis.parameters.closeness
+        };
+        const soggettivoData = {
+            'Prossimità': personalizedAnalysis.parameters.proximity_score,
+            'Densità': personalizedAnalysis.parameters.density_score,
+            'Varietà': personalizedAnalysis.parameters.entropy_score,
+            'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
+            'Connettività': personalizedAnalysis.parameters.closeness
+        };
+        return { soggettivoData, oggettivoData };
+    }
+
+    if (personalizedAnalysis && personalizedAnalysis.parameters) {
+        const soggettivoData = {
+            'Prossimità': personalizedAnalysis.parameters.proximity_score,
+            'Densità': personalizedAnalysis.parameters.density_score,
+            'Varietà': personalizedAnalysis.parameters.entropy_score,
+            'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
+            'Connettività': personalizedAnalysis.parameters.closeness
+        };
+        return { soggettivoData, oggettivoData: soggettivoData };
+    }
+
+    return null;
+}
+
+// Disegna un radar chart con overlay fra analisi baseline e analisi personalizzata.
 function drawSpiderChart(elementId, dataSoggettivo, dataOggettivo) {
     const svgWidth = 280;
     const svgHeight = 280;
@@ -495,7 +534,7 @@ function drawSpiderChart(elementId, dataSoggettivo, dataOggettivo) {
     
     const line = d3.line();
     
-    // FUNZIONE PER CREARE I PUNTI (scala 0-1)
+    // Converte i punteggi normalizzati in coordinate polari già clampate tra 0 e 1.
     function getPoints(data) {
         return keys.map((key, i) => {
             const angle = angleSlice * i - Math.PI / 2;
@@ -571,12 +610,20 @@ function drawSpiderChart(elementId, dataSoggettivo, dataOggettivo) {
         .text('Personalizzato (Step 5)');
 }
 
-// Carica i dati a default (15 min, walking, tutte le categorie) e personalizati
+// Coordina il caricamento dello step 5: sessione, analisi, mappa, grafico e stato UI.
 async function loadAndDisplay() {
     console.log('=== INIZIO loadAndDisplay ===');
     document.getElementById('loading-spinner').style.display = 'block';
     document.getElementById('info-container').style.display = 'none';
-    document.getElementById('chart-container').style.display = 'none';
+
+    const btnAnalyze = document.getElementById('btn-analyze');
+    const btnNext = document.getElementById('btn-next');
+    if (btnAnalyze) {
+        btnAnalyze.disabled = true;
+    }
+    if (btnNext) {
+        btnNext.disabled = true;
+    }
     
     try {
         // Carica i dati di sessione
@@ -621,8 +668,7 @@ async function loadAndDisplay() {
             drawIsochrone(defaultAnalysis, defaultLayer, '#999999', 0.05);
             defaultLayer.addTo(map);
             console.log('  ✓ Isochrone default disegnato');
-            drawPOIs(defaultAnalysis, defaultLayer);
-            console.log('  ✓ POI default in coda di disegno');
+            console.log('  - POI default non visualizzati (mostriamo solo POI personalizzati)');
         }
         
         if (personalizedAnalysis) {
@@ -643,44 +689,16 @@ async function loadAndDisplay() {
             console.log('✓ Mappa centrata');
         }
         
-        // Disegna i spider chart (default + personalized nello stesso chart)
-        console.log('7. Disegno spider chart...');
-        if (defaultAnalysis && defaultAnalysis.parameters && personalizedAnalysis && personalizedAnalysis.parameters) {
-            const oggettivoData = {
-                'Prossimità': defaultAnalysis.parameters.proximity_score,
-                'Densità': defaultAnalysis.parameters.density_score,
-                'Varietà': defaultAnalysis.parameters.entropy_score,
-                'Accessibilità': defaultAnalysis.parameters.poi_accessibility,
-                'Connettività': defaultAnalysis.parameters.closeness
-            };
-            const soggettivoData = {
-                'Prossimità': personalizedAnalysis.parameters.proximity_score,
-                'Densità': personalizedAnalysis.parameters.density_score,
-                'Varietà': personalizedAnalysis.parameters.entropy_score,
-                'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
-                'Connettività': personalizedAnalysis.parameters.closeness
-            };
-            console.log('  - Disegnando chart con entrambi i dataset (oggettivo+personale)');
-            drawSpiderChart('spider-chart-personalized', soggettivoData, oggettivoData);
-            console.log('  ✓ Chart personalizzato disegnato con entrambi i dataset');
-        } else if (personalizedAnalysis && personalizedAnalysis.parameters) {
-            const soggettivoData = {
-                'Prossimità': personalizedAnalysis.parameters.proximity_score,
-                'Densità': personalizedAnalysis.parameters.density_score,
-                'Varietà': personalizedAnalysis.parameters.entropy_score,
-                'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
-                'Connettività': personalizedAnalysis.parameters.closeness
-            };
-            console.log('  - Disegnando chart personalizzato da personalizedAnalysis');
-            drawSpiderChart('spider-chart-personalized', soggettivoData, soggettivoData);
-            console.log('  ✓ Chart personalizzato disegnato');
-        }
+        // I dati del grafico sono pronti ma la visualizzazione avviene solo su click del bottone Analizza.
+        console.log('7. Dati grafico pronti; in attesa del click su Analizza');
         
         // Mostra i contenitori
         console.log('8. Mostra contenitori...');
         document.getElementById('info-container').style.display = 'block';
-        document.getElementById('chart-container').style.display = 'block';
         document.getElementById('loading-spinner').style.display = 'none';
+        if (btnAnalyze) {
+            btnAnalyze.disabled = false;
+        }
         console.log('✓ Contenitori visibili');
         
         // Registra la visualizzazione dei risultati
@@ -694,7 +712,56 @@ async function loadAndDisplay() {
     }
 }
 
-// Registra la visualizzazione dei risultati
+// Mostra la modale con lo spider chart e abilita il pulsante Avanti alla prima apertura.
+function showAnalysisModal() {
+    const chartDatasets = buildChartDatasets();
+    if (!chartDatasets) {
+        console.warn('Dati grafico non disponibili');
+        return;
+    }
+
+    drawSpiderChart('spider-chart-modal', chartDatasets.soggettivoData, chartDatasets.oggettivoData);
+
+    const modalOverlay = document.getElementById('modal-overlay');
+    if (modalOverlay) {
+        modalOverlay.classList.add('show');
+    }
+
+    if (!hasOpenedAnalysisModal) {
+        hasOpenedAnalysisModal = true;
+        const btnNext = document.getElementById('btn-next');
+        if (btnNext) {
+            btnNext.disabled = false;
+        }
+    }
+}
+
+// Configura apertura e chiusura della finestra di analisi.
+function setupAnalysisModal() {
+    const btnAnalyze = document.getElementById('btn-analyze');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalClose = document.getElementById('modal-close');
+
+    if (btnAnalyze) {
+        btnAnalyze.addEventListener('click', showAnalysisModal);
+    }
+
+    if (modalClose) {
+        modalClose.addEventListener('click', () => {
+            modalOverlay.classList.remove('show');
+        });
+    }
+
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (event) => {
+            if (event.target === modalOverlay) {
+                modalOverlay.classList.remove('show');
+            }
+        });
+    }
+}
+
+// Registra sul backend che l'utente ha raggiunto e visto lo step risultati.
 async function markResultsViewed() {
     try {
         await fetch('/api/userstudy/results/viewed', {
@@ -707,10 +774,11 @@ async function markResultsViewed() {
     }
 }
 
-// Configura il bottone "Avanti" per navigare a questionnaire 3
+// Collega il bottone finale dello step 5 al questionario di post-esplorazione.
 function setupNextButton() {
     const btnNext = document.getElementById('btn-next');
     if (btnNext) {
+        btnNext.disabled = true;
         btnNext.addEventListener('click', () => {
             console.log('Navigating to questionnaire 3');
             window.location.href = '/userstudy/questionnaire3';
@@ -725,11 +793,13 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOMContentLoaded event');
         setupNextButton();
+        setupAnalysisModal();
         loadAndDisplay();
     });
 } else {
     // Dom già pronto, eseguiamo subito
     console.log('DOM già pronto, eseguiamo subito');
     setupNextButton();
+    setupAnalysisModal();
     loadAndDisplay();
 }

@@ -2,6 +2,7 @@ let currentSessionId = sessionStorage.getItem('session_id');
 let selectedCategories = new Set();
 let selectedCategoryObjects = {}; // Mappa categoria padre -> array di categorie figlio selezionate
 
+// Crea una sessione sostitutiva e riporta l'utente al welcome se lo step è aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
     fetch('/api/userstudy/session/create', { method: 'POST' })
         .then(response => response.json())
@@ -40,7 +41,7 @@ const DOM = {
     travelMode: document.querySelector('input[name="travel-mode"]:checked')
 };
 
-// Carica le categorie da categories.json
+// Recupera la tassonomia di categorie usata per costruire l'interfaccia gerarchica.
 async function loadCategories() {
     try {
         const response = await fetch('/api/userstudy/categories');
@@ -58,11 +59,13 @@ async function loadCategories() {
     }
 }
 
+// Inizializza l'interfaccia caricando e renderizzando le categorie disponibili.
 async function initializeCategories() {
     const categories = await loadCategories();
     renderCategories(categories);
 }
 
+// Costruisce dinamicamente la UI delle categorie padre/figlio con stato di selezione persistito in memoria.
 function renderCategories(categories) {
     DOM.categoriesContainer.innerHTML = '';
     
@@ -127,7 +130,7 @@ function renderCategories(categories) {
         collapseDiv.style.paddingTop = '10px';
         collapseDiv.style.borderTop = '1px solid #ddd';
         
-        // Crea checkbox per ogni sottocategoria
+        // Ogni sottocategoria aggiorna sia lo stato locale sia l'anteprima delle selezioni effettuate.
         subCategories.forEach(subCategory => {
             const itemDiv = document.createElement('div');
             itemDiv.style.marginBottom = '8px';
@@ -169,7 +172,7 @@ function renderCategories(categories) {
             collapseDiv.appendChild(itemDiv);
         });
         
-        // Event listener per espansione/collasso
+        // Il bottone padre apre e chiude il contenitore delle sottocategorie senza cambiare selezione.
         button.addEventListener('click', (e) => {
             e.preventDefault();
             const isVisible = collapseDiv.style.display !== 'none';
@@ -184,6 +187,7 @@ function renderCategories(categories) {
     });
 }
 
+// Sincronizza le strutture dati interne quando una sottocategoria viene selezionata o deselezionata.
 function updateCategorySelection(parentCategory, subCategory, isChecked) {
     if (isChecked) {
         selectedCategories.add(subCategory);
@@ -201,6 +205,7 @@ function updateCategorySelection(parentCategory, subCategory, isChecked) {
     }
 }
 
+// Aggiorna il colore del pulsante padre per riflettere selezione nulla, parziale o completa.
 function updateParentButtonColor(parentCategory, totalSubCategories) {
     const button = document.querySelector(`[data-category-id="${parentCategory}"]`);
     if (!button) return;
@@ -219,7 +224,7 @@ function updateParentButtonColor(parentCategory, totalSubCategories) {
     button.style.backgroundColor = color;
     button.style.color = selectedCount > 0 ? 'white' : '#333';
     
-    // Aggiungi o togli il checkmark
+    // Il checkmark rende immediatamente visibile che almeno una sottocategoria è attiva.
     let checkmark = button.querySelector('.checkmark');
     if (selectedCount > 0 && !checkmark) {
         checkmark = document.createElement('i');
@@ -232,6 +237,7 @@ function updateParentButtonColor(parentCategory, totalSubCategories) {
     }
 }
 
+// Mostra l'elenco sintetico delle categorie selezionate nel box riepilogativo in basso.
 function updateSelectedBadges() {
     DOM.selectedBadges.innerHTML = '';
     
@@ -261,6 +267,7 @@ function updateSelectedBadges() {
     });
 }
 
+// Abilita il passaggio successivo solo quando l'utente ha scelto almeno una categoria valida.
 function updateNextButtonState() {
     const travelTime = document.getElementById('travel-time').value;
     const hasCategories = selectedCategories.size > 0;
@@ -274,6 +281,7 @@ document.getElementById('travel-time').addEventListener('change', updateNextButt
 // Event listener per bottone Avanti
 DOM.btnNext.addEventListener('click', proceedToNextStep);
 
+// Salva categorie, tempo e modalità di viaggio e porta l'utente allo step risultati.
 async function proceedToNextStep() {
     const travelTime = parseInt(document.getElementById('travel-time').value);
     const travelMode = document.querySelector('input[name="travel-mode"]:checked').value;
@@ -315,6 +323,7 @@ async function proceedToNextStep() {
     }
 }
 
+// Visualizza errori di validazione o rete nel contenitore dedicato del passo 4.
 function showError(message) {
     DOM.errorMessage.textContent = message;
     DOM.errorMessage.style.display = 'block';

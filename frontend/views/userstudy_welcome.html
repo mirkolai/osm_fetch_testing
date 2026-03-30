@@ -140,7 +140,7 @@
     <script>
         let currentSessionId = null;
         
-        // Quando la pagina carica, crea una nuova sessione
+        // All'apertura del flow crea subito una nuova sessione anonima e la rende disponibile agli step successivi.
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const response = await fetch('/api/userstudy/session/create', {
@@ -154,7 +154,7 @@
                 if (data.status === 'success') {
                     currentSessionId = data.session_id;
                     document.getElementById('session-id').textContent = `Session: ${currentSessionId.substring(0, 8)}`;
-                    // Salva session_id nel sessionStorage accessibile a tutte le pagine
+                    // Salva il session id nel browser per permettere ai passaggi successivi di riagganciarlo.
                     sessionStorage.setItem('session_id', currentSessionId);
                 } else {
                     console.error('Errore nella creazione della sessione');
@@ -164,9 +164,10 @@
             }
         });
         
+        // Consente l'avvio del questionario solo quando la sessione è stata effettivamente inizializzata.
         document.getElementById('btn-start').addEventListener('click', () => {
             if (currentSessionId) {
-                // Naviga al primo questionario
+                // Prosegue al primo questionario mantenendo la sessione appena creata.
                 window.location.href = '/userstudy/questionnaire1';
             } else {
                 console.warn('Session non creata. Riprova tra poco.');

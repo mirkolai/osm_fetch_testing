@@ -333,6 +333,7 @@
         const errorMessage = document.getElementById('error-message');
         const loadingSpinner = document.getElementById('loading-spinner');
 
+        // Ricrea una sessione quando la pagina viene aperta senza contesto valido e riporta l'utente all'inizio.
         function createSessionAndRedirectToWelcome() {
             fetch('/api/userstudy/session/create', { method: 'POST' })
                 .then(response => response.json())
@@ -355,21 +356,22 @@
             createSessionAndRedirectToWelcome();
         }
         
+        // Valida il questionario, lo salva sul backend e apre il passo successivo del flow.
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             errorMessage.style.display = 'none';
             
-            // Raccogliere i dati del form
+            // Legge tutti i campi standard del form con una API uniforme anche per radio e select.
             const formData = new FormData(form);
             
-            // Verificare che tutti i campi obbligatori siano compilati
+            // I radio non hanno l'attributo required su tutti gli input, quindi la validazione minima viene fatta qui.
             if (!formData.get('age_group') || !formData.get('gender')) {
                 errorMessage.textContent = 'Errore: Compila tutti i campi obbligatori.';
                 errorMessage.style.display = 'block';
                 return;
             }
             
-            // Raccogliere i checkbox di transport_modes
+            // I mezzi di trasporto arrivano come checkbox multipli e vengono raccolti in un array esplicito.
             const transportModes = [];
             document.querySelectorAll('input[name="transport_modes"]:checked').forEach(checkbox => {
                 transportModes.push(checkbox.value);
@@ -403,7 +405,7 @@
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'success') {
-                    // Vai al prossimo passo
+                    // Prosegue allo step successivo solo dopo conferma di salvataggio lato backend.
                     window.location.href = '/userstudy/questionnaire2';
                 } else {
                     errorMessage.textContent = `Errore: ${data.detail || 'Non è stato possibile salvare i dati.'}`;

@@ -1,7 +1,7 @@
 """
 Funzioni per gestire le sessioni dello user study in MongoDB
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from backend.db import db
 from backend.UserStudySession import UserStudySessionModel
@@ -53,7 +53,7 @@ def update_session(session_id: str, update_data: Dict[str, Any]) -> bool:
     Returns:
         True se l'aggiornamento è stato fatto, False altrimenti
     """
-    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_at"] = datetime.now(timezone.utc)
     
     result = sessions_collection.update_one(
         {"session_id": session_id},
@@ -76,7 +76,7 @@ def save_demographics(session_id: str, demographics: Dict[str, Any]) -> bool:
     """
     return update_session(session_id, {
         "demographics": demographics,
-        "demographics_completed_at": datetime.utcnow(),
+        "demographics_completed_at": datetime.now(timezone.utc),
         "current_step": 2
     })
 
@@ -87,7 +87,7 @@ def save_preexploration(session_id: str, preexploration: Dict[str, Any]) -> bool
     """
     return update_session(session_id, {
         "preexploration": preexploration,
-        "preexploration_completed_at": datetime.utcnow(),
+        "preexploration_completed_at": datetime.now(timezone.utc),
         "current_step": 3
     })
 
@@ -104,7 +104,7 @@ def save_selected_street(
     return update_session(session_id, {
         "selected_street": street_name,
         "selected_coordinates": {"lat": latitude, "lon": longitude},
-        "street_selected_at": datetime.utcnow(),
+        "street_selected_at": datetime.now(timezone.utc),
         "current_step": 4
     })
 
@@ -122,7 +122,7 @@ def save_selected_categories(
         "selected_categories": categories,
         "travel_time": travel_time,
         "travel_mode": travel_mode,
-        "categories_selected_at": datetime.utcnow(),
+        "categories_selected_at": datetime.now(timezone.utc),
         "current_step": 5
     })
 
@@ -132,8 +132,27 @@ def save_results_viewed(session_id: str) -> bool:
     Registra che l'utente ha visto i risultati
     """
     return update_session(session_id, {
-        "results_viewed_at": datetime.utcnow(),
+        "results_viewed_at": datetime.now(timezone.utc),
         "current_step": 6
+    })
+
+
+def save_analysis_metrics(session_id: str, analysis_type: str, metrics: Dict[str, Any]) -> bool:
+    """
+    Salva le metriche calcolate per una analisi (default o personalized).
+
+    Le metriche vengono salvate nel ramo `analysis_metrics` del documento sessione:
+    - analysis_metrics.default
+    - analysis_metrics.personalized
+    """
+    if analysis_type not in {"default", "personalized"}:
+        return False
+
+    return update_session(session_id, {
+        f"analysis_metrics.{analysis_type}": {
+            "parameters": metrics,
+            "saved_at": datetime.now(timezone.utc)
+        }
     })
 
 
@@ -143,7 +162,7 @@ def save_postexploration(session_id: str, postexploration: Dict[str, Any]) -> bo
     """
     return update_session(session_id, {
         "postexploration": postexploration,
-        "postexploration_completed_at": datetime.utcnow(),
+        "postexploration_completed_at": datetime.now(timezone.utc),
         "current_step": 7
     })
 
@@ -153,7 +172,7 @@ def mark_session_completed(session_id: str) -> bool:
     Marca la sessione come completata
     """
     return update_session(session_id, {
-        "thanked_at": datetime.utcnow(),
+        "thanked_at": datetime.now(timezone.utc),
         "current_step": 7
     })
 

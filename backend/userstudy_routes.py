@@ -6,7 +6,6 @@ from typing import Dict, Any, List
 import json
 import os
 from backend.UserStudySession import (
-    CreateSessionRequest,
     SubmitDemographicsRequest,
     SubmitPreexplorationRequest,
     SelectStreetRequest,
@@ -14,8 +13,7 @@ from backend.UserStudySession import (
     SubmitPostexplorationRequest,
     GetSessionRequest,
     AnalyzeAreaRequest,
-    AnalyzePersonalizedRequest,
-    UserStudySessionModel
+    AnalyzePersonalizedRequest
 )
 from backend.userstudy_db import (
     create_session as db_create_session,
@@ -24,6 +22,7 @@ from backend.userstudy_db import (
     save_preexploration,
     save_selected_street,
     save_selected_categories,
+    save_analysis_metrics,
     save_results_viewed,
     save_postexploration,
     mark_session_completed,
@@ -221,6 +220,18 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
             max_minutes=60,
             categories=all_categories
         )
+
+        # Salva in sessione le metriche baseline per export finale e analisi successive.
+        metrics_payload = {
+            "proximity_score": parameters.get("proximity_score", 0.2),
+            "density_score": parameters.get("density_score", 0.2),
+            "entropy_score": parameters.get("entropy_score", 0.2),
+            "poi_accessibility": parameters.get("poi_accessibility", 0.2),
+            "closeness": parameters.get("closeness", 0.2)
+        }
+        save_ok = save_analysis_metrics(request.session_id, "default", metrics_payload)
+        if not save_ok:
+            raise HTTPException(status_code=500, detail="Failed to save default analysis metrics")
         
         return {
             "status": "success",
@@ -228,13 +239,7 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
             "isochrone": isochrone_data,
             "pois": pois_data,
             "total_pois": total_pois,
-            "parameters": {
-                "proximity_score": parameters.get("proximity_score", 0.2),
-                "density_score": parameters.get("density_score", 0.2),
-                "entropy_score": parameters.get("entropy_score", 0.2),
-                "poi_accessibility": parameters.get("poi_accessibility", 0.2),
-                "closeness": parameters.get("closeness", 0.2)
-            }
+            "parameters": metrics_payload
         }
     except HTTPException:
         raise
@@ -296,6 +301,18 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             max_minutes=60,
             categories=categories
         )
+
+        # Salva in sessione le metriche personalizzate per export finale e confronto.
+        metrics_payload = {
+            "proximity_score": parameters.get("proximity_score", 0.2),
+            "density_score": parameters.get("density_score", 0.2),
+            "entropy_score": parameters.get("entropy_score", 0.2),
+            "poi_accessibility": parameters.get("poi_accessibility", 0.2),
+            "closeness": parameters.get("closeness", 0.2)
+        }
+        save_ok = save_analysis_metrics(request.session_id, "personalized", metrics_payload)
+        if not save_ok:
+            raise HTTPException(status_code=500, detail="Failed to save personalized analysis metrics")
         
         return {
             "status": "success",
@@ -303,13 +320,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             "isochrone": isochrone_data,
             "pois": pois_data,
             "total_pois": total_pois,
-            "parameters": {
-                "proximity_score": parameters.get("proximity_score", 0.2),
-                "density_score": parameters.get("density_score", 0.2),
-                "entropy_score": parameters.get("entropy_score", 0.2),
-                "poi_accessibility": parameters.get("poi_accessibility", 0.2),
-                "closeness": parameters.get("closeness", 0.2)
-            }
+            "parameters": metrics_payload
         }
     except HTTPException:
         raise

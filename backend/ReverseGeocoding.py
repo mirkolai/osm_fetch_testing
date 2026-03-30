@@ -25,6 +25,7 @@ class ReverseGeocodingResult(BaseModel):
 
 @lru_cache(maxsize=1000)
 def reverse_geocoding(query: str) -> Tuple[int, str, Union[List[Place] | None]]:
+    """Interroga Nominatim e restituisce una lista di candidati per un testo libero."""
     try:
         headers = {'User-Agent': 'United and close'}
         response = requests.get(f"https://nominatim.openstreetmap.org/search?format=jsonv2&q={query}", headers=headers)
@@ -33,6 +34,7 @@ def reverse_geocoding(query: str) -> Tuple[int, str, Union[List[Place] | None]]:
 
     if response.status_code == 200:
         response_data = json.loads(response.text)
+        # Converte il payload Nominatim in modelli interni già pronti per il frontend.
         places = [
             Place(
                 name=row["display_name"],

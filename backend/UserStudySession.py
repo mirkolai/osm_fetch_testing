@@ -66,6 +66,7 @@ class UserStudySessionModel(BaseModel):
     categories_selected_at: Optional[datetime] = None
     
     # Step 5: Risultati e grafico (calcolati automaticamente)
+    analysis_metrics: Dict[str, Any] = Field(default_factory=dict)  # {"default": {...}, "personalized": {...}}
     results_viewed_at: Optional[datetime] = None
     
     # Step 6: Post-esplorazione

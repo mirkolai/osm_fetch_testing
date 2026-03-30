@@ -15,16 +15,14 @@ class Coordinates(BaseModel):
     lon: float
 
 
-# Funzione per ottenere l'ID del nodo in base alle coordinate
 def get_id_node_by_coordinates(coordinates: Coordinates) -> Tuple[int, str, Union[int, None]]:
-    #print("get_id_node_by_coordinates 0.1")
-    #print(coordinates)
+    """Restituisce il node_id stradale più vicino a una coppia di coordinate."""
     try:
         logging.info("get_id_node_by_coordinates 0")
         logging.info(coordinates)
         nodes_collection = db['nodes']
 
-        # Query per trovare il nodo con le coordinate specificate
+        # La query geospaziale usa coordinate GeoJSON [lon, lat].
         node = nodes_collection.count_documents({})
         logging.info(node)
 
@@ -42,7 +40,6 @@ def get_id_node_by_coordinates(coordinates: Coordinates) -> Tuple[int, str, Unio
         #print(node)
         logging.info(node)
 
-        # Controlla se il nodo è stato trovato
         if node:
             return 200, "OK", node['node_id']
         else:
@@ -51,5 +48,4 @@ def get_id_node_by_coordinates(coordinates: Coordinates) -> Tuple[int, str, Unio
             return 404, "Nodo non trovato", None
     except Exception as e:
         print(e)
-        # Gestione degli errori generali
         return 500, f"Errore del server: {str(e)}", None
