@@ -284,7 +284,7 @@ async function analyzeArea() {
         
     } catch (error) {
         console.error('Errore nell\'analisi:', error);
-        showError('Errore nell\'analisi dell\'area. Prova di nuovo.');
+        showError('Scegli una via dentro la città di Torino.');
         setStreetSelectionLocked(false);
         btnAnalyze.disabled = false;
     } finally {

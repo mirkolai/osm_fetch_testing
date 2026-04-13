@@ -8,7 +8,7 @@ services:
       dockerfile: "Docker"
     container_name: 15MinuteApp
     ports:
-      - "8000:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
+      - "8080:8080" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
     volumes:
     #in fase di testing per non dover riavviare il container
       - type: bind
