@@ -7,6 +7,7 @@ services:
       context: .
       dockerfile: "Docker"
     container_name: 15MinuteApp
+    restart: unless-stopped   
     ports:
       - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
     volumes:
@@ -27,6 +28,7 @@ services:
   # Servizio per MongoDB
   mongodb:
     image: mongodb/mongodb-community-server:6.0-ubi8
+    restart: unless-stopped 
     environment:
       - MONGODB_INITDB_ROOT_USERNAME=user
       - MONGODB_INITDB_ROOT_PASSWORD=pass
