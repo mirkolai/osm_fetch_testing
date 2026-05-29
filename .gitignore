@@ -170,6 +170,7 @@ mongo_init/mongo 93. salva distanze.py
 mongo_init/backup/*
 !mongo_init/backup/initdb.d/
 mongo_init/backup/initdb.d/*
+!mongo_init/backup/initdb.d/restore.sh
 !mongo_init/backup/initdb.d/dump/
 mongo_init/backup/initdb.d/dump/*
 !mongo_init/backup/initdb.d/dump/15minute/
