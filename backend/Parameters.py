@@ -1,12 +1,19 @@
 import math
-import random
 
 from shapely.geometry import shape
 from shapely.ops import transform
 import pyproj
 
 
-def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max_minutes=60, categories=None):
+def compute_isochrone_parameters(
+    pois_data,
+    isochrone_data,
+    vel,
+    total_pois,
+    max_minutes=60,
+    categories=None,
+    closeness_value=None,
+):
     """
     Calcola le metriche aggregate mostrate nei grafici dello user study.
 
@@ -60,7 +67,7 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
                 counts[primary] += 1
             else:
                 # Se la categoria primaria non rientra nel filtro, prova con le alternate.
-                for alt in poi["categories"].get("alternate", []):
+                for alt in (poi["categories"].get("alternate") or []):
                     if alt in counts:
                         counts[alt] += 1
                         break
@@ -83,15 +90,15 @@ def compute_isochrone_parameters(pois_data, isochrone_data, vel, total_pois, max
     # PoiAccessibility sintetizza le tre metriche principali in un unico punteggio medio.
     poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
 
-    # La closeness non è ancora disponibile nel dataset finale, quindi resta simulata.
-    closeness_random = random.random()
+    # La closeness arriva dalla collection connectivity; fallback 0.0 se non disponibile.
+    closeness_score = 0.0 if closeness_value is None else float(closeness_value)
 
     return {
         "proximity": proximity_min,
         "proximity_score": proximity_score,
         "density_score": density_score,
         "entropy_score": entropy_score,
-        "closeness": closeness_random,
+        "closeness": closeness_score,
         "poi_accessibility": poi_accessibility,
     }
 

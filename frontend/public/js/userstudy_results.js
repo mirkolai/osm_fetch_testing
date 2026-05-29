@@ -263,6 +263,30 @@ function drawPOIs(analysisData, layerGroup) {
     }
     
     console.log(`Inizio disegno ${analysisData.pois.length} POI`);
+
+    const toLatLon = (coords) => {
+        if (!Array.isArray(coords) || coords.length !== 2) {
+            return null;
+        }
+
+        const a = Number(coords[0]);
+        const b = Number(coords[1]);
+        if (Number.isNaN(a) || Number.isNaN(b)) {
+            return null;
+        }
+
+        // Standard GeoJSON: [lon, lat]
+        if (a >= -180 && a <= 180 && b >= -90 && b <= 90) {
+            return [b, a];
+        }
+
+        // Legacy fallback: [lat, lon]
+        if (a >= -90 && a <= 90 && b >= -180 && b <= 180) {
+            return [a, b];
+        }
+
+        return null;
+    };
     
     // Mostra tutti i POI (o imposta un limite alto se serve)
     const MAX_POI = 1000;
@@ -282,9 +306,11 @@ function drawPOIs(analysisData, layerGroup) {
             const poi = poisToDisplay[i];
             try {
                 if (poi.location && poi.location.coordinates && poi.location.coordinates.length === 2) {
-                    // Coordinates are [lat, lon] in this API (not standard GeoJSON)
-                    const lat = poi.location.coordinates[0];
-                    const lon = poi.location.coordinates[1];
+                    const latLon = toLatLon(poi.location.coordinates);
+                    if (!latLon) {
+                        continue;
+                    }
+                    const [lat, lon] = latLon;
                     
                     // Get POI name (could be object or string)
                     let poiName = 'POI';

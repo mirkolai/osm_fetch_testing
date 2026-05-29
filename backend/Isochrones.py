@@ -1,11 +1,68 @@
 from typing import Union, List, Tuple, Dict
 
-from backend.db import db
+from backend.mongo_db import db
+from backend.postgres_db import get_postgres_connection
+from shapely.geometry import MultiPoint, mapping
 import logging
 logging.basicConfig(
     #level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
+
+def _resolve_network_mode(travel_mode: str) -> str:
+    normalized_mode = (travel_mode or "walking").strip().lower()
+    if normalized_mode in {"bike", "bicycle", "cycling"}:
+        return "bike"
+    return "walk"
+
+
+def _fetch_reachable_nodes(node_id: int, minute: int, velocity: int, network_mode: str) -> List[Tuple[float, float]]:
+    max_distance = (velocity * 1000 / 60) * minute
+    query = f"""
+        WITH reachable AS (
+            SELECT node, agg_cost
+            FROM pgr_drivingDistance(
+                'SELECT id, source, target, cost, cost AS reverse_cost FROM edges WHERE network_mode = ''{network_mode}''',
+                %s,
+                %s,
+                directed := false
+            )
+        )
+        SELECT n.x, n.y
+        FROM reachable r
+        JOIN nodes n ON n.id = r.node AND n.network_mode = %s
+        ORDER BY r.agg_cost ASC
+    """
+
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (node_id, max_distance, network_mode))
+            return [(float(x), float(y)) for x, y in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def _build_isochrone_result(node_id: int, minute: int, velocity: int, travel_mode: str):
+    network_mode = _resolve_network_mode(travel_mode)
+    reachable_coords = _fetch_reachable_nodes(node_id, minute, velocity, network_mode)
+
+    if not reachable_coords:
+        return 404, "Dati dell'isocrona non trovati per i parametri specificati", None
+
+    hull = MultiPoint(reachable_coords).convex_hull
+    hull_geojson = mapping(hull)
+    bbox = list(hull.bounds)
+
+    result = {
+        "node_id": node_id,
+        "convex_hull": {
+            "coordinates": hull_geojson.get("coordinates", []),
+            "bbox": bbox,
+        },
+    }
+    return 200, "OK", result
 
 
 def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
@@ -20,60 +77,20 @@ def get_isochrone_bbox_by_node_id(node_id: int, minute: int, velocity: int) -> (
     :return: Tuple con codice di stato, messaggio e la bounding box [lon_min, lat_min, lon_max, lat_max]
     """
     try:
-        collection = db["isochrone_walk"]
-
-        # Query per trovare il documento con il node_id, minuto e velocità specificati
-        query = {"node_id": node_id}
-        document = collection.find_one(query)
-
-        if not document:
-            return 404, "Nessuna isocrona trovata per il node_id fornito", None
-
-        # Naviga nella struttura annidata per estrarre la bounding box dal convex_hull
-        isochrone_data = document.get("isochrone", {}).get(str(minute), {}).get(str(velocity), {})
-        convex_hull = isochrone_data.get("convex_hull", {})
-
-        # Estrazione della bounding box
-        bbox = convex_hull.get("bbox", None)
-
-        if bbox:
-            return 200, "OK", bbox
-        else:
-            return 404, "Bounding box non trovata per i parametri specificati", None
-
+        status, message, result = _build_isochrone_result(node_id, minute, velocity, "walking")
+        if status != 200:
+            return status, message, None
+        bbox = result["convex_hull"]["bbox"]
+        return 200, "OK", bbox
     except Exception as e:
         return 500, f"Errore del server: {str(e)}", None
 
 
-def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int) -> (
+def get_isocronewalk_by_node_id(node_id: int, minute: int, velocity: int, travel_mode: str = "walking") -> (
         Tuple)[int, str, Union[Dict[str, Union[int, Dict[str, Union[List[List[float]], List[float]]]]], None]]:
     """Recupera la geometria semplificata dell'isocrona per nodo, minuti e velocità."""
     logging.info(f"get_isocronewalk_by_node_id ")
-
-    collection = db["isochrone_walk"]
-    query = {"node_id": node_id}
-    document = collection.find_one(query)
-
-    if not document:
-        print(f"No data found for the given node_id {node_id}")
-        logging.debug(f"No data found for the given node_id {node_id}")
-
-        return 404, "No data found for the given node_id", None
-
-    isochrone_data = document.get("isochrone", {}).get(str(minute), {}).get(str(velocity), {})
-
-    if isochrone_data:
-        # Il frontend usa solo coordinates e bbox del convex_hull, quindi la risposta viene già ridotta.
-        result = {
-            "node_id": document["node_id"],
-            "convex_hull": {
-                "coordinates": isochrone_data.get("convex_hull", {}).get("features", [])[0].get("geometry", {})
-                .get("coordinates", []),
-                "bbox": isochrone_data.get("convex_hull", {}).get("bbox", [])
-            }
-        }
-        return 200, "OK", result
-    else:
-        logging.debug(f"Dati dell'isocrona non trovati per i parametri specificati")
-
-        return 404, "Dati dell'isocrona non trovati per i parametri specificati", None
+    try:
+        return _build_isochrone_result(node_id, minute, velocity, travel_mode)
+    except Exception as e:
+        return 500, f"Errore del server: {str(e)}", None

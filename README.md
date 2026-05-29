@@ -1,7 +1,4 @@
 
-# Preview
-![Demo dell'app](TesiVideo.gif)
-
 # FastAPI Application
 
 Benvenuto! Questa guida ti aiuterà a configurare l'ambiente e a eseguire questa applicazione **FastAPI** sulla tua macchina.
@@ -100,10 +97,10 @@ Quando hai terminato, puoi disattivare l'ambiente virtuale con:
 deactivate
 ```
 ### **SetUp database**
-Assicurati di avere installato docker e di esserti fatto mandare la cartella db_init e il file docker-compose.
-inserisci il file docker-compose dentro la cartella db_init.
-sposta la cartella db_init nella cartella principale del progetto
-apri un terminale in db_init ed esegui il comando
+Assicurati di avere installato docker e di esserti fatto mandare la cartella mongo_init e il file docker-compose.
+inserisci il file docker-compose dentro la cartella mongo_init.
+sposta la cartella mongo_init nella cartella principale del progetto
+apri un terminale in mongo_init ed esegui il comando
 ```bash
 docker-compose up
 ```
@@ -111,7 +108,7 @@ opzionalmente con un applicazione come datagrip puoi visualizzare il DB inserend
 
 ### **Dev Fast Start**
 Una volta setuppato tutto per i successivi avii basterà avviare docker sul proprio dispositivo poi fare i seguenti due comandi.
-in db_init:
+in mongo_init:
 ```bash
 docker-compose up
 ```

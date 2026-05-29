@@ -1,1 +1,0 @@
-Replace the folder named ‘15minute’ with the folder ‘15minute’ available for download here: https://drive.google.com/drive/folders/1rP-sHu9c4QdGPfQ04Js_QG5LGw_Wmdjb?usp=drive_link

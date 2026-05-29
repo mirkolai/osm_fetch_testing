@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"node_id":{"$numberInt":"1"}},"name":"node_id_1","unique":true}],"uuid":"019c4c58d2ab43c594d25fca5105e115","collectionName":"connectivity_bike","type":"collection"}

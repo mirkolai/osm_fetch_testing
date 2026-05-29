@@ -15,7 +15,13 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### 3. Avvia l'applicazione
+### 3. Avvia i servizi database
+
+```bash
+sudo docker compose up -d mongodb postgres
+```
+
+### 4. Avvia l'applicazione
 
 ```bash
 uvicorn backend.app:app --reload
@@ -23,13 +29,13 @@ uvicorn backend.app:app --reload
 
 L'app dovrebbe partire su `http://localhost:8000`
 
-### 4. Accedi allo user study
+### 5. Accedi allo user study
 
 Apri il browser e vai a: **http://localhost:8000/userstudy/welcome**
 
 ## Flusso di Test Completo
 
-Segui i 7 step dello user study:
+Segui gli 8 step dello user study:
 
 1. **Welcome** - Clicca "Inizia lo Studio"
 2. **Questionnaire 1** - Compila i dati demografici
@@ -71,6 +77,11 @@ curl -X GET http://localhost:8000/api/userstudy/sessions/all
 - **Flusso completo**: Vedi [USERSTUDY_FLOW.md](USERSTUDY_FLOW.md)
 - **README app**: Vedi [README.md](README.md)
 
+## Path Dati (Aggiornati)
+
+- Dump MongoDB init: `mongo_init/backup/initdb.d/dump/15minute`
+- File GraphML per ingest PostgreSQL: `postgres_init/graphml`
+
 ## Troubleshooting
 
 ### Errore: "Session not found"
@@ -79,13 +90,13 @@ curl -X GET http://localhost:8000/api/userstudy/sessions/all
 - Controlla che l'URL sia corretto
 
 ### Errore: "Database connection error"
-- Verifica che MongoDB sia in esecuzione
-- Controlla la variabile `MONGO_URL` in `backend/db.py`
-- Se usi Docker: `docker-compose up -d mongodb`
+- Verifica che MongoDB e PostgreSQL siano in esecuzione
+- Controlla le variabili `MONGO_URL` e `POSTGRES_URL` in `docker-compose.yml`
+- Se usi Docker: `sudo docker compose up -d mongodb postgres`
 
 ### Errore: "Isochrone calculation failed"
-- Questo è normale - la pagina dei risultati mosterà comunque la mappa e il grafico
-- L'isochrone è visualizzato come un cerchio approssimativo
+- Verifica che PostgreSQL con estensioni PostGIS/pgRouting sia avviato
+- Verifica che i dati rete siano stati ingestiti da `postgres_init/graphml`
 
 ### API returns 500 error
 - Controlla i log di FastAPI nel terminale

@@ -3,7 +3,7 @@ Funzioni per gestire le sessioni dello user study in MongoDB
 """
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
-from backend.db import db
+from backend.mongo_db import db
 from backend.UserStudySession import UserStudySessionModel
 import uuid
 

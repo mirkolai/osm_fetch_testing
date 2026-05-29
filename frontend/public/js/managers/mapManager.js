@@ -39,13 +39,43 @@ export class MapManager {
             return;
         }
 
+        const toLatLon = (coords) => {
+            if (!Array.isArray(coords) || coords.length !== 2) {
+                return null;
+            }
+
+            const a = Number(coords[0]);
+            const b = Number(coords[1]);
+            if (Number.isNaN(a) || Number.isNaN(b)) {
+                return null;
+            }
+
+            // Standard GeoJSON: [lon, lat]
+            if (a >= -180 && a <= 180 && b >= -90 && b <= 90) {
+                return [b, a];
+            }
+
+            // Legacy fallback: [lat, lon]
+            if (a >= -90 && a <= 90 && b >= -180 && b <= 180) {
+                return [a, b];
+            }
+
+            return null;
+        };
+
         pois.forEach(poi => {
             if (!poi.location || !poi.location.coordinates) {
                 console.warn('Invalid POI data:', poi);
                 return;
             }
 
-            const [lat, lon] = poi.location.coordinates;
+            const latLon = toLatLon(poi.location.coordinates);
+            if (!latLon) {
+                console.warn('Invalid POI coordinates:', poi.location.coordinates);
+                return;
+            }
+
+            const [lat, lon] = latLon;
             const primaryCategory = poi.categories?.primary || '';
             const iconClass = this.getIconClassForCategory(primaryCategory);
 

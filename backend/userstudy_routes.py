@@ -31,12 +31,22 @@ from backend.userstudy_db import (
 )
 # Importa le funzioni per le API
 from backend.Isochrones import get_isocronewalk_by_node_id
-from backend.Poi import get_detailed_pois_by_node_id
+from backend.Poi import get_detailed_pois_by_node_id, expand_requested_categories
+from backend.Connectivity import get_normalized_closeness_by_node_id
 from backend.Parameters import compute_isochrone_parameters
 from backend.Nodes import get_id_node_by_coordinates
 from backend.RequestModels import Coordinates
 
 router = APIRouter(prefix="/api/userstudy", tags=["userstudy"])
+
+
+def resolve_velocity_kmh(travel_mode: str) -> int:
+    mode = (travel_mode or "walking").strip().lower()
+    if mode in {"bike", "bicycle", "cycling"}:
+        return 15
+    if mode in {"walking_cane", "cane"}:
+        return 4
+    return 5
 
 
 @router.get("/categories")
@@ -182,11 +192,12 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
         
         # Estrai tutti i nomi delle categorie (le chiavi principali)
         all_categories = list(categories_dict.keys())
+        expanded_categories = expand_requested_categories(all_categories)
         
         coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
         
         # Step 1: Trova il node_id più vicino
-        status_code, message, node_id = get_id_node_by_coordinates(coordinates)
+        status_code, message, node_id = get_id_node_by_coordinates(coordinates, travel_mode="walking")
         if status_code != 200:
             raise HTTPException(status_code=404, detail=f"Node not found: {message}")
         
@@ -194,7 +205,8 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
         iso_status, iso_msg, isochrone_data = get_isocronewalk_by_node_id(
             node_id=node_id,
             minute=minutes,
-            velocity=velocity
+            velocity=velocity,
+            travel_mode="walking"
         )
         if iso_status != 200:
             raise HTTPException(status_code=404, detail=f"Isochrone not found: {iso_msg}")
@@ -204,7 +216,8 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
             node_id=node_id,
             min=minutes,
             vel=velocity,
-            categories=all_categories
+            categories=all_categories,
+            travel_mode="walking"
         )
         if poi_status != 200:
             # Se non ci sono POI, continua comunque
@@ -212,13 +225,21 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
             total_pois = 0
         
         # Step 4: Calcola i parametri per il radar chart
+        closeness_status, _, closeness_value = get_normalized_closeness_by_node_id(
+            node_id=node_id,
+            travel_mode="walking",
+        )
+        if closeness_status != 200:
+            closeness_value = 0.0
+
         parameters = compute_isochrone_parameters(
             pois_data=pois_data,
             isochrone_data=isochrone_data,
             vel=velocity,
             total_pois=total_pois,
             max_minutes=60,
-            categories=all_categories
+            categories=expanded_categories,
+            closeness_value=closeness_value,
         )
 
         # Salva in sessione le metriche baseline per export finale e analisi successive.
@@ -261,13 +282,14 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         
         # Parametri personalizzati
         minutes = request.travel_time
-        velocity = 5 if request.travel_mode == "walking" else 4  # 4 km/h con bastone, 5 km/h a piedi
+        velocity = resolve_velocity_kmh(request.travel_mode)
         categories = request.categories
+        expanded_categories = expand_requested_categories(categories)
         
         coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
         
         # Step 1: Trova il node_id più vicino
-        status_code, message, node_id = get_id_node_by_coordinates(coordinates)
+        status_code, message, node_id = get_id_node_by_coordinates(coordinates, travel_mode=request.travel_mode)
         if status_code != 200:
             raise HTTPException(status_code=404, detail=f"Node not found: {message}")
         
@@ -275,7 +297,8 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         iso_status, iso_msg, isochrone_data = get_isocronewalk_by_node_id(
             node_id=node_id,
             minute=minutes,
-            velocity=velocity
+            velocity=velocity,
+            travel_mode=request.travel_mode
         )
         if iso_status != 200:
             raise HTTPException(status_code=404, detail=f"Isochrone not found: {iso_msg}")
@@ -285,7 +308,8 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             node_id=node_id,
             min=minutes,
             vel=velocity,
-            categories=categories
+            categories=categories,
+            travel_mode=request.travel_mode
         )
         if poi_status != 200:
             # Se non ci sono POI, continua comunque
@@ -293,13 +317,21 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             total_pois = 0
         
         # Step 4: Calcola i parametri per il radar chart
+        closeness_status, _, closeness_value = get_normalized_closeness_by_node_id(
+            node_id=node_id,
+            travel_mode=request.travel_mode,
+        )
+        if closeness_status != 200:
+            closeness_value = 0.0
+
         parameters = compute_isochrone_parameters(
             pois_data=pois_data,
             isochrone_data=isochrone_data,
             vel=velocity,
             total_pois=total_pois,
             max_minutes=60,
-            categories=categories
+            categories=expanded_categories,
+            closeness_value=closeness_value,
         )
 
         # Salva in sessione le metriche personalizzate per export finale e confronto.

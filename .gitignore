@@ -162,13 +162,27 @@ cython_debug/
 backend/mongo-dump
 backend/docker-compose.yml
 backend/Dockerfile
-backend/db.py
-db_init
+mongo_init
+!mongo_init/
+mongo_init/*
+mongo_init/mongo 93. salva distanze.py
+!mongo_init/backup/
+mongo_init/backup/*
+!mongo_init/backup/initdb.d/
+mongo_init/backup/initdb.d/*
+!mongo_init/backup/initdb.d/dump/
+mongo_init/backup/initdb.d/dump/*
+!mongo_init/backup/initdb.d/dump/15minute/
+!mongo_init/backup/initdb.d/dump/15minute/**
 /test 1 mostra neighbourhoods.py
 /test2.py
 /test3.py
 /utils.py
 .idea/*
 /mongo_production/
+/postgres_production/
 .idea/misc.xml
 .idea/osm_fetch_testing.iml
+borghesan/*
+/borgesan/
+TesiVideo.gif

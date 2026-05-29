@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Servizio per l'app FastAPI
   fastapi-app:
@@ -20,8 +18,10 @@ services:
         target: /backend
     depends_on:
       - mongodb
+      - postgres
     environment:
       MONGO_URL: "mongodb://user:pass@mongodb:27017"
+      POSTGRES_URL: "postgresql://postgres:postgres@postgres:5432/15minute"
     networks:
       - app-network
 
@@ -41,7 +41,27 @@ services:
       - type: bind
         source: ./mongo_production/db
         target: /data/db
-      - ./db_init/backup/initdb.d:/docker-entrypoint-initdb.d
+      - ./mongo_init/backup/initdb.d:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+
+  # Servizio per PostgreSQL con PostGIS + pgRouting
+  postgres:
+    image: pgrouting/pgrouting:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=15minute
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - type: bind
+        source: ./postgres_production/db
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: ./postgres_init
+        target: /docker-entrypoint-initdb.d
     networks:
       - app-network
 

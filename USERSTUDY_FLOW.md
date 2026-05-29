@@ -1,6 +1,13 @@
 # User Study - Linea di Flusso
 
-Questo documento descrive ilnuovo flusso dell'applicazione per lo user study sulla accessibilità urbana.
+Questo documento descrive il nuovo flusso dell'applicazione per lo user study sulla accessibilità urbana.
+
+## Stato Infrastruttura (Aggiornato)
+
+- Runtime database: MongoDB + PostgreSQL/PostGIS+pgRouting (via `docker-compose.yml` in root).
+- Dump Mongo init: `mongo_init/backup/initdb.d/dump/15minute`.
+- Rete stradale GraphML: `postgres_init/graphml`.
+- Le analisi (isochrone e POI raggiungibili) sono calcolate on-the-fly su rete reale per `walking` e `bike`.
 
 ## Guida al Flusso
 
@@ -43,7 +50,7 @@ L'applicazione segue un flusso strutturato in 7 step:
 - **Funzione**: Configurazione parametri di ricerca
 - **Selezioni**:
   - Tempo di viaggio: 5, 10, 15, 20 minuti
-  - Modalità di viaggio: A piedi, Con bastone
+  - Modalità di viaggio: A piedi, In bici
   - Categorie di servizi (supermarket, ristorante, farmacia, ospedale, scuola, biblioteca, palestra, parco, banca, posta, bus stop)
 - **Salvataggio**: Endpoint `/api/userstudy/categories/select`
   - categories (array)
@@ -56,7 +63,7 @@ L'applicazione segue un flusso strutturato in 7 step:
 - **Dati Mostrati**:
   - Via selezionata
   - Marcatore sulla mappa
-  - Cerchio di isochrone (raggio basato su tempo di viaggio)
+  - Isochrone reale calcolata su rete stradale (on-the-fly)
   - Grafico spider con analisi dei servizi
 - **Azioni**:
   - Endpoint `/api/userstudy/results/viewed` per registrare la visualizzazione
@@ -170,7 +177,7 @@ Ogni sessione viene salvata in MongoDB con la seguente struttura:
 
 ### Backend
 - Framework: FastAPI
-- Database: MongoDB
+- Database: MongoDB + PostgreSQL/PostGIS+pgRouting
 - Modelli: `UserStudySessionModel`, `DemographicsResponse`, `PreexplorationResponse`, `PostexplorationResponse`
 
 ### Frontend
@@ -210,9 +217,9 @@ Per testare il flusso completo:
 - Controlla che il session_id sia valido
 
 ### Database connection error
-- Verifica che MongoDB sia in esecuzione
-- Controlla `MONGO_URL` in `backend/db.py`
-- Verifica le credenziali
+- Verifica che MongoDB e PostgreSQL siano in esecuzione
+- Controlla `MONGO_URL` e `POSTGRES_URL` nel servizio FastAPI di `docker-compose.yml`
+- Verifica le credenziali e le porte (`27017`, `5432`)
 
 ### API errors
 - Controlla la console del browser per i messaggi di errore
