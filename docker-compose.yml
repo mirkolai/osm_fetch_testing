@@ -17,12 +17,8 @@ services:
         source: ./backend
         target: /backend
     depends_on:
-      mongodb:
-        condition: service_started
-      postgres:
-        condition: service_started
-      postgres-bootstrap:
-        condition: service_completed_successfully
+      - mongodb
+      - postgres
     environment:
       MONGO_URL: "mongodb://user:pass@mongodb:27017"
       POSTGRES_URL: "postgresql://postgres:postgres@postgres:5432/15minute"
@@ -66,31 +62,6 @@ services:
       - type: bind
         source: ./postgres_init
         target: /docker-entrypoint-initdb.d
-    networks:
-      - app-network
-
-  # Bootstrap automatico dei dati Postgres al primo avvio.
-  postgres-bootstrap:
-    build:
-      context: .
-      dockerfile: "Docker.postgres_bootstrap"
-    depends_on:
-      - mongodb
-      - postgres
-    environment:
-      MONGO_URL: "mongodb://user:pass@mongodb:27017"
-      MONGO_DB: "15minute"
-      POSTGRES_URL: "postgresql://postgres:postgres@postgres:5432/15minute"
-      GRAPHML_DIR: "/workspace/postgres_init/graphml"
-      BOOTSTRAP_TIMEOUT_SECONDS: "600"
-    volumes:
-      - type: bind
-        source: ./backend
-        target: /workspace/backend
-      - type: bind
-        source: ./postgres_init
-        target: /workspace/postgres_init
-    restart: "on-failure"
     networks:
       - app-network
 
