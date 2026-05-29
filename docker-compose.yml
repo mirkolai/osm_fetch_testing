@@ -32,8 +32,6 @@ services:
     environment:
       - MONGODB_INITDB_ROOT_USERNAME=user
       - MONGODB_INITDB_ROOT_PASSWORD=pass
-    ports:
-      - "27017:27017"
     # sudo chmod -R 700 mongo_production/
     # sudo chown -R mirko:mirko mongo_production/
     user: "${UID}:${GID}"  # usa il tuo UID/GID
@@ -53,8 +51,6 @@ services:
       - POSTGRES_DB=15minute
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
     volumes:
       - type: bind
         source: ./postgres_production/db
