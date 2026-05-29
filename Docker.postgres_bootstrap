@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+
+WORKDIR /workspace
+
+# Dipendenze minime per ingest GraphML + mapping Mongo/Postgres.
+RUN pip install --no-cache-dir osmnx psycopg2-binary pymongo
+
+CMD ["python", "-m", "backend.postgres_ingest.bootstrap_compose"]
