@@ -150,3 +150,14 @@ class AnalyzePersonalizedRequest(BaseModel):
     travel_time: int  # minuti
     travel_mode: str  # "walking", "walking_cane", etc.
     categories: List[str]  # categorie selezionate
+
+
+class CityAverageMetricsRequest(BaseModel):
+    """Richiesta per la media metriche cittadina su nodi precomputati."""
+    session_id: str
+    latitude: float
+    longitude: float
+    travel_time: int
+    travel_mode: str
+    categories: List[str] = []
+    apply_category_filter: bool = True

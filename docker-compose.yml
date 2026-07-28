@@ -1,37 +1,38 @@
 services:
   # Servizio per l'app FastAPI
-  fastapi-app:
-    build:
-      context: .
-      dockerfile: "Docker"
-    container_name: 15MinuteApp
-    restart: unless-stopped   
-    ports:
-      - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
-    volumes:
+  #fastapi-app:
+  #  build:
+  #    context: .
+  #    dockerfile: "Docker"
+  #  container_name: 15MinuteApp
+  #  restart: unless-stopped   
+  #  ports:
+  #    - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
+  #  volumes:
     #in fase di testing per non dover riavviare il container
-      - type: bind
-        source: ./frontend
-        target: /frontend
-      - type: bind
-        source: ./backend
-        target: /backend
-    depends_on:
-      - mongodb
-      - postgres
-    environment:
-      MONGO_URL: "mongodb://user:pass@mongodb:27017"
-      POSTGRES_URL: "postgresql://postgres:postgres@postgres:5432/15minute"
-    networks:
-      - app-network
+  #    - type: bind
+  #      source: ./frontend
+  #      target: /frontend
+  #    - type: bind
+  #      source: ./backend
+  #      target: /backend
+  #  depends_on:
+  #    - mongodb
+  #    - postgres
+  #  environment:
+  #    MONGO_URL: ${MONGO_URL_DOCKER}
+  #    MONGO_DB: ${MONGO_DB}
+  #    POSTGRES_URL: ${POSTGRES_URL_DOCKER}
+  #  networks:
+  #    - app-network
 
   # Servizio per MongoDB
   mongodb:
     image: mongodb/mongodb-community-server:6.0-ubi8
     restart: unless-stopped 
     environment:
-      - MONGODB_INITDB_ROOT_USERNAME=user
-      - MONGODB_INITDB_ROOT_PASSWORD=pass
+      - MONGODB_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+      - MONGODB_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
     # sudo chmod -R 700 mongo_production/
     # sudo chown -R mirko:mirko mongo_production/
     user: "${UID}:${GID}"  # usa il tuo UID/GID
@@ -40,6 +41,8 @@ services:
         source: ./mongo_production/db
         target: /data/db
       - ./mongo_init/backup/initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:27017:27017"
     networks:
       - app-network
 
@@ -48,9 +51,9 @@ services:
     image: pgrouting/pgrouting:latest
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=15minute
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - type: bind
         source: ./postgres_production/db
@@ -58,6 +61,8 @@ services:
       - type: bind
         source: ./postgres_init
         target: /docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
     networks:
       - app-network
 

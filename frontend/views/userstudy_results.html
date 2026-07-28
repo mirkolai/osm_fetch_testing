@@ -296,13 +296,26 @@
     <div class="modal-overlay" id="modal-overlay">
         <div class="modal-content-box">
             <button class="modal-close" id="modal-close">&times;</button>
-            <h5 class="modal-title">Analisi dei Parametri</h5>
+            <h4 class="modal-title">Analisi Senza Personalizzazione</h4>
+        <p class="modal-description">
+            Questa analisi valuta il livello di prossimità urbana dell'area considerando la distribuzione attuale dei servizi,
+            senza applicare preferenze o pesi personalizzati. I risultati misurano la facilità di accesso ai servizi essenziali, la loro presenza e la qualità
+            della rete urbana, confrontando le prestazioni dell'area analizzata con la media
+    cittadina di riferimento. 
+        </p>
             <div id="spider-chart-modal"></div>
             <div class="chart-info">
-                <h6>Confronto tra analisi</h6>
-                <p>Rosso: default (step 3)</p>
-                <p>Blu: personalizzato (step 5)</p>
-                <p>I valori sono normalizzati su scala 0-1.</p>
+                <h6>Parametri Analizzati:</h6>
+
+<p><strong>Prossimità:</strong> Tempo necessario per raggiungere tutti i servizi essenziali.</p>
+
+<p><strong>Densità:</strong> Quantità di servizi presenti nell'area raggiungibile entro il tempo di percorrenza considerato.</p>
+
+<p><strong>Varietà:</strong> Diversità delle tipologie di servizi disponibili, che misura la capacità dell'area di soddisfare esigenze differenti.</p>
+
+<p><strong>Accessibilità:</strong> Indicatore complessivo che sintetizza la facilità con cui è possibile raggiungere un'offerta ampia e diversificata di servizi.</p>
+
+<p><strong>Connettività:</strong> Centralità della rete stradale, che esprime quanto rapidamente l'area è collegata al resto della rete urbana.</p>
             </div>
         </div>
     </div>
@@ -313,6 +326,6 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
     
-    <script src="../public/js/userstudy_results.js"></script>
+    <script type="module" src="../public/js/userstudy_results.js"></script>
 </body>
 </html>

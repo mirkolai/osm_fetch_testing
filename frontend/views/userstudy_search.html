@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="../public/css/ChartsStyle.css">
-    <link rel="stylesheet" href="../public/css/userstudy.css">
+    <link rel="stylesheet" href="../public/css/searchStyle.css">
 
     <style>
         body {
@@ -354,13 +354,20 @@
     <h5>Seleziona una via</h5>
     
     <div class="search-input-group">
-        <label for="city-search">Inserisci un indirizzo:</label>
+        <label for="city-search">Inserisci un indirizzo:    
+            <i class="bi bi-info-circle text-secondary"
+            data-bs-toggle="tooltip"
+            data-bs-placement="right"
+            title="La ricerca è disponibile solo per le città evidenziate sulla mappa con un contorno bianco.">
+            </i>
+        </label>
         <input 
             type="text" 
             id="city-search" 
             placeholder="Es: Via Roma, Torino"
             autocomplete="off"
         >
+        
         <div id="suggestions" class="list-group"></div>
     </div>
 
@@ -397,16 +404,33 @@
 <div class="modal-overlay" id="modal-overlay">
     <div class="modal-content-box">
         <button class="modal-close" id="modal-close">&times;</button>
-        <h4 class="modal-title">Analisi dell'Area</h4>
-        <div id="spider-chart-modal"></div>
-        <div class="chart-info">
-            <h6>Parametri Analizzati:</h6>
-            <p><strong>Proximity:</strong> Distanza dei servizi raggiungibili</p>
-            <p><strong>Density:</strong> Densità di servizi nell'area</p>
-            <p><strong>Entropy:</strong> Varietà di servizi disponibili</p>
-            <p><strong>Accessibility:</strong> Accessibilità generale</p>
-            <p><strong>Closeness:</strong> Vicinanza relativa</p>
-        </div>
+            <h4 class="modal-title">Analisi senza personalizzazione</h4>
+        <p class="modal-description">
+            Questa analisi valuta il livello di prossimità urbana dell'area considerando la distribuzione attuale dei servizi,
+            senza applicare preferenze o pesi personalizzati 
+            <i class="bi bi-info-circle text-secondary"
+            data-bs-toggle="tooltip"
+            data-bs-placement="right"
+            title="Le misure di accessibilità ai servizi vengono generalmente calcolate considerando un utente standard. Questo approccio consente un confronto omogeneo, ma può non rappresentare le esigenze specifiche e le preferenze individuali di ogni persona.">
+            </i>. 
+            I risultati misurano la facilità di accesso ai servizi essenziali, la loro presenza e la qualità
+            della rete urbana, confrontando le prestazioni dell'area analizzata con la media
+            cittadina di riferimento. 
+        </p>
+            <div id="spider-chart-modal"></div>
+            <div class="chart-info">
+                <h6>Parametri Analizzati:</h6>
+
+                    <p><strong>Prossimità:</strong> Tempo necessario per raggiungere tutti i servizi essenziali.</p>
+
+                    <p><strong>Densità:</strong> Quantità di servizi presenti nell'area raggiungibile entro il tempo di percorrenza considerato.</p>
+
+                    <p><strong>Varietà:</strong> Diversità delle tipologie di servizi disponibili, che misura la capacità dell'area di soddisfare esigenze differenti.</p>
+
+                    <p><strong>Accessibilità:</strong> Indicatore complessivo che sintetizza la facilità con cui è possibile raggiungere un'offerta ampia e diversificata di servizi.</p>
+
+                    <p><strong>Connettività:</strong> Centralità della rete stradale, che esprime quanto rapidamente l'area è collegata al resto della rete urbana.</p>
+            </div>
     </div>
 </div>
 

@@ -182,8 +182,11 @@ mongo_init/backup/initdb.d/dump/*
 .idea/*
 /mongo_production/
 /postgres_production/
+/db_ingest/graphml/
 .idea/misc.xml
 .idea/osm_fetch_testing.iml
 borghesan/*
 /borgesan/
 TesiVideo.gif
+cache/*
+db_ingest/mongo_ingest/cache/*

@@ -1,9 +1,28 @@
 import os
+from pathlib import Path
 
 from psycopg2.extras import execute_batch
 from pymongo import MongoClient
 
+import sys
 from backend.postgres_db import get_postgres_connection
+
+
+def _load_env_file():
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_env_file()
 
 
 def get_bike_spatial_scope(conn):
@@ -36,8 +55,11 @@ def get_bike_spatial_scope(conn):
 
 
 def load_pois_from_mongo():
-    mongo_url = os.getenv("MONGO_URL", "mongodb://user:pass@localhost:27017")
+    mongo_url = os.getenv("MONGO_URL_LOCAL") or os.getenv("MONGO_URL") or os.getenv("MONGO_URL_DOCKER")
     mongo_db_name = os.getenv("MONGO_DB", "15minute")
+
+    if not mongo_url:
+        raise RuntimeError("Mongo URL non configurata: imposta MONGO_URL_LOCAL o MONGO_URL in .env")
 
     client = MongoClient(mongo_url)
     try:

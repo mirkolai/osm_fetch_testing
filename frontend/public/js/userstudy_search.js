@@ -48,12 +48,13 @@ if (!currentSessionId) {
     throw new Error('No session ID found');
 }
 
-// In step 3 la mappa resta vincolata all'area di Torino e non consente zoom-out oltre la soglia minima.
+// In step 3 la mappa era vincolata all'area di Torino e non consentiva zoom-out oltre la soglia minima.
+// Blocco mantenuto commentato per riattivarlo facilmente in futuro.
 const map = L.map('map', {
-    minZoom: 12,
+    minZoom: 8,
     maxZoom: 18,
-    maxBounds: torinoMaxBounds,
-    maxBoundsViscosity: 1.0
+    // maxBounds: torinoMaxBounds,
+    // maxBoundsViscosity: 1.0
 }).setView(torinoCenter, 13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -65,6 +66,48 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let selectedMarker = null;
 let isochroneLayer = null;
 let poiMarkers = [];
+let cityBoundariesLayer = null;
+
+async function loadCityBoundariesLayer() {
+    try {
+        const response = await fetch('/api/userstudy/city-boundaries');
+        const payload = await response.json();
+
+        if (!response.ok || payload.status !== 'success' || !payload.data || !Array.isArray(payload.data.features)) {
+            console.warn('Confini citta non disponibili per step 3');
+            return;
+        }
+
+        if (cityBoundariesLayer) {
+            map.removeLayer(cityBoundariesLayer);
+            cityBoundariesLayer = null;
+        }
+
+        cityBoundariesLayer = L.geoJSON(payload.data, {
+            style: {
+                color: '#f59e0b',
+                weight: 2,
+                opacity: 1,
+                fillColor: '#f59e0b',
+                fillOpacity: 0.3
+            },
+            onEachFeature: (feature, layer) => {
+                const cityName = feature?.properties?.city_name || 'Citta senza nome';
+                const cityCode = feature?.properties?.city_code || 'N/A';
+                layer.bindTooltip(`${cityName} (${cityCode})`, {
+                    sticky: true,
+                    direction: 'center'
+                });
+            }
+        }).addTo(map);
+
+        cityBoundariesLayer.bringToBack();
+    } catch (error) {
+        console.error('Errore nel caricamento confini citta step 3:', error);
+    }
+}
+
+loadCityBoundariesLayer();
 
 // Restituisce una versione ritardata della callback per limitare le chiamate al geocoding.
 function debounce(func, delay) {
@@ -154,26 +197,26 @@ function selectStreet(result) {
     const candidateLat = result.coordinates[0];
     const candidateLon = result.coordinates[1];
 
-    // Se la via è fuori area consentita, mostra subito errore e non permettere l'analisi.
-    if (!torinoBounds.contains([candidateLat, candidateLon])) {
-        showError('Indirizzo fuori area consentita. Seleziona una via dentro la città di Torino.');
-
-        selectedStreet = null;
-        selectedCoords = null;
-        btnAnalyze.disabled = true;
-        btnNext.disabled = true;
-        btnViewAnalysis.classList.remove('show');
-        selectedStreetInfo.classList.remove('show');
-
-        if (selectedMarker) {
-            map.removeLayer(selectedMarker);
-            selectedMarker = null;
-        }
-        clearMapElements();
-        suggestionsList.innerHTML = '';
-        suggestionsList.classList.remove('show');
-        return;
-    }
+    // Se vuoi ripristinare il vincolo Torino, riattiva il blocco qui sotto.
+    // if (!torinoBounds.contains([candidateLat, candidateLon])) {
+    //     showError('Indirizzo fuori area consentita. Seleziona una via dentro la città di Torino.');
+    //
+    //     selectedStreet = null;
+    //     selectedCoords = null;
+    //     btnAnalyze.disabled = true;
+    //     btnNext.disabled = true;
+    //     btnViewAnalysis.classList.remove('show');
+    //     selectedStreetInfo.classList.remove('show');
+    //
+    //     if (selectedMarker) {
+    //         map.removeLayer(selectedMarker);
+    //         selectedMarker = null;
+    //     }
+    //     clearMapElements();
+    //     suggestionsList.innerHTML = '';
+    //     suggestionsList.classList.remove('show');
+    //     return;
+    // }
 
     errorMessage.classList.remove('show');
 
@@ -260,6 +303,11 @@ async function analyzeArea() {
         if (!response.ok) {
             throw new Error(data.detail || 'Errore nell\'analisi dell\'area');
         }
+
+        console.group('[DEBUG] Step 3 (analyzeArea) - API Response');
+        console.log('parameters:', data.parameters);
+        console.log('city_average_parameters:', data.city_average_parameters);
+        console.groupEnd();
         
         // Riparte sempre da una mappa pulita per evitare sovrapposizioni da analisi precedenti.
         clearMapElements();
@@ -276,7 +324,7 @@ async function analyzeArea() {
         }
         
         // Show spider chart modal
-        showSpiderChartModal(data.parameters);
+        showSpiderChartModal(data.parameters, data.city_average_parameters || null);
         
         analysisComplete = true;
         btnNext.disabled = false;
@@ -284,7 +332,7 @@ async function analyzeArea() {
         
     } catch (error) {
         console.error('Errore nell\'analisi:', error);
-        showError('Scegli una via dentro la città di Torino.');
+        showError('Scegli una via in una delle città disponibili.');
         setStreetSelectionLocked(false);
         btnAnalyze.disabled = false;
     } finally {
@@ -528,20 +576,48 @@ function drawPOIs(pois) {
 }
 
 // Mostra il radar chart modale dei parametri calcolati nello step 3.
-function showSpiderChartModal(parameters) {
+function showSpiderChartModal(parameters, cityAverageParameters = null) {
+    const hasValidCityAverage = cityAverageParameters &&
+        Number.isFinite(cityAverageParameters.proximity_score) &&
+        Number.isFinite(cityAverageParameters.density_score) &&
+        Number.isFinite(cityAverageParameters.entropy_score) &&
+        Number.isFinite(cityAverageParameters.poi_accessibility) &&
+        Number.isFinite(cityAverageParameters.closeness);
+
+    console.group('[DEBUG] Step 3 showSpiderChartModal - Building radar data');
+    console.log('Input parameters:', parameters);
+    
     // Initialize spider chart
     const chartData = [
         {
             className: "metrics",
             axes: [
-                { axis: "Proximity", value: Math.min(parameters.proximity_score, 1) },
-                { axis: "Density", value: Math.min(parameters.density_score, 1) },
-                { axis: "Entropy", value: Math.min(parameters.entropy_score, 1) },
-                { axis: "Accessibility", value: Math.min(parameters.poi_accessibility, 1) },
-                { axis: "Closeness", value: Math.min(parameters.closeness, 1) }
+                { axis: "Prossimità", value: Math.max(1 - parameters.proximity_score, 0) },
+                { axis: "Densità", value: Math.max(parameters.density_score, 0) },
+                { axis: "Varietà", value: Math.max(parameters.entropy_score, 0) },
+                { axis: "Accessibilità", value: Math.max(parameters.poi_accessibility, 0) },
+                { axis: "Connettività", value: Math.max(parameters.closeness, 0) }
             ]
         }
     ];
+
+    console.log('Radar axes data:', chartData[0].axes);
+    if (hasValidCityAverage) {
+        chartData.push({
+            className: "city-average",
+            axes: [
+                { axis: "Prossimità", value: Math.max(1 - cityAverageParameters.proximity_score, 0) },
+                { axis: "Densità", value: Math.max(cityAverageParameters.density_score, 0) },
+                { axis: "Varietà", value: Math.max(cityAverageParameters.entropy_score, 0) },
+                { axis: "Accessibilità", value: Math.max(cityAverageParameters.poi_accessibility, 0) },
+                { axis: "Connettività", value: Math.max(cityAverageParameters.closeness, 0) }
+            ]
+        });
+        console.log('City average radar axes data:', chartData[1].axes);
+    } else if (cityAverageParameters) {
+        console.warn('City average payload presente ma incompleto; traccia non disegnata.', cityAverageParameters);
+    }
+    console.groupEnd();
     
     // Se il grafico esiste già lo aggiorna, altrimenti lo inizializza una sola volta.
     if (spiderChart) {
@@ -553,12 +629,67 @@ function showSpiderChartModal(parameters) {
             margin: 80,
             maxValue: 1,
             levels: 5,
-            color: '#483d8b',
+            color: ['#483d8b', '#f59e0b'],
             data: chartData
         });
     }
+
+    renderStep3RadarLegend(Boolean(hasValidCityAverage));
     
     modalOverlay.classList.add('show');
+}
+
+
+function renderStep3RadarLegend(showCityAverage) {
+    const container = document.getElementById('spider-chart-modal');
+    if (!container) {
+        return;
+    }
+
+    const oldLegend = container.querySelector('.step3-radar-legend');
+    if (oldLegend) {
+        oldLegend.remove();
+    }
+
+    const legend = document.createElement('div');
+    legend.className = 'step3-radar-legend';
+    legend.style.marginTop = '10px';
+    legend.style.fontSize = '11px';
+    legend.style.color = '#333';
+    legend.style.display = 'flex';
+    legend.style.flexDirection = 'column';
+    legend.style.gap = '6px';
+
+    const traces = [
+        { label: 'Area selezionata', color: '#483d8b', opacity: 0.35 },
+    ];
+    if (showCityAverage) {
+        traces.push({ label: 'Media città', color: '#f59e0b', opacity: 0.22 });
+    }
+
+    traces.forEach(trace => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+
+        const swatch = document.createElement('span');
+        swatch.style.display = 'inline-block';
+        swatch.style.width = '14px';
+        swatch.style.height = '14px';
+        swatch.style.border = `1px solid ${trace.color}`;
+        swatch.style.background = trace.color;
+        swatch.style.opacity = String(trace.opacity);
+
+        const label = document.createElement('span');
+        label.textContent = trace.label;
+
+        row.appendChild(swatch);
+        row.appendChild(label);
+        legend.appendChild(row);
+    });
+
+    container.appendChild(legend);
 }
 
 // Modal close button

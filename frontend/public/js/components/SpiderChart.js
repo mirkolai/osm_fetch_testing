@@ -7,8 +7,8 @@ export class SpiderChart {
             margin: options.margin || 50,
             levels: options.levels || 5,
             maxValue: options.maxValue || 1,
-            labelFactor: options.labelFactor || 1.2,
-            wrapWidth: options.wrapWidth || 100,
+            labelFactor: options.labelFactor || 1.08,
+            wrapWidth: options.wrapWidth || 70,
             opacityArea: options.opacityArea || 0.35,
             dotRadius: options.dotRadius || 4,
             opacityCircles: options.opacityCircles || 0.1,
@@ -66,7 +66,8 @@ export class SpiderChart {
         this.svg = d3.select(`#${this.containerId}`).append("svg")
             .attr("width", this.cfg.width + this.cfg.margin)
             .attr("height", this.cfg.height + this.cfg.margin)
-            .attr("class", "spider-chart");
+            .attr("class", "spider-chart")
+            .style("overflow", "visible");
 
         // Create a group for the chart
         this.g = this.svg.append("g")

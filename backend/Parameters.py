@@ -96,7 +96,9 @@ def compute_isochrone_parameters(
     return {
         "proximity": proximity_min,
         "proximity_score": proximity_score,
+        "density_raw": density_raw,
         "density_score": density_score,
+        "entropy_raw": entropy_score,
         "entropy_score": entropy_score,
         "closeness": closeness_score,
         "poi_accessibility": poi_accessibility,

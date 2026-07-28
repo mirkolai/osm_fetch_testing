@@ -1,3 +1,5 @@
+import { SpiderChart } from './components/SpiderChart.js';
+
 /**
  * Modulo per Passo 5/7 - Esplora i Risultati
  * Mostra mappa con POI e isochrone, confronta dati personalizzati vs default
@@ -10,7 +12,9 @@ let personalizedAnalysis = null;
 let map = null;
 let defaultLayer = null;
 let personalizedLayer = null;
+let cityBoundariesLayer = null;
 let hasOpenedAnalysisModal = false;
+let spiderChart = null;
 
 // Crea una nuova sessione e riporta l'utente all'ingresso se questo step viene aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
@@ -182,22 +186,65 @@ function createPOIIcon(category) {
     });
 }
 
-// Inizializza la mappa Leaflet limitandola all'area di interesse di Torino.
+// Inizializza la mappa Leaflet.
+// Il vincolo all'area di Torino e mantenuto commentato per poterlo riattivare facilmente.
 function initializeMap() {
     map = L.map('map', {
-        maxBounds: TORINO_BOUNDS,
-        maxBoundsViscosity: 1.0,
+        // maxBounds: TORINO_BOUNDS,
+        // maxBoundsViscosity: 1.0,
         minZoom: MAP_MIN_ZOOM,
         maxZoom: MAP_MAX_ZOOM
     }).setView(TORINO_CENTER, 13);
 
-    // Applica nuovamente i vincoli dopo l'inizializzazione per evitare override involontari.
-    map.setMaxBounds(TORINO_BOUNDS);
+    // Se vuoi ripristinare il lock sull'area di Torino, riattiva questa riga.
+    // map.setMaxBounds(TORINO_BOUNDS);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19
     }).addTo(map);
+}
+
+async function loadCityBoundariesLayer() {
+    if (!map) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/userstudy/city-boundaries');
+        const payload = await response.json();
+        if (!response.ok || payload.status !== 'success' || !payload.data || !Array.isArray(payload.data.features)) {
+            console.warn('Confini citta non disponibili per la mappa step 5');
+            return;
+        }
+
+        if (cityBoundariesLayer) {
+            map.removeLayer(cityBoundariesLayer);
+            cityBoundariesLayer = null;
+        }
+
+        cityBoundariesLayer = L.geoJSON(payload.data, {
+            style: {
+                color: '#f59e0b',
+                weight: 2,
+                opacity: 1,
+                fillColor: '#f59e0b',
+                fillOpacity: 0.3
+            },
+            onEachFeature: (feature, layer) => {
+                const cityName = feature?.properties?.city_name || 'Citta senza nome';
+                const cityCode = feature?.properties?.city_code || 'N/A';
+                layer.bindTooltip(`${cityName} (${cityCode})`, {
+                    sticky: true,
+                    direction: 'center'
+                });
+            }
+        }).addTo(map);
+
+        cityBoundariesLayer.bringToBack();
+    } catch (error) {
+        console.error('Errore nel caricamento confini citta step 5:', error);
+    }
 }
 
 // Disegna l'isocrona supportando sia il formato geometry sia il formato convex_hull del backend.
@@ -464,176 +511,160 @@ function displaySessionInfo() {
 
 // Prepara i dataset per il radar chart partendo dalle analisi disponibili.
 function buildChartDatasets() {
+    const hasValidCityAverageMetrics = (params) => {
+        if (!params) {
+            return false;
+        }
+        return Number.isFinite(params.proximity_score) &&
+            Number.isFinite(params.density_score) &&
+            Number.isFinite(params.entropy_score) &&
+            Number.isFinite(params.poi_accessibility) &&
+            Number.isFinite(params.closeness);
+    };
+
     if (defaultAnalysis && defaultAnalysis.parameters && personalizedAnalysis && personalizedAnalysis.parameters) {
-        const oggettivoData = {
-            'Prossimità': defaultAnalysis.parameters.proximity_score,
-            'Densità': defaultAnalysis.parameters.density_score,
-            'Varietà': defaultAnalysis.parameters.entropy_score,
-            'Accessibilità': defaultAnalysis.parameters.poi_accessibility,
-            'Connettività': defaultAnalysis.parameters.closeness
-        };
-        const soggettivoData = {
-            'Prossimità': personalizedAnalysis.parameters.proximity_score,
-            'Densità': personalizedAnalysis.parameters.density_score,
-            'Varietà': personalizedAnalysis.parameters.entropy_score,
-            'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
-            'Connettività': personalizedAnalysis.parameters.closeness
-        };
-        return { soggettivoData, oggettivoData };
+        const defaultParameters = defaultAnalysis.parameters;
+        const personalizedParameters = personalizedAnalysis.parameters;
+        const cityAverageParameters = hasValidCityAverageMetrics(personalizedAnalysis.city_average_parameters)
+            ? personalizedAnalysis.city_average_parameters
+            : null;
+        return { defaultParameters, personalizedParameters, cityAverageParameters };
     }
 
     if (personalizedAnalysis && personalizedAnalysis.parameters) {
-        const soggettivoData = {
-            'Prossimità': personalizedAnalysis.parameters.proximity_score,
-            'Densità': personalizedAnalysis.parameters.density_score,
-            'Varietà': personalizedAnalysis.parameters.entropy_score,
-            'Accessibilità': personalizedAnalysis.parameters.poi_accessibility,
-            'Connettività': personalizedAnalysis.parameters.closeness
+        const personalizedParameters = personalizedAnalysis.parameters;
+        const cityAverageParameters = hasValidCityAverageMetrics(personalizedAnalysis.city_average_parameters)
+            ? personalizedAnalysis.city_average_parameters
+            : null;
+        return {
+            defaultParameters: personalizedParameters,
+            personalizedParameters,
+            cityAverageParameters,
         };
-        return { soggettivoData, oggettivoData: soggettivoData };
     }
 
     return null;
 }
 
-// Disegna un radar chart con overlay fra analisi baseline e analisi personalizzata.
-function drawSpiderChart(elementId, dataSoggettivo, dataOggettivo) {
-    const svgWidth = 280;
-    const svgHeight = 280;
-    
+function drawSpiderChart(elementId, defaultParameters, personalizedParameters, cityAverageParameters = null) {
     const container = document.getElementById(elementId);
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    const svg = d3.select(`#${elementId}`)
-        .append('svg')
-        .attr('width', svgWidth)
-        .attr('height', svgHeight);
-    
-    const g = svg.append('g')
-        .attr('transform', `translate(${svgWidth / 2}, ${svgHeight / 2})`);
-    
-    const keys = Object.keys(dataSoggettivo); // assumiamo stessi campi
-    const radius = 80;
-    const angleSlice = Math.PI * 2 / keys.length;
-    
-    // RAGGI + LABEL
-    keys.forEach((key, i) => {
-        const angle = angleSlice * i - Math.PI / 2;
-        const x = radius * Math.cos(angle);
-        const y = radius * Math.sin(angle);
-        
-        g.append('line')
-            .attr('x1', 0).attr('y1', 0)
-            .attr('x2', x).attr('y2', y)
-            .style('stroke', '#ddd');
-        
-        g.append('text')
-            .attr('x', x * 1.2)
-            .attr('y', y * 1.2)
-            .attr('text-anchor', 'middle')
-            .style('font-size', '11px')
-            .style('fill', '#666')
-            .text(key);
-    });
-    
-    // CERCHI DI LIVELLO (scala 0-1)
-    for (let i = 1; i <= 5; i++) {
-        const level = i / 5;
-        g.append('circle')
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .attr('r', radius * level)
-            .style('fill', 'none')
-            .style('stroke', '#e0e0e0');
-
-        // Etichetta del livello
-        g.append('text')
-            .attr('x', 0)
-            .attr('y', -radius * level - 4)
-            .attr('text-anchor', 'middle')
-            .style('font-size', '9px')
-            .style('fill', '#999')
-            .text(level.toFixed(1));
+    if (!container) {
+        return;
     }
-    
-    const line = d3.line();
-    
-    // Converte i punteggi normalizzati in coordinate polari già clampate tra 0 e 1.
-    function getPoints(data) {
-        return keys.map((key, i) => {
-            const angle = angleSlice * i - Math.PI / 2;
-            const value = Math.max(0, Math.min(1, data[key]));
-            const r = radius * value;
-            return [r * Math.cos(angle), r * Math.sin(angle)];
+
+    console.group('[DEBUG] drawSpiderChart - Metric Values');
+    console.log('Default parameters:', defaultParameters);
+    console.log('Personalized parameters:', personalizedParameters);
+    if (cityAverageParameters) {
+        console.log('City average parameters:', cityAverageParameters);
+    }
+    console.groupEnd();
+
+    const chartData = [
+        {
+            className: 'default',
+            axes: [
+                { axis: 'Proximity', value: Math.min(defaultParameters.proximity_score, 1) },
+                { axis: 'Density', value: Math.min(defaultParameters.density_score, 1) },
+                { axis: 'Entropy', value: Math.min(defaultParameters.entropy_score, 1) },
+                { axis: 'Accessibility', value: Math.min(defaultParameters.poi_accessibility, 1) },
+                { axis: 'Closeness', value: Math.min(defaultParameters.closeness, 1) },
+            ],
+        },
+        {
+            className: 'personalized',
+            axes: [
+                { axis: 'Proximity', value: Math.min(personalizedParameters.proximity_score, 1) },
+                { axis: 'Density', value: Math.min(personalizedParameters.density_score, 1) },
+                { axis: 'Entropy', value: Math.min(personalizedParameters.entropy_score, 1) },
+                { axis: 'Accessibility', value: Math.min(personalizedParameters.poi_accessibility, 1) },
+                { axis: 'Closeness', value: Math.min(personalizedParameters.closeness, 1) },
+            ],
+        },
+    ];
+
+    if (cityAverageParameters) {
+        chartData.push({
+            className: 'city-average',
+            axes: [
+                { axis: 'Proximity', value: Math.min(cityAverageParameters.proximity_score, 1) },
+                { axis: 'Density', value: Math.min(cityAverageParameters.density_score, 1) },
+                { axis: 'Entropy', value: Math.min(cityAverageParameters.entropy_score, 1) },
+                { axis: 'Accessibility', value: Math.min(cityAverageParameters.poi_accessibility, 1) },
+                { axis: 'Closeness', value: Math.min(cityAverageParameters.closeness, 1) },
+            ],
         });
     }
-    
-    // POLIGONO OGGETTIVO (default) primo
-    const pointsOggettivo = getPoints(dataOggettivo);
-    g.append('path')
-        .attr('d', line(pointsOggettivo) + 'Z')
-        .style('fill', '#f56565')
-        .style('fill-opacity', 0.25)
-        .style('stroke', '#f56565')
-        .style('stroke-width', 2);
-    
-    // POLIGONO SOGGETTIVO (personalizzato) sopra
-    const pointsSoggettivo = getPoints(dataSoggettivo);
-    g.append('path')
-        .attr('d', line(pointsSoggettivo) + 'Z')
-        .style('fill', '#667eea')
-        .style('fill-opacity', 0.35)
-        .style('stroke', '#667eea')
-        .style('stroke-width', 2);
 
-    // Legenda
-    const legendWidth = 120;
-    const legendHeight = 60;
-    const legend = svg.append('g')
-        .attr('transform', `translate(${svgWidth - legendWidth - 10}, ${svgHeight - legendHeight - 10})`);
+    if (spiderChart) {
+        spiderChart.updateData(chartData);
+    } else {
+        spiderChart = new SpiderChart(elementId, {
+            width: 250,
+            height: 250,
+            margin: 80,
+            maxValue: 1,
+            levels: 5,
+            color: ['#f56565', '#667eea', '#22c55e'],
+            data: chartData,
+        });
+    }
 
-    legend.append('rect')
-        .attr('width', legendWidth)
-        .attr('height', legendHeight)
-        .attr('fill', '#fff')
-        .attr('stroke', '#ccc')
-        .attr('rx', 6)
-        .attr('ry', 6)
-        .style('opacity', 0.9);
+    renderStep5RadarLegend(Boolean(cityAverageParameters));
+}
 
-    legend.append('rect')
-        .attr('x', 10)
-        .attr('y', 10)
-        .attr('width', 14)
-        .attr('height', 14)
-        .attr('fill', '#f56565')
-        .style('opacity', 0.25)
-        .attr('stroke', '#f56565');
 
-    legend.append('text')
-        .attr('x', 30)
-        .attr('y', 22)
-        .style('font-size', '11px')
-        .style('fill', '#333')
-        .text('Default (Step 3)');
+function renderStep5RadarLegend(showCityAverage) {
+    const container = document.getElementById('spider-chart-modal');
+    if (!container) {
+        return;
+    }
 
-    legend.append('rect')
-        .attr('x', 10)
-        .attr('y', 32)
-        .attr('width', 14)
-        .attr('height', 14)
-        .attr('fill', '#667eea')
-        .style('opacity', 0.35)
-        .attr('stroke', '#667eea');
+    const oldLegend = container.querySelector('.step5-radar-legend');
+    if (oldLegend) {
+        oldLegend.remove();
+    }
 
-    legend.append('text')
-        .attr('x', 30)
-        .attr('y', 44)
-        .style('font-size', '11px')
-        .style('fill', '#333')
-        .text('Personalizzato (Step 5)');
+    const legend = document.createElement('div');
+    legend.className = 'step5-radar-legend';
+    legend.style.marginTop = '10px';
+    legend.style.fontSize = '11px';
+    legend.style.color = '#333';
+    legend.style.display = 'flex';
+    legend.style.flexDirection = 'column';
+    legend.style.gap = '6px';
+
+    const traces = [
+        { label: 'Default (Step 3)', color: '#f56565', opacity: 0.25 },
+        { label: 'Personalizzato (Step 5)', color: '#667eea', opacity: 0.35 },
+    ];
+    if (showCityAverage) {
+        traces.push({ label: 'Media città', color: '#22c55e', opacity: 0.22 });
+    }
+
+    traces.forEach(trace => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+
+        const swatch = document.createElement('span');
+        swatch.style.display = 'inline-block';
+        swatch.style.width = '14px';
+        swatch.style.height = '14px';
+        swatch.style.border = `1px solid ${trace.color}`;
+        swatch.style.background = trace.color;
+        swatch.style.opacity = String(trace.opacity);
+
+        const label = document.createElement('span');
+        label.textContent = trace.label;
+
+        row.appendChild(swatch);
+        row.appendChild(label);
+        legend.appendChild(row);
+    });
+
+    container.appendChild(legend);
 }
 
 // Coordina il caricamento dello step 5: sessione, analisi, mappa, grafico e stato UI.
@@ -664,6 +695,7 @@ async function loadAndDisplay() {
         // Inizializza la mappa
         console.log('2. Inizializzazione mappa...');
         initializeMap();
+        await loadCityBoundariesLayer();
         console.log('✓ Mappa inizializzata');
         
         // Carica entrambe le analisi in parallelo
@@ -746,7 +778,12 @@ function showAnalysisModal() {
         return;
     }
 
-    drawSpiderChart('spider-chart-modal', chartDatasets.soggettivoData, chartDatasets.oggettivoData);
+    drawSpiderChart(
+        'spider-chart-modal',
+        chartDatasets.defaultParameters,
+        chartDatasets.personalizedParameters,
+        chartDatasets.cityAverageParameters || null,
+    );
 
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
