@@ -42,7 +42,7 @@ def compute_isochrone_parameters(
     if isinstance(proximity_min, str) and proximity_min == "ND":
         proximity_score = 0.0
     else:
-        proximity_score = min(proximity_min / max_minutes, 1.0)
+        proximity_score = min(proximity_min / max_minutes, 0)
 
     # La density rapporta il numero totale di POI all'area dell'isocrona.
     if total_pois == 0 or area_km2 == 0:

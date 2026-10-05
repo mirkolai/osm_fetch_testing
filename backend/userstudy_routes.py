@@ -368,7 +368,7 @@ def _apply_city_metric_ranges(parameters: Dict[str, Any], city_ranges: Dict[str,
     except Exception:
         proximity_raw_value = None
 
-    adjusted["proximity_score"] = _normalize_metric_value(
+    adjusted["proximity_score"] = _normalize_inverse_metric_value(
         proximity_raw_value,
         city_ranges.get("proximity_q1"),
         city_ranges.get("proximity_q3"),
@@ -623,7 +623,7 @@ def _compute_city_average_parameters(
     if not city_ranges:
         return {}
 
-    proximity_score = _normalize_metric_value(
+    proximity_score = _normalize_inverse_metric_value(
         city_ranges.get("proximity_q2"),
         city_ranges.get("proximity_q1"),
         city_ranges.get("proximity_q3"),

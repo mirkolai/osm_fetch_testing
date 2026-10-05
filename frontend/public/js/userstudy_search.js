@@ -600,7 +600,7 @@ function showSpiderChartModal(parameters, cityAverageParameters = null) {
         {
             className: "metrics",
             axes: [
-                { axis: "Prossimità", value: Math.max(1-parameters.proximity_score, 0) },
+                { axis: "Prossimità", value: Math.max(parameters.proximity_score, 0) },
                 { axis: "Densità", value: Math.max(parameters.density_score, 0) },
                 { axis: "Varietà", value: Math.max(parameters.entropy_score, 0) },
                 { axis: "Accessibilità", value: Math.max(parameters.poi_accessibility, 0) },

@@ -564,6 +564,7 @@ function drawSpiderChart(
     if (!container) {
         return;
     }
+    const clampScore = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
 
     console.group('[DEBUG] drawSpiderChart - Metric Values');
     console.log('Default parameters:', defaultParameters);
@@ -580,21 +581,21 @@ function drawSpiderChart(
         {
             className: 'default',
             axes: [
-                { axis: 'Prossimità', value: Math.min(defaultParameters.proximity_score, 1) },
-                { axis: 'Densità', value: Math.min(defaultParameters.density_score, 1) },
-                { axis: 'Varietà', value: Math.min(defaultParameters.entropy_score, 1) },
-                { axis: 'Accessibilità', value: Math.min(defaultParameters.poi_accessibility, 1) },
-                { axis: 'Connessività', value: Math.min(defaultParameters.closeness, 1) },
+                { axis: 'Prossimità', value: clampScore(defaultParameters.proximity_score) },
+                { axis: 'Densità', value: clampScore(defaultParameters.density_score) },
+                { axis: 'Varietà', value: clampScore(defaultParameters.entropy_score) },
+                { axis: 'Accessibilità', value: clampScore(defaultParameters.poi_accessibility) },
+                { axis: 'Connessività', value: clampScore(defaultParameters.closeness) },
             ],
         },
         {
             className: 'personalized',
             axes: [
-                { axis: 'Prossimità', value: Math.min(personalizedParameters.proximity_score, 1) },
-                { axis: 'Densità', value: Math.min(personalizedParameters.density_score, 1) },
-                { axis: 'Varietà', value: Math.min(personalizedParameters.entropy_score, 1) },
-                { axis: 'Accessibilità', value: Math.min(personalizedParameters.poi_accessibility, 1) },
-                { axis: 'Connessività', value: Math.min(personalizedParameters.closeness, 1) },
+                { axis: 'Prossimità', value: clampScore(personalizedParameters.proximity_score) },
+                { axis: 'Densità', value: clampScore(personalizedParameters.density_score) },
+                { axis: 'Varietà', value: clampScore(personalizedParameters.entropy_score) },
+                { axis: 'Accessibilità', value: clampScore(personalizedParameters.poi_accessibility) },
+                { axis: 'Connessività', value: clampScore(personalizedParameters.closeness) },
             ],
         },
     ];
@@ -603,11 +604,11 @@ function drawSpiderChart(
         chartData.push({
             className: 'city-average',
             axes: [
-                { axis: 'Proximity', value: Math.min(cityAverageParameters.proximity_score, 1) },
-                { axis: 'Density', value: Math.min(cityAverageParameters.density_score, 1) },
-                { axis: 'Entropy', value: Math.min(cityAverageParameters.entropy_score, 1) },
-                { axis: 'Accessibility', value: Math.min(cityAverageParameters.poi_accessibility, 1) },
-                { axis: 'Closeness', value: Math.min(cityAverageParameters.closeness, 1) },
+                { axis: 'Proximity', value: clampScore(cityAverageParameters.proximity_score) },
+                { axis: 'Density', value: clampScore(cityAverageParameters.density_score) },
+                { axis: 'Entropy', value: clampScore(cityAverageParameters.entropy_score) },
+                { axis: 'Accessibility', value: clampScore(cityAverageParameters.poi_accessibility) },
+                { axis: 'Closeness', value: clampScore(cityAverageParameters.closeness) },
             ],
         });
     }
@@ -616,11 +617,11 @@ function drawSpiderChart(
         chartData.push({
             className: 'city-sample-personalized',
             axes: [
-                { axis: 'Prossimità', value: Math.min(citySamplePersonalizedParameters.proximity_score, 1) },
-                { axis: 'Densità', value: Math.min(citySamplePersonalizedParameters.density_score, 1) },
-                { axis: 'Varietà', value: Math.min(citySamplePersonalizedParameters.entropy_score, 1) },
-                { axis: 'Accessibilità', value: Math.min(citySamplePersonalizedParameters.poi_accessibility, 1) },
-                { axis: 'Connessività', value: Math.min(citySamplePersonalizedParameters.closeness, 1) },
+                { axis: 'Prossimità', value: clampScore(citySamplePersonalizedParameters.proximity_score) },
+                { axis: 'Densità', value: clampScore(citySamplePersonalizedParameters.density_score) },
+                { axis: 'Varietà', value: clampScore(citySamplePersonalizedParameters.entropy_score) },
+                { axis: 'Accessibilità', value: clampScore(citySamplePersonalizedParameters.poi_accessibility) },
+                { axis: 'Connessività', value: clampScore(citySamplePersonalizedParameters.closeness) },
             ],
         });
     }
