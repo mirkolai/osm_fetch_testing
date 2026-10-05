@@ -147,6 +147,7 @@ export class SpiderChart {
         // remove existing data
         this.g.selectAll(".radarWrapper").remove();
         this.g.selectAll(".radarCircleWrapper").remove();
+        const chart = this;
         
         const radarLine = d3.lineRadial()
             .curve(d3.curveLinearClosed)
@@ -205,13 +206,14 @@ export class SpiderChart {
             .attr("r", this.cfg.dotRadius)
             .attr("cx", (d, i) => this.radius * (d.value / this.cfg.maxValue) * Math.cos(this.angleSlice(i) - Math.PI / 2))
             .attr("cy", (d, i) => this.radius * (d.value / this.cfg.maxValue) * Math.sin(this.angleSlice(i) - Math.PI / 2))
-            .style("fill", (d, i, j) => { // choose the color for the circles
-                if (typeof this.cfg.color === "function") {
-                    return this.cfg.color(j);
-                } else if (Array.isArray(this.cfg.color)) {
-                    return this.cfg.color[j % this.cfg.color.length];
+            .style("fill", function() {
+                const datasetIndex = chart.data.indexOf(d3.select(this.parentNode).datum());
+                if (typeof chart.cfg.color === "function") {
+                    return chart.cfg.color(datasetIndex);
+                } else if (Array.isArray(chart.cfg.color)) {
+                    return chart.cfg.color[datasetIndex % chart.cfg.color.length];
                 } else {
-                    return this.cfg.color;
+                    return chart.cfg.color;
                 }
             })
             .style("fill-opacity", 0.8);

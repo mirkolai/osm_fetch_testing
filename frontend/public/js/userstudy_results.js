@@ -528,7 +528,10 @@ function buildChartDatasets() {
         const cityAverageParameters = hasValidCityAverageMetrics(personalizedAnalysis.city_average_parameters)
             ? personalizedAnalysis.city_average_parameters
             : null;
-        return { defaultParameters, personalizedParameters, cityAverageParameters };
+        const citySamplePersonalizedParameters = hasValidCityAverageMetrics(
+            personalizedAnalysis.city_sample_personalized_parameters,
+        ) ? personalizedAnalysis.city_sample_personalized_parameters : null;
+        return { defaultParameters, personalizedParameters, cityAverageParameters, citySamplePersonalizedParameters };
     }
 
     if (personalizedAnalysis && personalizedAnalysis.parameters) {
@@ -536,17 +539,27 @@ function buildChartDatasets() {
         const cityAverageParameters = hasValidCityAverageMetrics(personalizedAnalysis.city_average_parameters)
             ? personalizedAnalysis.city_average_parameters
             : null;
+        const citySamplePersonalizedParameters = hasValidCityAverageMetrics(
+            personalizedAnalysis.city_sample_personalized_parameters,
+        ) ? personalizedAnalysis.city_sample_personalized_parameters : null;
         return {
             defaultParameters: personalizedParameters,
             personalizedParameters,
             cityAverageParameters,
+            citySamplePersonalizedParameters,
         };
     }
 
     return null;
 }
 
-function drawSpiderChart(elementId, defaultParameters, personalizedParameters, cityAverageParameters = null) {
+function drawSpiderChart(
+    elementId,
+    defaultParameters,
+    personalizedParameters,
+    cityAverageParameters = null,
+    citySamplePersonalizedParameters = null,
+) {
     const container = document.getElementById(elementId);
     if (!container) {
         return;
@@ -558,27 +571,30 @@ function drawSpiderChart(elementId, defaultParameters, personalizedParameters, c
     if (cityAverageParameters) {
         console.log('City average parameters:', cityAverageParameters);
     }
+    if (citySamplePersonalizedParameters) {
+        console.log('City sample personalized parameters:', citySamplePersonalizedParameters);
+    }
     console.groupEnd();
 
     const chartData = [
         {
             className: 'default',
             axes: [
-                { axis: 'Proximity', value: Math.min(defaultParameters.proximity_score, 1) },
-                { axis: 'Density', value: Math.min(defaultParameters.density_score, 1) },
-                { axis: 'Entropy', value: Math.min(defaultParameters.entropy_score, 1) },
-                { axis: 'Accessibility', value: Math.min(defaultParameters.poi_accessibility, 1) },
-                { axis: 'Closeness', value: Math.min(defaultParameters.closeness, 1) },
+                { axis: 'Prossimità', value: Math.min(defaultParameters.proximity_score, 1) },
+                { axis: 'Densità', value: Math.min(defaultParameters.density_score, 1) },
+                { axis: 'Varietà', value: Math.min(defaultParameters.entropy_score, 1) },
+                { axis: 'Accessibilità', value: Math.min(defaultParameters.poi_accessibility, 1) },
+                { axis: 'Connessività', value: Math.min(defaultParameters.closeness, 1) },
             ],
         },
         {
             className: 'personalized',
             axes: [
-                { axis: 'Proximity', value: Math.min(personalizedParameters.proximity_score, 1) },
-                { axis: 'Density', value: Math.min(personalizedParameters.density_score, 1) },
-                { axis: 'Entropy', value: Math.min(personalizedParameters.entropy_score, 1) },
-                { axis: 'Accessibility', value: Math.min(personalizedParameters.poi_accessibility, 1) },
-                { axis: 'Closeness', value: Math.min(personalizedParameters.closeness, 1) },
+                { axis: 'Prossimità', value: Math.min(personalizedParameters.proximity_score, 1) },
+                { axis: 'Densità', value: Math.min(personalizedParameters.density_score, 1) },
+                { axis: 'Varietà', value: Math.min(personalizedParameters.entropy_score, 1) },
+                { axis: 'Accessibilità', value: Math.min(personalizedParameters.poi_accessibility, 1) },
+                { axis: 'Connessività', value: Math.min(personalizedParameters.closeness, 1) },
             ],
         },
     ];
@@ -596,6 +612,19 @@ function drawSpiderChart(elementId, defaultParameters, personalizedParameters, c
         });
     }
 
+    if (citySamplePersonalizedParameters) {
+        chartData.push({
+            className: 'city-sample-personalized',
+            axes: [
+                { axis: 'Prossimità', value: Math.min(citySamplePersonalizedParameters.proximity_score, 1) },
+                { axis: 'Densità', value: Math.min(citySamplePersonalizedParameters.density_score, 1) },
+                { axis: 'Varietà', value: Math.min(citySamplePersonalizedParameters.entropy_score, 1) },
+                { axis: 'Accessibilità', value: Math.min(citySamplePersonalizedParameters.poi_accessibility, 1) },
+                { axis: 'Connessività', value: Math.min(citySamplePersonalizedParameters.closeness, 1) },
+            ],
+        });
+    }
+
     if (spiderChart) {
         spiderChart.updateData(chartData);
     } else {
@@ -605,16 +634,16 @@ function drawSpiderChart(elementId, defaultParameters, personalizedParameters, c
             margin: 80,
             maxValue: 1,
             levels: 5,
-            color: ['#f56565', '#667eea', '#22c55e'],
+            color: ['#483d8b', '#f56565', '#f59e0b', '#0891b2'],
             data: chartData,
         });
     }
 
-    renderStep5RadarLegend(Boolean(cityAverageParameters));
+    renderStep5RadarLegend(Boolean(cityAverageParameters), citySamplePersonalizedParameters);
 }
 
 
-function renderStep5RadarLegend(showCityAverage) {
+function renderStep5RadarLegend(showCityAverage, citySamplePersonalizedParameters = null) {
     const container = document.getElementById('spider-chart-modal');
     if (!container) {
         return;
@@ -635,11 +664,18 @@ function renderStep5RadarLegend(showCityAverage) {
     legend.style.gap = '6px';
 
     const traces = [
-        { label: 'Default (Step 3)', color: '#f56565', opacity: 0.25 },
-        { label: 'Personalizzato (Step 5)', color: '#667eea', opacity: 0.35 },
+        { label: 'Area selezionata', color: '#483d8b', opacity: 0.25 },
+        { label: 'Area selezionata Personalizzata', color: '#f56565', opacity: 0.35 },
     ];
     if (showCityAverage) {
-        traces.push({ label: 'Media città', color: '#22c55e', opacity: 0.22 });
+        traces.push({ label: 'Media città', color: '#f59e0b', opacity: 0.22 });
+    }
+    if (citySamplePersonalizedParameters) {
+        traces.push({
+            label: `Media città personalizzata (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
+            color: '#0891b2',
+            opacity: 0.28,
+        });
     }
 
     traces.forEach(trace => {
@@ -783,6 +819,7 @@ function showAnalysisModal() {
         chartDatasets.defaultParameters,
         chartDatasets.personalizedParameters,
         chartDatasets.cityAverageParameters || null,
+        chartDatasets.citySamplePersonalizedParameters || null,
     );
 
     const modalOverlay = document.getElementById('modal-overlay');

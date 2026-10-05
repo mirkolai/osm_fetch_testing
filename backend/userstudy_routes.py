@@ -34,7 +34,7 @@ from backend.userstudy_db import (
 # Importa le funzioni per le API
 from backend.Isochrones import get_isocronewalk_by_node_id
 from backend.Poi import get_detailed_pois_by_node_id, expand_requested_categories
-from backend.Connectivity import get_closeness_by_node_id
+from backend.Connectivity import get_closeness_by_node_id, _resolve_connectivity_collection
 from backend.Parameters import compute_isochrone_parameters
 from backend.Nodes import get_id_node_by_coordinates
 from backend.RequestModels import Coordinates
@@ -463,6 +463,104 @@ def _compute_category_based_proximity_minutes(
     return None
 
 
+def _get_city_sample_size() -> int:
+    try:
+        return max(1, int(os.getenv("USERSTUDY_CITY_SAMPLE_SIZE", "100")))
+    except (TypeError, ValueError):
+        return 100
+
+
+def _fetch_random_city_precomputed_rows(
+    city_code: str,
+    travel_time: int,
+    network_mode: str,
+    sample_size: int,
+) -> List[Dict[str, Any]]:
+    query = """
+        SELECT
+            node_id,
+            category_primary_counts,
+            category_secondary_counts,
+            isochrone_area_km2,
+            total_pois
+        FROM precomputed_metrics_rows
+        WHERE city_code = %s
+          AND network_mode = %s
+          AND travel_time = %s
+        ORDER BY RANDOM()
+        LIMIT %s
+    """
+
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (city_code, network_mode, travel_time, sample_size))
+            return [
+                {
+                    "node_id": int(row[0]),
+                    "category_primary_counts": list(row[1] or []),
+                    "category_secondary_counts": list(row[2] or []),
+                    "isochrone_area_km2": float(row[3] or 0.0),
+                    "total_pois": int(row[4] or 0),
+                }
+                for row in cursor.fetchall()
+            ]
+    finally:
+        conn.close()
+
+
+def _fetch_bucket_rows_for_nodes(
+    node_ids: List[int],
+    network_mode: str,
+) -> Dict[int, Dict[int, Dict[str, Any]]]:
+    if not node_ids:
+        return {}
+
+    query = """
+        SELECT
+            node_id,
+            travel_time,
+            category_primary_counts,
+            category_secondary_counts
+        FROM precomputed_metrics_rows
+        WHERE network_mode = %s
+          AND node_id = ANY(%s)
+          AND travel_time = ANY(%s)
+    """
+
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (network_mode, node_ids, _PRECOMPUTED_TRAVEL_BUCKETS))
+            rows_by_node: Dict[int, Dict[int, Dict[str, Any]]] = {}
+            for node_id, travel_time, primary_counts, secondary_counts in cursor.fetchall():
+                rows_by_node.setdefault(int(node_id), {})[int(travel_time)] = {
+                    "category_primary_counts": list(primary_counts or []),
+                    "category_secondary_counts": list(secondary_counts or []),
+                }
+            return rows_by_node
+    finally:
+        conn.close()
+
+
+def _fetch_closeness_for_nodes(
+    node_ids: List[int],
+    travel_mode: str,
+) -> Dict[int, float]:
+    if not node_ids:
+        return {}
+
+    collection_name = _resolve_connectivity_collection(travel_mode)
+    documents = mongo_db[collection_name].find(
+        {"node_id": {"$in": node_ids}},
+        {"_id": 0, "node_id": 1, "connectivity.closeness": 1},
+    )
+    return {
+        int(document["node_id"]): float((document.get("connectivity") or {}).get("closeness") or 0.0)
+        for document in documents
+    }
+
+
 def _resolve_city_code_for_node(node_id: int, travel_time: int, network_mode: str) -> Optional[str]:
     query = """
         SELECT city_code
@@ -557,6 +655,63 @@ def _compute_city_average_parameters(
         "poi_accessibility": (proximity_score + density_score + entropy_score) / 3.0,
         "closeness": closeness_score,
     }
+
+
+def _compute_city_sample_personalized_parameters(
+    city_code: str,
+    travel_time: int,
+    travel_mode: str,
+    selected_categories: List[str],
+    city_ranges: Dict[str, float],
+) -> Dict[str, Any]:
+    if not city_ranges:
+        return {}
+
+    network_mode = _resolve_precomputed_mode(travel_mode)
+    sample_rows = _fetch_random_city_precomputed_rows(
+        city_code=city_code,
+        travel_time=travel_time,
+        network_mode=network_mode,
+        sample_size=_get_city_sample_size(),
+    )
+    if not sample_rows:
+        return {}
+
+    node_ids = [row["node_id"] for row in sample_rows]
+    bucket_rows_by_node = _fetch_bucket_rows_for_nodes(node_ids, network_mode)
+    closeness_by_node = _fetch_closeness_for_nodes(node_ids, travel_mode)
+    metric_keys = (
+        "proximity_score",
+        "density_score",
+        "entropy_score",
+        "poi_accessibility",
+        "closeness",
+    )
+    totals = {key: 0.0 for key in metric_keys}
+
+    for row in sample_rows:
+        node_id = row["node_id"]
+        category_proximity = _compute_category_based_proximity_minutes(
+            rows_by_minute=bucket_rows_by_node.get(node_id, {}),
+            selected_categories=selected_categories,
+        )
+        parameters = _build_parameters_from_precomputed(
+            precomputed_row=row,
+            selected_categories=selected_categories,
+            closeness_value=closeness_by_node.get(node_id, 0.0),
+            max_minutes=60,
+            proximity_min_override=category_proximity,
+            force_proximity_override=True,
+            city_ranges=city_ranges,
+        )
+        parameters = _apply_city_metric_ranges(parameters, city_ranges)
+        for key in metric_keys:
+            totals[key] += float(parameters.get(key, 0.0))
+
+    sample_count = len(sample_rows)
+    averages = {key: value / sample_count for key, value in totals.items()}
+    averages["sample_count"] = sample_count
+    return averages
 
 
 def _build_parameters_from_precomputed(
@@ -1068,6 +1223,17 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             if city_code
             else {}
         )
+        city_sample_personalized_parameters = (
+            _compute_city_sample_personalized_parameters(
+                city_code=city_code,
+                travel_time=minutes,
+                travel_mode=request.travel_mode,
+                selected_categories=categories,
+                city_ranges=city_ranges,
+            )
+            if city_code
+            else {}
+        )
 
         # Salva in sessione le metriche personalizzate per export finale e confronto.
         metrics_payload = {
@@ -1089,6 +1255,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             "total_pois": total_pois,
             "parameters": metrics_payload,
             "city_average_parameters": city_average_parameters,
+            "city_sample_personalized_parameters": city_sample_personalized_parameters,
         }
     except HTTPException:
         raise

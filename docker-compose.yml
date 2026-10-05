@@ -8,14 +8,14 @@ services:
     restart: unless-stopped   
     ports:
       - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
-    #volumes:
+    volumes:
     #in fase di testing per non dover riavviare il container
-    #  - type: bind
-    #    source: ./frontend
-    #    target: /frontend
-    #  - type: bind
-    #    source: ./backend
-    #    target: /backend
+      - type: bind
+        source: ./frontend
+        target: /frontend
+      - type: bind
+        source: ./backend
+        target: /backend
     depends_on:
       - mongodb
       - postgres
@@ -23,6 +23,7 @@ services:
       MONGO_URL: ${MONGO_URL_DOCKER}
       MONGO_DB: ${MONGO_DB}
       POSTGRES_URL: ${POSTGRES_URL_DOCKER}
+      USERSTUDY_CITY_SAMPLE_SIZE: ${USERSTUDY_CITY_SAMPLE_SIZE:-100}
     networks:
       - app-network
 
