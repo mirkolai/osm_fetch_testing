@@ -565,6 +565,7 @@ function drawSpiderChart(
         return;
     }
     const clampScore = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
+    const radarProximity = (value) => 1 - clampScore(value);
 
     console.group('[DEBUG] drawSpiderChart - Metric Values');
     console.log('Default parameters:', defaultParameters);
@@ -581,7 +582,7 @@ function drawSpiderChart(
         {
             className: 'default',
             axes: [
-                { axis: 'Prossimità', value: clampScore(defaultParameters.proximity_score) },
+                { axis: 'Prossimità', value: radarProximity(defaultParameters.proximity_score) },
                 { axis: 'Densità', value: clampScore(defaultParameters.density_score) },
                 { axis: 'Varietà', value: clampScore(defaultParameters.entropy_score) },
                 { axis: 'Accessibilità', value: clampScore(defaultParameters.poi_accessibility) },
@@ -604,7 +605,7 @@ function drawSpiderChart(
         chartData.push({
             className: 'city-average',
             axes: [
-                { axis: 'Proximity', value: clampScore(cityAverageParameters.proximity_score) },
+                { axis: 'Proximity', value: radarProximity(cityAverageParameters.proximity_score) },
                 { axis: 'Density', value: clampScore(cityAverageParameters.density_score) },
                 { axis: 'Entropy', value: clampScore(cityAverageParameters.entropy_score) },
                 { axis: 'Accessibility', value: clampScore(cityAverageParameters.poi_accessibility) },
