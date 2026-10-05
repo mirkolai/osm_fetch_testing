@@ -121,17 +121,60 @@ def _ensure_table(conn) -> None:
             category_secondary_counts INTEGER[] NOT NULL DEFAULT '{{}}',
             isochrone_area_km2 DOUBLE PRECISION NOT NULL DEFAULT 0,
             total_pois INTEGER NOT NULL DEFAULT 0,
-            density_15m_all_services DOUBLE PRECISION,
-            entropy_15m_all_services DOUBLE PRECISION,
+            density_all_services DOUBLE PRECISION,
+            entropy_all_services DOUBLE PRECISION,
             proximity_value DOUBLE PRECISION,
             PRIMARY KEY (network_mode, node_id, travel_time)
         );
 
-        ALTER TABLE {TABLE_NAME}
-        ADD COLUMN IF NOT EXISTS density_15m_all_services DOUBLE PRECISION;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = '{TABLE_NAME}'
+                  AND column_name = 'density_15m_all_services'
+            ) THEN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = '{TABLE_NAME}'
+                      AND column_name = 'density_all_services'
+                ) THEN
+                    UPDATE {TABLE_NAME}
+                    SET density_all_services = COALESCE(density_all_services, density_15m_all_services);
+                ELSE
+                    ALTER TABLE {TABLE_NAME}
+                    RENAME COLUMN density_15m_all_services TO density_all_services;
+                END IF;
+            END IF;
+
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = '{TABLE_NAME}'
+                  AND column_name = 'entropy_15m_all_services'
+            ) THEN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = '{TABLE_NAME}'
+                      AND column_name = 'entropy_all_services'
+                ) THEN
+                    UPDATE {TABLE_NAME}
+                    SET entropy_all_services = COALESCE(entropy_all_services, entropy_15m_all_services);
+                ELSE
+                    ALTER TABLE {TABLE_NAME}
+                    RENAME COLUMN entropy_15m_all_services TO entropy_all_services;
+                END IF;
+            END IF;
+        END $$;
 
         ALTER TABLE {TABLE_NAME}
-        ADD COLUMN IF NOT EXISTS entropy_15m_all_services DOUBLE PRECISION;
+        ADD COLUMN IF NOT EXISTS density_all_services DOUBLE PRECISION;
+
+        ALTER TABLE {TABLE_NAME}
+        ADD COLUMN IF NOT EXISTS entropy_all_services DOUBLE PRECISION;
 
         CREATE INDEX IF NOT EXISTS idx_precomputed_metrics_city
         ON {TABLE_NAME}(city_code);
@@ -342,8 +385,8 @@ def _upsert_rows(conn, rows: List[Tuple]) -> None:
             category_secondary_counts,
             isochrone_area_km2,
             total_pois,
-            density_15m_all_services,
-            entropy_15m_all_services,
+            density_all_services,
+            entropy_all_services,
             proximity_value
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (network_mode, node_id, travel_time)
@@ -354,8 +397,8 @@ def _upsert_rows(conn, rows: List[Tuple]) -> None:
             category_secondary_counts = EXCLUDED.category_secondary_counts,
             isochrone_area_km2 = EXCLUDED.isochrone_area_km2,
             total_pois = EXCLUDED.total_pois,
-            density_15m_all_services = EXCLUDED.density_15m_all_services,
-            entropy_15m_all_services = EXCLUDED.entropy_15m_all_services,
+            density_all_services = EXCLUDED.density_all_services,
+            entropy_all_services = EXCLUDED.entropy_all_services,
             proximity_value = EXCLUDED.proximity_value
     """
 
@@ -395,8 +438,8 @@ def _load_existing_processed_keys_for_nodes(conn, node_ids: set[int]) -> set[Tup
         SELECT network_mode, node_id, travel_time
         FROM {TABLE_NAME}
         WHERE node_id = ANY(%s)
-          AND density_15m_all_services IS NOT NULL
-          AND entropy_15m_all_services IS NOT NULL
+                    AND density_all_services IS NOT NULL
+                    AND entropy_all_services IS NOT NULL
     """
 
     processed: set[Tuple[str, int, int]] = set()
@@ -550,13 +593,11 @@ def main() -> None:
                         city_phase_totals["proximity"] += perf_counter() - t0
                         city_phase_counts["proximity"] += 1
 
-                        # Manteniamo i nomi colonna legacy (*_15m_all_services) per compatibilita,
-                        # ma ora i valori vengono calcolati per tutti i travel_time canonical.
-                        density_15m_all_services = _compute_density_all_services(
+                        density_all_services = _compute_density_all_services(
                             total_pois=total_pois,
                             area_km2=area_km2,
                         )
-                        entropy_15m_all_services = _compute_entropy_all_services(
+                        entropy_all_services = _compute_entropy_all_services(
                             primary_counts=primary_counts,
                             categories_count=len(category_to_idx),
                         )
@@ -572,8 +613,8 @@ def main() -> None:
                                 secondary_counts,
                                 area_km2,
                                 total_pois,
-                                density_15m_all_services,
-                                entropy_15m_all_services,
+                                density_all_services,
+                                entropy_all_services,
                                 proximity_value,
                             )
                         )

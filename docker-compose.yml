@@ -1,30 +1,30 @@
 services:
-  # Servizio per l'app FastAPI
-  #fastapi-app:
-  #  build:
-  #    context: .
-  #    dockerfile: "Docker"
-  #  container_name: 15MinuteApp
-  #  restart: unless-stopped   
-  #  ports:
-  #    - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
-  #  volumes:
+   #Servizio per l'app FastAPI
+  fastapi-app:
+    build:
+      context: .
+      dockerfile: "Docker"
+    container_name: 15MinuteApp
+    restart: unless-stopped   
+    ports:
+      - "8080:8000" # Mappa la porta 27017 del contenitore sulla porta 27017 del tuo host
+    #volumes:
     #in fase di testing per non dover riavviare il container
-  #    - type: bind
-  #      source: ./frontend
-  #      target: /frontend
-  #    - type: bind
-  #      source: ./backend
-  #      target: /backend
-  #  depends_on:
-  #    - mongodb
-  #    - postgres
-  #  environment:
-  #    MONGO_URL: ${MONGO_URL_DOCKER}
-  #    MONGO_DB: ${MONGO_DB}
-  #    POSTGRES_URL: ${POSTGRES_URL_DOCKER}
-  #  networks:
-  #    - app-network
+    #  - type: bind
+    #    source: ./frontend
+    #    target: /frontend
+    #  - type: bind
+    #    source: ./backend
+    #    target: /backend
+    depends_on:
+      - mongodb
+      - postgres
+    environment:
+      MONGO_URL: ${MONGO_URL_DOCKER}
+      MONGO_DB: ${MONGO_DB}
+      POSTGRES_URL: ${POSTGRES_URL_DOCKER}
+    networks:
+      - app-network
 
   # Servizio per MongoDB
   mongodb:

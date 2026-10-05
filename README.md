@@ -106,6 +106,28 @@ docker-compose up
 ```
 opzionalmente con un applicazione come datagrip puoi visualizzare il DB inserendo i dati che trovi nel docker-compose
 
+### **Ingest dati**
+
+L'ingest è organizzato in tre fasi. Dalla root del progetto eseguire:
+
+```bash
+python db_ingest/run_pipeline.py phase1  # reti OSM e POI Overture
+python db_ingest/run_pipeline.py phase2  # MongoDB e dati geografici derivati
+python db_ingest/run_pipeline.py phase3  # PostgreSQL e metriche precompute
+```
+
+Per eseguire tutte le fasi in sequenza:
+
+```bash
+python db_ingest/run_pipeline.py all
+```
+
+Per un ingest parziale, impostare `CITY_CODE_FILTER` nel file `.env`. La fase PostgreSQL aggiornerà soltanto i nodi delle città selezionate e non cancellerà le altre reti.
+
+Il runner viene eseguito dall'host e usa automaticamente `POSTGRES_URL_LOCAL` e `MONGO_URL_LOCAL`. Assicurarsi quindi che i container siano avviati e che le porte siano esposte.
+
+La fase 3 può essere rilanciata: `x10_precompute_metrics_rows.py` salta le righe già completate. La fase 1 riusa i file già scaricati. La fase 2 invece ricrea le collezioni `city_polygon` e `neighbourhood_polygon`, quindi va considerata una fase di rebuild.
+
 ### **Dev Fast Start**
 Una volta setuppato tutto per i successivi avii basterà avviare docker sul proprio dispositivo poi fare i seguenti due comandi.
 in mongo_init:

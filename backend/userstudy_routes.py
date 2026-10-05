@@ -34,7 +34,7 @@ from backend.userstudy_db import (
 # Importa le funzioni per le API
 from backend.Isochrones import get_isocronewalk_by_node_id
 from backend.Poi import get_detailed_pois_by_node_id, expand_requested_categories
-from backend.Connectivity import get_closeness_by_node_id, get_city_average_normalized_closeness
+from backend.Connectivity import get_closeness_by_node_id
 from backend.Parameters import compute_isochrone_parameters
 from backend.Nodes import get_id_node_by_coordinates
 from backend.RequestModels import Coordinates
@@ -58,7 +58,7 @@ def _normalize_metric_value(value: Optional[float], q1: Optional[float], q3: Opt
     if value is None:
         return float(fallback)
     if q1 is None or q3 is None:
-        return float(value)
+        return float(max(0.0, min(1.0, fallback)))
 
     q1_float = float(q1)
     q3_float = float(q3)
@@ -80,6 +80,17 @@ def _normalize_metric_value(value: Optional[float], q1: Optional[float], q3: Opt
     # Interpolazione lineare tra Q1 e Q3
     normalized = (value_float - q1_float) / (q3_float - q1_float)
     return float(max(0.0, min(1.0, normalized)))
+
+
+def _normalize_inverse_metric_value(
+    value: Optional[float],
+    q1: Optional[float],
+    q3: Optional[float],
+    fallback: float = 0.0,
+) -> float:
+    if value is None:
+        return float(fallback)
+    return 1.0 - _normalize_metric_value(value, q1, q3, fallback=1.0 - fallback)
 
 
 def _resolve_precomputed_mode(travel_mode: str) -> str:
@@ -220,60 +231,110 @@ def _fetch_precomputed_row(node_id: int, travel_time: int, network_mode: str) ->
         conn.close()
 
 
-def _fetch_city_metric_ranges(city_code: str, network_mode: str) -> Dict[str, float]:
+def _fetch_city_metric_ranges(city_code: str, network_mode: str, travel_time: int) -> Dict[str, float]:
     normalized_city_code = _normalize_city_code(city_code)
     if not normalized_city_code:
         return {}
+
 
     query = """
         SELECT
             density_raw_min,
             density_raw_q1,
+            density_raw_q2,
             density_raw_q3,
             density_raw_max,
             entropy_score_min,
             entropy_score_q1,
+            entropy_score_q2,
             entropy_score_q3,
             entropy_score_max,
             closeness_raw_min,
+            closeness_raw_q1,
+            closeness_raw_q2,
+            closeness_raw_q3,
             closeness_raw_max,
             proximity_min,
-            proximity_max
+            proximity_q1,
+            proximity_q2,
+            proximity_q3,
+            proximity_max,
+            density_avg,
+            entropy_avg,
+            proximity_avg,
+            closeness_avg
         FROM precomputed_metric_ranges
         WHERE city_code = %s
           AND network_mode = %s
+                    AND travel_time = %s
         LIMIT 1
     """
 
+    print(query, (normalized_city_code, network_mode, travel_time))
+
     conn = get_postgres_connection()
+    print(1)
     try:
         with conn.cursor() as cursor:
-            cursor.execute(query, (normalized_city_code, network_mode))
+            print(2)
+            cursor.execute(query, (normalized_city_code, network_mode, travel_time))
+            print(3)
             row = cursor.fetchone()
+            print("row")
+            print(row)
             if not row:
                 return {}
 
             return {
                 "density_raw_min": float(row[0]) if row[0] is not None else 0.0,
                 "density_raw_q1": float(row[1]) if row[1] is not None else 0.0,
-                "density_raw_q3": float(row[2]) if row[2] is not None else 0.0,
-                "density_raw_max": float(row[3]) if row[3] is not None else 0.0,
-                "entropy_score_min": float(row[4]) if row[4] is not None else 0.0,
-                "entropy_score_q1": float(row[5]) if row[5] is not None else 0.0,
-                "entropy_score_q3": float(row[6]) if row[6] is not None else 0.0,
-                "entropy_score_max": float(row[7]) if row[7] is not None else 0.0,
-                "closeness_raw_min": float(row[8]) if row[8] is not None else 0.0,
-                "closeness_raw_max": float(row[9]) if row[9] is not None else 0.0,
-                "proximity_min": float(row[10]) if row[10] is not None else 0.0,
-                "proximity_max": float(row[11]) if row[11] is not None else 60.0,
+                "density_raw_q2": float(row[2]) if row[2] is not None else 0.0,
+                "density_raw_q3": float(row[3]) if row[3] is not None else 0.0,
+                "density_raw_max": float(row[4]) if row[4] is not None else 0.0,
+                "entropy_score_min": float(row[5]) if row[5] is not None else 0.0,
+                "entropy_score_q1": float(row[6]) if row[6] is not None else 0.0,
+                "entropy_score_q2": float(row[7]) if row[7] is not None else 0.0,
+                "entropy_score_q3": float(row[8]) if row[8] is not None else 0.0,
+                "entropy_score_max": float(row[9]) if row[9] is not None else 0.0,
+                "closeness_raw_min": float(row[10]) if row[10] is not None else 0.0,
+                "closeness_raw_q1": float(row[11]) if row[11] is not None else 0.0,
+                "closeness_raw_q2": float(row[12]) if row[12] is not None else 0.0,
+                "closeness_raw_q3": float(row[13]) if row[13] is not None else 0.0,
+                "closeness_raw_max": float(row[14]) if row[14] is not None else 0.0,
+                "proximity_min": float(row[15]) if row[15] is not None else 0.0,
+                "proximity_q1": float(row[16]) if row[16] is not None else 0.0,
+                "proximity_q2": float(row[17]) if row[17] is not None else 0.0,
+                "proximity_q3": float(row[18]) if row[18] is not None else 0.0,
+                "proximity_max": float(row[19]) if row[19] is not None else 60.0,
+                "density_avg": float(row[20]) if row[20] is not None else 0.0,
+                "entropy_avg": float(row[21]) if row[21] is not None else 0.0,
+                "proximity_avg": float(row[22]) if row[22] is not None else 0.0,
+                "closeness_avg": float(row[23]) if row[23] is not None else 0.0,
             }
+    
+    except Exception as e:
+        # Stampa il messaggio di errore
+        print(f"Si è verificato un errore: {e}")
     finally:
         conn.close()
 
 
 def _apply_city_metric_ranges(parameters: Dict[str, Any], city_ranges: Dict[str, float]) -> Dict[str, Any]:
     if not city_ranges:
-        return parameters
+        adjusted = dict(parameters)
+        try:
+            adjusted["proximity_score"] = max(
+                0.0,
+                min(1.0, 1.0 - float(adjusted.get("proximity_score", 1.0))),
+            )
+        except (TypeError, ValueError):
+            adjusted["proximity_score"] = 0.0
+        adjusted["poi_accessibility"] = (
+            float(adjusted.get("proximity_score", 0.0))
+            + float(adjusted.get("density_score", 0.0))
+            + float(adjusted.get("entropy_score", 0.0))
+        ) / 3.0
+        return adjusted
 
     adjusted = dict(parameters)
     
@@ -301,19 +362,24 @@ def _apply_city_metric_ranges(parameters: Dict[str, Any], city_ranges: Dict[str,
     print(f"  entropy_raw: {adjusted.get('entropy_raw')} -> entropy_score: {old_entropy} -> {adjusted['entropy_score']}")
     print(f"    (city ranges Q1-Q3: {city_ranges.get('entropy_score_q1')} to {city_ranges.get('entropy_score_q3')})")
 
-    proximity_min = adjusted.get("proximity")
+    proximity_raw = adjusted.get("proximity")
     try:
-        proximity_min_value = float(proximity_min)
+        proximity_raw_value = float(proximity_raw)
     except Exception:
-        proximity_min_value = None
+        proximity_raw_value = None
 
-    if proximity_min_value is not None:
-        adjusted["proximity_score"] = _normalize_metric_value(
-            proximity_min_value,
-            city_ranges.get("proximity_min", 0.0),
-            city_ranges.get("proximity_max", 60.0),
-            fallback=float(adjusted.get("proximity_score", 0.0) or 0.0),
-        )
+    adjusted["proximity_score"] = _normalize_metric_value(
+        proximity_raw_value,
+        city_ranges.get("proximity_q1"),
+        city_ranges.get("proximity_q3"),
+        fallback=0.0,
+    )
+    adjusted["closeness"] = _normalize_metric_value(
+        adjusted.get("closeness"),
+        city_ranges.get("closeness_raw_q1"),
+        city_ranges.get("closeness_raw_q3"),
+        fallback=0.0,
+    )
 
     adjusted["poi_accessibility"] = (
         float(adjusted.get("proximity_score", 0.0))
@@ -445,93 +511,51 @@ def _resolve_city_code_for_node_from_mongo(node_id: int) -> Optional[str]:
         return None
 
 
-def _fetch_precomputed_rows_for_city(city_code: str, travel_time: int, network_mode: str) -> List[Dict[str, Any]]:
-    normalized_city_code = _normalize_city_code(city_code)
-    if not normalized_city_code:
-        return []
-
-    query = """
-        SELECT
-            city_code,network_mode,
-            density_raw_min,density_raw_q1,density_raw_q3,density_raw_max,entropy_score_min,entropy_score_q1,entropy_score_q3,entropy_score_max,closeness_raw_min,closeness_raw_max,proximity_min,proximity_max,source_rows,updated_at
-        FROM precomputed_metrics_rows
-        WHERE city_code = %s
-          AND network_mode = %s
-          AND travel_time = %s
-    """
-    conn = get_postgres_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (normalized_city_code, network_mode, travel_time))
-            rows = cursor.fetchall()
-            result: List[Dict[str, Any]] = []
-            for row in rows:
-                result.append(
-                    {
-                        "category_primary_counts": list(row[0] or []),
-                        "category_secondary_counts": list(row[1] or []),
-                        "isochrone_area_km2": float(row[2] or 0.0),
-                        "total_pois": int(row[3] or 0),
-                        "proximity_value": float(row[4]) if row[4] is not None else None,
-                    }
-                )
-            return result
-    finally:
-        conn.close()
-
-
 def _compute_city_average_parameters(
     city_code: str,
     travel_time: int,
     travel_mode: str,
-    categories: List[str],
 ) -> Dict[str, float]:
     network_mode = _resolve_precomputed_mode(travel_mode)
-    city_ranges = _fetch_city_metric_ranges(city_code=city_code, network_mode=network_mode)
-    rows = _fetch_precomputed_rows_for_city(
+    city_ranges = _fetch_city_metric_ranges(
         city_code=city_code,
-        travel_time=travel_time,
         network_mode=network_mode,
+        travel_time=travel_time,
     )
-    if not rows:
+    if not city_ranges:
         return {}
 
-    # Category filtering is always enabled for city averages.
-    selected_categories = categories
-    closeness_status, _, closeness_avg = get_city_average_normalized_closeness(city_code=city_code, travel_mode=travel_mode)
-    if closeness_status != 200 or closeness_avg is None:
-        closeness_avg = 0.0
-
-    sums = {
-        "proximity_score": 0.0,
-        "density_score": 0.0,
-        "entropy_score": 0.0,
-        "poi_accessibility": 0.0,
-    }
-
-    for row in rows:
-        params = _build_parameters_from_precomputed(
-            precomputed_row=row,
-            selected_categories=selected_categories,
-            closeness_value=float(closeness_avg),
-            max_minutes=60,
-            city_ranges=city_ranges,
-        )
-        sums["proximity_score"] += params.get("proximity_score", 0.0)
-        sums["density_score"] += params.get("density_score", 0.0)
-        sums["entropy_score"] += params.get("entropy_score", 0.0)
-        sums["poi_accessibility"] += params.get("poi_accessibility", 0.0)
-
-    total = float(len(rows))
-    if total <= 0:
-        return {}
+    proximity_score = _normalize_metric_value(
+        city_ranges.get("proximity_q2"),
+        city_ranges.get("proximity_q1"),
+        city_ranges.get("proximity_q3"),
+        fallback=0.0,
+    )
+    density_score = _normalize_metric_value(
+        city_ranges.get("density_raw_q2"),
+        city_ranges.get("density_raw_q1"),
+        city_ranges.get("density_raw_q3"),
+        fallback=0.0,
+    )
+    entropy_score = _normalize_metric_value(
+        city_ranges.get("entropy_score_q2"),
+        city_ranges.get("entropy_score_q1"),
+        city_ranges.get("entropy_score_q3"),
+        fallback=0.0,
+    )
+    closeness_score = _normalize_metric_value(
+        city_ranges.get("closeness_raw_q2"),
+        city_ranges.get("closeness_raw_q1"),
+        city_ranges.get("closeness_raw_q3"),
+        fallback=0.0,
+    )
 
     return {
-        "proximity_score": sums["proximity_score"] / total,
-        "density_score": sums["density_score"] / total,
-        "entropy_score": sums["entropy_score"] / total,
-        "poi_accessibility": sums["poi_accessibility"] / total,
-        "closeness": float(closeness_avg),
+        "proximity_score": proximity_score,
+        "density_score": density_score,
+        "entropy_score": entropy_score,
+        "poi_accessibility": (proximity_score + density_score + entropy_score) / 3.0,
+        "closeness": closeness_score,
     }
 
 
@@ -543,7 +567,7 @@ def _build_parameters_from_precomputed(
     proximity_min_override: Optional[float] = None,
     force_proximity_override: bool = False,
     city_ranges: Optional[Dict[str, float]] = None,
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     print(f"[DEBUG] _build_parameters_from_precomputed:"
           f" precomputed_row={precomputed_row}, selected_categories={selected_categories}"
           f" closeness_value={closeness_value}, max_minutes={max_minutes},"
@@ -636,6 +660,7 @@ def _build_parameters_from_precomputed(
     poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
 
     return {
+        "proximity": float(proximity_min) if proximity_min is not None else None,
         "density_raw": float(density_raw),
         "entropy_raw": float(entropy_raw),
         "proximity_score": float(proximity_score),
@@ -790,7 +815,6 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
         session = db_get_session(request.session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        
         # Parametri di default
         minutes = 15
         velocity = 5  # walking speed (km/h)
@@ -858,7 +882,11 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
         print(f"[TIMING] resolve city_code: {time.time() - start:.3f}s (city_code={city_code})")
 
         start = time.time()
-        city_ranges = _fetch_city_metric_ranges(city_code=city_code, network_mode="walk") if city_code else {}
+        city_ranges = _fetch_city_metric_ranges(
+            city_code=city_code,
+            network_mode="walk",
+            travel_time=minutes,
+        ) if city_code else {}
         print(f"[TIMING] fetch city_ranges: {time.time() - start:.3f}s (city_code={city_code})")
 
         start = time.time()
@@ -885,13 +913,11 @@ async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
         print(f"[TIMING] _apply_city_metric_ranges: {time.time() - start:.3f}s")
         
         start = time.time()
-        start = time.time()
         city_average_parameters = (
             _compute_city_average_parameters(
                 city_code=city_code,
                 travel_time=minutes,
                 travel_mode="walk",
-                categories=all_categories,
             )
             if city_code
             else {}
@@ -991,7 +1017,11 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             travel_time=minutes,
             network_mode=network_mode,
         )
-        city_ranges = _fetch_city_metric_ranges(city_code=city_code, network_mode=network_mode) if city_code else {}
+        city_ranges = _fetch_city_metric_ranges(
+            city_code=city_code,
+            network_mode=network_mode,
+            travel_time=minutes,
+        ) if city_code else {}
 
         
         precomputed_row = _fetch_precomputed_row(
@@ -1034,7 +1064,6 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
                 city_code=city_code,
                 travel_time=minutes,
                 travel_mode=request.travel_mode,
-                categories=categories,
             )
             if city_code
             else {}
@@ -1069,7 +1098,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
 
 @router.post("/city-average-metrics")
 async def city_average_metrics(request: CityAverageMetricsRequest) -> Dict[str, Any]:
-    """Restituisce la media città delle metriche per mode/tempo e filtro categorie opzionale."""
+    """Restituisce le metriche medie precompute per città, modalità e tempo."""
     try:
         session = db_get_session(request.session_id)
         if not session:
@@ -1096,7 +1125,6 @@ async def city_average_metrics(request: CityAverageMetricsRequest) -> Dict[str, 
             city_code=city_code,
             travel_time=request.travel_time,
             travel_mode=request.travel_mode,
-            categories=request.categories,
         )
         if not city_average_parameters:
             raise HTTPException(status_code=404, detail="City average metrics not found")

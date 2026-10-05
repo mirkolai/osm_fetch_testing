@@ -40,7 +40,7 @@ collection = db["city_polygon"]  # Nome della collezione
 
 
 
-collection.drop()
+#collection.drop()
 
 collection.create_index([("PRO_COM_T", 1)], unique=True)
 collection.create_index([("geometry", "2dsphere")])
@@ -96,13 +96,19 @@ for idx, row in gdf.iterrows():
 
     # Inserisci nel database MongoDB
     try:
-        collection.insert_one(city_data)  # Inserisce il documento
+        collection.update_one(
+        {"PRO_COM_T": city_data["PRO_COM_T"]},
+        {"$set": city_data},
+        upsert=True,
+        )
+        print(f"Comune {row['COMUNE']} inserito/aggiornato")
     except Exception as e:
-        print(f"Errore nell'inserimento del comune {row['COMUNE']}")
+        print(f"Errore nell'inserimento del comune {row['COMUNE']}: {e}")
+
 
 
 
 
 # Esegui la funzione con un punto di esempio
-utils.trova_citta_per_punto(collection,12.345, 45.678)
+#utils.trova_citta_per_punto(collection,12.345, 45.678)
 

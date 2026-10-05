@@ -181,19 +181,6 @@ def _compute_closeness_min_max(collection_name: str, city_code: Union[str, None]
     return min_c, max_c
 
 
-def get_closeness_by_node_id(node_id: int, travel_mode: str) -> Tuple[int, str, Union[float, None]]:
-    """Return closeness normalized to [0, 1] using city-level min/max (fallback mode-wide)."""
-    status, message, closeness = get_closeness_by_node_id(node_id=node_id, travel_mode=travel_mode)
-    if status != 200 or closeness is None:
-        return status, message, None
-
-    try:
-        
-        return 200, message, closeness
-    except Exception as exc:
-        return 500, str(exc), None
-
-
 def get_city_average_normalized_closeness(city_code: Union[str, None], travel_mode: str) -> Tuple[int, str, Union[float, None]]:
     """Return city-level average closeness normalized to [0, 1] for the selected mode."""
     try:

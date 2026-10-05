@@ -173,8 +173,9 @@ mongo_init/backup/initdb.d/*
 !mongo_init/backup/initdb.d/restore.sh
 !mongo_init/backup/initdb.d/dump/
 mongo_init/backup/initdb.d/dump/*
-!mongo_init/backup/initdb.d/dump/15minute/
-!mongo_init/backup/initdb.d/dump/15minute/**
+!mongo_init/backup/initdb.d/dump/15minute*/
+mongo_init/backup/initdb.d/dump/15minute*/*
+!mongo_init/backup/initdb.d/dump/15minute*/.gitkeep
 /test 1 mostra neighbourhoods.py
 /test2.py
 /test3.py
@@ -190,3 +191,8 @@ borghesan/*
 TesiVideo.gif
 cache/*
 db_ingest/mongo_ingest/cache/*
+.vscode/*
+.backup_20261005/*
+/backup_*/
+postgres_init/*
+!postgres_init/.gitkeep

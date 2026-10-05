@@ -288,6 +288,12 @@ async function analyzeArea() {
     errorMessage.classList.remove('show');
     
     try {
+
+        console.log('[DEBUG] Step 3 (analyzeArea) - Sending request to backend with parameters:', {
+            session_id: currentSessionId,
+            latitude: selectedCoords.lat,
+            longitude: selectedCoords.lon
+        });
         const response = await fetch('/api/userstudy/analyze-area', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -305,6 +311,8 @@ async function analyzeArea() {
         }
 
         console.group('[DEBUG] Step 3 (analyzeArea) - API Response');
+        console.log('isochrone:', data.isochrone);
+        console.log('pois:', data.pois);
         console.log('parameters:', data.parameters);
         console.log('city_average_parameters:', data.city_average_parameters);
         console.groupEnd();
@@ -592,7 +600,7 @@ function showSpiderChartModal(parameters, cityAverageParameters = null) {
         {
             className: "metrics",
             axes: [
-                { axis: "Prossimità", value: Math.max(1 - parameters.proximity_score, 0) },
+                { axis: "Prossimità", value: Math.max(1-parameters.proximity_score, 0) },
                 { axis: "Densità", value: Math.max(parameters.density_score, 0) },
                 { axis: "Varietà", value: Math.max(parameters.entropy_score, 0) },
                 { axis: "Accessibilità", value: Math.max(parameters.poi_accessibility, 0) },
@@ -606,7 +614,7 @@ function showSpiderChartModal(parameters, cityAverageParameters = null) {
         chartData.push({
             className: "city-average",
             axes: [
-                { axis: "Prossimità", value: Math.max(1 - cityAverageParameters.proximity_score, 0) },
+                { axis: "Prossimità", value: Math.max(cityAverageParameters.proximity_score, 0) },
                 { axis: "Densità", value: Math.max(cityAverageParameters.density_score, 0) },
                 { axis: "Varietà", value: Math.max(cityAverageParameters.entropy_score, 0) },
                 { axis: "Accessibilità", value: Math.max(cityAverageParameters.poi_accessibility, 0) },

@@ -1,123 +1,176 @@
-from tkinter.font import names
-
-from pymongo.errors import DuplicateKeyError
 import glob
-import osmnx as ox
-from pymongo import MongoClient
-import geopandas as gpd
-from pathlib import Path
 import numpy as np
-
+import geopandas as gpd
+from pymongo import MongoClient
 from db_ingest import utils
 
-"""
-Questo script importa i Point of Interest di ciascun comune nella collezione MongoDB [pois].
 
-Obiettivo:
-- Salvare tutte le informazioni sui PoI in un database MongoDB.
-- Consentire query geospaziali, come trovare i PoI più vicini a un determinato punto geografico.
-- Gestire duplicati tramite un indice unico su `pois_id`.
-
-Dati in ingresso:
------------------
-- File Feather compressi nella cartella `output` con pattern:
-  "{city_code}_PoI.feather.zstd"
-- Ogni file contiene almeno:
-    - `id`: identificativo del PoI
-    - `geometry`: punto geografico
-    - `names`: nomi del PoI
-    - `categories`: categorie primarie e secondarie
-
-Struttura dei documenti MongoDB:
---------------------------------
-{
-    "pois_id": "<ID univoco del PoI>",
-    "location": { 
-        "type": "Point",
-        "coordinates": [<lon>, <lat>]  # GeoJSON
-    },
-    "names": {...},
-    "categories": {
-        "primary": "...",
-        "alternate": ["...", "..."]
-    }
-}
-
-
-"""
-
-
-# Create a connection using MongoClient. You can import MongoClient or use pymongo.MongoClient
+# Connessione a MongoDB
 client = MongoClient(utils.CONNECTION_STRING)
-db = client[utils.MONGO_DB_NAME]  # Nome del database
-collection = db["pois"]  # Nome della collezione
+db = client[utils.MONGO_DB_NAME]
+collection = db["pois"]
 
+
+# Creazione indici
 collection.create_index([("pois_id", 1)], unique=True)
-
-# Creare l'indice geospaziale su "location"
 collection.create_index([("location", "2dsphere")])
 
-for gzip_filename in glob.glob(f"db_ingest/graphml/* PoI.feather.zstd"):
-    city_code =  gzip_filename.split("/")[-1].replace(f" PoI.feather.zstd", " ").strip()
+
+for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
+
+    city_code = (
+        gzip_filename
+        .split("/")[-1]
+        .replace(" PoI.feather.zstd", "")
+        .strip()
+    )
 
     if not utils.should_process_city(city_code):
         print(f"Skip {city_code} (non in CITY_CODE_FILTER)")
         continue
-    poi_data=gpd.read_feather(gzip_filename)
-    print(city_code)
-    services = [
-        {"id": feature["id"],
-         "lat": feature["geometry"].x,
-         "lon": feature["geometry"].y,
-         "names": feature["names"],
-         "categories": feature["categories"]
-         }
-        for _, feature in poi_data.iterrows()
-    ]
 
-    services_gdf = gpd.GeoDataFrame(
-        services,
-        geometry=gpd.points_from_xy([s["lon"] for s in services], [s["lat"] for s in services]),
-        crs="EPSG:4326"
-    )
-    for _, data in services_gdf.iterrows():
+    poi_data = gpd.read_feather(gzip_filename)
+
+    print(f"\n{city_code}")
+    print(f"Numero di PoI da elaborare: {len(poi_data)}")
+
+    inserted = 0
+    updated = 0
+    unchanged = 0
+    errors = 0
+
+    for _, row in poi_data.iterrows():
+
         try:
+            # ---------------------------------------------------------
+            # Coordinate
+            # ---------------------------------------------------------
 
-            if data["categories"] is None:
-                primary = None
-                alternate = None
-            elif data["categories"]["alternate"] is None:
-                primary = data["categories"]["primary"]
-                alternate = None
+            geom = row["geometry"]
+            lon, lat = geom.x, geom.y
+
+
+            # ---------------------------------------------------------
+            # Categorie
+            # ---------------------------------------------------------
+
+            taxonomy = (
+                row.get("taxonomy")
+                if "taxonomy" in poi_data.columns
+                else None
+            )
+
+            basic_cat = (
+                row.get("basic_category")
+                if "basic_category" in poi_data.columns
+                else None
+            )
+
+            if isinstance(taxonomy, dict):
+
+                primary = taxonomy.get("primary", basic_cat)
+
+                alternate = taxonomy.get("alternate", [])
+
+                if isinstance(alternate, np.ndarray):
+                    alternate = alternate.tolist()
+
             else:
-                primary = data["categories"]["primary"]
-                alternate = [x for x in data["categories"]["alternate"]]
 
-            # Tenta di inserire il documento
-            print(f"Inserisco il PoI con ID {data['id']}")
-            print(f"Coordinate: {data['lon']}, {data['lat']}")
-            print(f"Primary: {primary}, Alternate: {alternate}")
-            print(f"Names: {data['names']}")
-            if isinstance(data["names"].get("rules"), np.ndarray):
-                data["names"]["rules"] = data["names"]["rules"].tolist()
-            collection.insert_one({
-                "pois_id": data["id"],
-                "location": {  # Campo GeoJSON
+                primary = basic_cat
+                alternate = []
+
+
+            # ---------------------------------------------------------
+            # Nomi
+            # ---------------------------------------------------------
+
+            names = row.get("names")
+
+            if (
+                isinstance(names, dict)
+                and isinstance(names.get("rules"), np.ndarray)
+            ):
+                names["rules"] = names["rules"].tolist()
+
+
+            # ---------------------------------------------------------
+            # Documento
+            # ---------------------------------------------------------
+
+            poi_id = row["id"]
+
+            poi_document = {
+                "pois_id": poi_id,
+
+                "location": {
                     "type": "Point",
-                    "coordinates": [data["lon"], data["lat"]]  # GeoJSON richiede [lon, lat]
+                    "coordinates": [
+                        float(lon),
+                        float(lat)
+                    ]
                 },
-                "names": data["names"],
+
+                "names": names,
+
                 "categories": {
                     "primary": primary,
                     "alternate": alternate
                 }
+            }
 
-            })
-        except DuplicateKeyError:
-            print(f"Il PoI con ID {data['id']} esiste già. Ignorato.")
-            ...
 
-            # Ignora l'errore se il nodo esiste già
-            #print(f"Il nodo con ID {data['id']} esiste già. Ignorato.")
+            # ---------------------------------------------------------
+            # INSERT oppure UPDATE
+            # ---------------------------------------------------------
 
+            result = collection.update_one(
+                {"pois_id": poi_id},
+
+                {
+                    "$set": {
+                        "location": poi_document["location"],
+                        "names": poi_document["names"],
+                        "categories": poi_document["categories"]
+                    }
+                },
+
+                upsert=True
+            )
+
+
+            # ---------------------------------------------------------
+            # Statistiche
+            # ---------------------------------------------------------
+
+            if result.upserted_id is not None:
+                inserted += 1
+
+            elif result.modified_count > 0:
+                updated += 1
+
+            else:
+                unchanged += 1
+
+
+        except Exception as e:
+
+            errors += 1
+
+            print(
+                f"Errore durante l'elaborazione del PoI "
+                f"{row.get('id')}: {e}"
+            )
+
+
+    print(
+        f"Risultato {city_code}: "
+        f"inseriti={inserted}, "
+        f"aggiornati={updated}, "
+        f"inalterati={unchanged}, "
+        f"errori={errors}"
+    )
+
+
+client.close()
 
