@@ -151,8 +151,8 @@ def _fetch_city_mode_groups(conn) -> List[Tuple[str, str]]:
         001001 / bike / 5
         ...
 
-    Le coppie gia presenti in TARGET_TABLE vengono escluse
-    direttamente dalla query.
+    I gruppi completi vengono esclusi solo se source_rows corrisponde
+    al conteggio corrente della tabella sorgente.
     """
 
     import sys
@@ -165,19 +165,29 @@ def _fetch_city_mode_groups(conn) -> List[Tuple[str, str]]:
     from db_ingest import utils as _utils
 
     query = f"""
-        SELECT DISTINCT
+        WITH source_groups AS (
+            SELECT
+                city_code,
+                network_mode,
+                travel_time,
+                COUNT(*) AS source_rows
+            FROM {SOURCE_TABLE}
+            WHERE city_code IS NOT NULL
+            GROUP BY city_code, network_mode, travel_time
+        )
+        SELECT
             source.city_code,
             source.network_mode,
             source.travel_time
-        FROM {SOURCE_TABLE} source
+        FROM source_groups source
         LEFT JOIN {TARGET_TABLE} target
             ON target.city_code = source.city_code
             AND target.network_mode = source.network_mode
             AND target.travel_time = source.travel_time
-        WHERE source.city_code IS NOT NULL
-          AND (
-                target.city_code IS NULL
-                OR target.density_raw_q2 IS NULL
+        WHERE target.city_code IS NULL
+           OR target.source_rows IS DISTINCT FROM source.source_rows
+           OR (
+                target.density_raw_q2 IS NULL
                 OR target.entropy_score_q2 IS NULL
                 OR target.closeness_raw_q1 IS NULL
                 OR target.closeness_raw_q2 IS NULL

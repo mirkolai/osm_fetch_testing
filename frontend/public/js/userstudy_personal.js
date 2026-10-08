@@ -2,6 +2,10 @@ let currentSessionId = sessionStorage.getItem('session_id');
 let selectedCategories = new Set();
 let selectedCategoryObjects = {}; // Mappa categoria padre -> array di categorie figlio selezionate
 
+function getCategoryLabel(categoryId) {
+    return window.getCategoryLabelIt(categoryId);
+}
+
 // Crea una sessione sostitutiva e riporta l'utente al welcome se lo step è aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
     fetch('/api/userstudy/session/create', { method: 'POST' })
@@ -76,8 +80,8 @@ function renderCategories(categories) {
         // Crea il contenitore della categoria padre
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'category-group';
-        categoryDiv.style.marginBottom = '20px';
-        categoryDiv.style.padding = '15px';
+        categoryDiv.style.marginBottom = '5px';
+        categoryDiv.style.padding = '5px';
         categoryDiv.style.backgroundColor = '#f9f9f9';
         categoryDiv.style.borderRadius = '8px';
         
@@ -87,26 +91,25 @@ function renderCategories(categories) {
         button.type = 'button';
         button.dataset.categoryId = categoryId;
         button.style.width = '100%';
-        button.style.padding = '12px 15px';
-        button.style.marginBottom = '10px';
+        button.style.padding = '5px';
+        button.style.marginBottom = '5px';
         button.style.border = '2px solid #ddd';
         button.style.borderRadius = '6px';
         button.style.backgroundColor = COLORS.NONE;
         button.style.color = '#333';
         button.style.fontWeight = '600';
+        button.style.fontSize = '14px';
+        button.title = 'Doppio clic per selezionare o deselezionare tutte le sottocategorie';
         button.style.cursor = 'pointer';
         button.style.transition = 'all 0.3s';
         button.style.display = 'flex';
         button.style.justifyContent = 'space-between';
         button.style.alignItems = 'center';
         button.style.flexWrap = 'wrap';
-        button.style.gap = '10px';
+        button.style.gap = '5px';
         
         // Formatta il nome della categoria padre
-        const displayName = parentCategory
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        const displayName = getCategoryLabel(parentCategory);
         
         const textSpan = document.createElement('span');
         textSpan.textContent = displayName;
@@ -118,7 +121,7 @@ function renderCategories(categories) {
         toggleIcon.className = 'bi bi-chevron-down';
         toggleIcon.style.fontSize = '14px';
         toggleIcon.style.flexShrink = '0';
-        toggleIcon.style.marginLeft = '10px';
+        toggleIcon.style.marginLeft = '5px';
         
         button.appendChild(textSpan);
         button.appendChild(toggleIcon);
@@ -127,13 +130,13 @@ function renderCategories(categories) {
         const collapseDiv = document.createElement('div');
         collapseDiv.className = 'subcategories-collapse';
         collapseDiv.style.display = 'none';
-        collapseDiv.style.paddingTop = '10px';
+        collapseDiv.style.paddingTop = '5px';
         collapseDiv.style.borderTop = '1px solid #ddd';
         
         // Ogni sottocategoria aggiorna sia lo stato locale sia l'anteprima delle selezioni effettuate.
         subCategories.forEach(subCategory => {
             const itemDiv = document.createElement('div');
-            itemDiv.style.marginBottom = '8px';
+            itemDiv.style.marginBottom = '5px';
             itemDiv.style.display = 'flex';
             itemDiv.style.alignItems = 'center';
             
@@ -143,17 +146,14 @@ function renderCategories(categories) {
             checkbox.value = subCategory;
             checkbox.className = 'category-checkbox';
             checkbox.dataset.parentCategory = categoryId;
-            checkbox.style.marginRight = '8px';
+            checkbox.style.marginRight = '5px';
             checkbox.style.cursor = 'pointer';
             
             const label = document.createElement('label');
             label.htmlFor = subCategory;
-            label.textContent = subCategory
-                .split('_')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ');
+            label.textContent = getCategoryLabel(subCategory);
             label.style.cursor = 'pointer';
-            label.style.fontSize = '13px';
+            label.style.fontSize = '14px';
             label.style.marginBottom = '0';
             label.style.fontWeight = '400';
             label.className = 'subcategory-label';
@@ -179,6 +179,23 @@ function renderCategories(categories) {
             collapseDiv.style.display = isVisible ? 'none' : 'block';
             toggleIcon.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
             toggleIcon.style.transition = 'transform 0.3s';
+        });
+
+        button.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const selectAll = selectedCategoryObjects[categoryId].length !== subCategories.length;
+            const checkboxes = collapseDiv.querySelectorAll('.category-checkbox');
+            checkboxes.forEach((checkbox, index) => {
+                checkbox.checked = selectAll;
+                checkbox.nextElementSibling.style.fontWeight = selectAll ? '700' : '400';
+                updateCategorySelection(categoryId, subCategories[index], selectAll);
+            });
+
+            updateParentButtonColor(categoryId, subCategories);
+            updateSelectedBadges();
+            updateNextButtonState();
         });
         
         categoryDiv.appendChild(button);
@@ -251,17 +268,14 @@ function updateSelectedBadges() {
     Array.from(selectedCategories).forEach(category => {
         const badge = document.createElement('span');
         badge.className = 'category-badge';
-        badge.textContent = category
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        badge.textContent = getCategoryLabel(category);
         badge.style.display = 'inline-block';
         badge.style.backgroundColor = '#667eea';
         badge.style.color = 'white';
-        badge.style.padding = '6px 12px';
+        badge.style.padding = '4px 8px';
         badge.style.borderRadius = '20px';
         badge.style.fontSize = '12px';
-        badge.style.margin = '5px 5px 5px 0';
+        badge.style.margin = '3px 3px 3px 0';
         
         DOM.selectedBadges.appendChild(badge);
     });

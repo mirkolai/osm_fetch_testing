@@ -196,3 +196,6 @@ db_ingest/mongo_ingest/cache/*
 /backup_*/
 postgres_init/*
 !postgres_init/.gitkeep
+cose da fare.txt
+db_ingest/mongo_ingest/Turin, Italy closeness.json
+db_ingest/mongo_ingest/x7b_aggiorna_closeness_da_json.py

@@ -62,12 +62,12 @@
             color: #333;
             font-weight: 600;
             margin-bottom: 25px;
-            font-size: 18px;
+            font-size: 22px;
         }
         
         .section-description {
             color: #888;
-            font-size: 14px;
+            font-size: 16px;
             margin-bottom: 20px;
             line-height: 1.6;
         }
@@ -88,7 +88,7 @@
         }
         
         .setting-label {
-            font-size: 13px;
+            font-size: 16px;
             font-weight: 600;
             color: #667eea;
             text-transform: uppercase;
@@ -96,22 +96,44 @@
             margin-bottom: 10px;
         }
         
-        .form-select {
-            border: 2px solid #e0e0e0;
+        .settings-section .form-select {
+            width: 100%;
+            min-height: 46px;
+            border: 1px solid #dee2e6;
             border-radius: 8px;
-            padding: 10px 12px;
-            font-size: 14px;
+            padding: 0.625rem 2.25rem 0.625rem 0.875rem;
+            color: #212529;
+            background-color: #fff;
+            font-size: 16px;
+            line-height: 1.5;
         }
         
-        .form-select:focus {
+        .settings-section .form-select:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.2);
+        }
+
+        .travel-mode-selector .btn {
+            font-size: 14px;
+        }
+
+        .travel-mode-selector .btn-check:not(:checked) + .btn-outline-primary:hover {
+            background-color: #e9e7f5;
+            border-color: #764ba2;
+            color: #483d8b;
+        }
+
+        .travel-mode-selector .btn-check:checked + .btn-outline-primary,
+        .travel-mode-selector .btn-check:checked + .btn-outline-primary:hover {
+            background-color: #483d8b;
+            border-color: #483d8b;
+            color: white;
         }
         
         .categories-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            gap: 5px;
             margin-bottom: 30px;
         }
         
@@ -127,14 +149,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 15px;
+            padding: 5px;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
             font-weight: 500;
-            font-size: 13px;
+            font-size: 15px;
             gap: 8px;
             color: #555;
             background: white;
@@ -156,7 +178,7 @@
             background: #f0f0ff;
             border: 2px solid #e0e0e0;
             border-radius: 12px;
-            padding: 15px;
+            padding: 5px;
             margin-top: 20px;
             display: none;
         }
@@ -169,10 +191,10 @@
             display: inline-block;
             background: #667eea;
             color: white;
-            padding: 5px 12px;
+            padding: 4px 8px;
             border-radius: 20px;
             font-size: 12px;
-            margin: 5px 5px 5px 0;
+            margin: 3px 3px 3px 0;
         }
         
         .button-group {
@@ -209,7 +231,7 @@
         
         .error-message {
             color: #d32f2f;
-            font-size: 13px;
+            font-size: 14px;
             margin-top: 15px;
             display: none;
             padding: 15px;
@@ -253,16 +275,24 @@
                 
                 <div class="setting-group">
                     <div class="setting-label"><i class="bi bi-person-walking me-2"></i> Modalità di Viaggio</div>
-                    <div class="btn-group w-100" role="group">
-                        <input type="radio" class="btn-check" name="travel-mode" id="mode-walking" value="walking" checked>
-                        <label class="btn btn-outline-primary" for="mode-walking">
-                            <i class="bi bi-person-walking"></i> A piedi
-                        </label>
+                    <div class="btn-group w-100 travel-mode-selector" role="group">
+
                         
                         <input type="radio" class="btn-check" name="travel-mode" id="mode-cane" value="walking_cane">
                         <label class="btn btn-outline-primary" for="mode-cane">
-                            <i class="fa-solid fa-person-walking-with-cane"></i> Con bastone
+                            <i class="fa-solid fa-person-walking-with-cane"></i> Senza fretta
                         </label>
+
+                        <input type="radio" class="btn-check" name="travel-mode" id="mode-walking" value="walking" checked>
+                        <label class="btn btn-outline-primary" for="mode-walking">
+                            <i class="bi bi-person-walking"></i> Passo normale
+                        </label>
+
+                        <input type="radio" class="btn-check" name="travel-mode" id="mode-bike" value="bike">
+                        <label class="btn btn-outline-primary" for="mode-bike">
+                            <i class="bi bi-bicycle"></i> In bicicletta
+                        </label>
+
                     </div>
                 </div>
             </div>
@@ -281,8 +311,8 @@
             
             <!-- Selected Categories -->
             <div class="selected-categories" id="selected-categories">
-                <strong style="color: #667eea;">Categorie selezionate:</strong>
-                <div id="selected-badges" style="margin-top: 10px;"></div>
+                <strong style="color: #667eea; font-size: 14px;">Categorie selezionate:</strong>
+                <div id="selected-badges" style="margin-top: 6px;"></div>
             </div>
             
             <div class="error-message" id="error-message"></div>
@@ -297,6 +327,7 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../public/js/config/categoryLabels.js"></script>
     <script src="../public/js/userstudy_personal.js"></script>
 </body>
 </html>

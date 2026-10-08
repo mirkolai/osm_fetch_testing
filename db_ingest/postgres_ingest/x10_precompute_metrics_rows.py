@@ -370,6 +370,37 @@ def _iter_city_nodes() -> Iterable[Tuple[str, Dict[int, Optional[str]]]]:
             yield city_code, node_to_neighbourhood
 
 
+def _load_city_bike_nodes(city_code: str, routable_bike_nodes: set[int]) -> set[int]:
+    if not routable_bike_nodes:
+        return set()
+
+    city_code_query: object = city_code
+    if city_code.isdigit():
+        city_code_query = {"$in": [city_code, int(city_code)]}
+
+    city_doc = mongo_db["city_polygon"].find_one(
+        {"PRO_COM_T": city_code_query},
+        {"_id": 0, "geometry": 1},
+    )
+    if not city_doc or not city_doc.get("geometry"):
+        return set()
+
+    city_nodes: set[int] = set()
+    node_cursor = mongo_db["nodes"].find(
+        {"location": {"$geoWithin": {"$geometry": city_doc["geometry"]}}},
+        {"_id": 0, "node_id": 1},
+    )
+    for node_doc in node_cursor:
+        try:
+            node_id = int(node_doc["node_id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if node_id in routable_bike_nodes:
+            city_nodes.add(node_id)
+
+    return city_nodes
+
+
 def _upsert_rows(conn, rows: List[Tuple]) -> None:
     if not rows:
         return
@@ -499,38 +530,55 @@ def main() -> None:
         global_setup_totals = {phase: 0.0 for phase in SETUP_PHASE_ORDER}
         global_setup_counts = {phase: 0 for phase in SETUP_PHASE_ORDER}
         for city_code, node_to_neighbourhood in _iter_city_nodes():
-            print(f"Processing city {city_code} with {len(node_to_neighbourhood)} nodes")
+            print(f"Processing city {city_code} with {len(node_to_neighbourhood)} neighbourhood nodes")
             batch: List[Tuple] = []
             city_skipped_unroutable = 0
             city_skipped_already_processed = 0
 
             city_node_ids = set(node_to_neighbourhood.keys())
+            bike_city_node_ids = _load_city_bike_nodes(
+                city_code,
+                routable_nodes_by_mode.get("bike", set()),
+            )
+            mode_node_ids = {
+                mode: set(city_node_ids)
+                for mode in MODE_VELOCITY_KMH
+            }
+            mode_node_ids["bike"].update(bike_city_node_ids)
+            all_city_node_ids = set().union(*mode_node_ids.values())
+            print(
+                f"[city {city_code}] bike graph nodes inside city: "
+                f"{len(bike_city_node_ids)}"
+            )
+
             city_phase_totals = {phase: 0.0 for phase in PHASE_ORDER}
             city_phase_counts = {phase: 0 for phase in PHASE_ORDER}
             city_setup_totals = {phase: 0.0 for phase in SETUP_PHASE_ORDER}
             city_setup_counts = {phase: 0 for phase in SETUP_PHASE_ORDER}
 
             setup_t0 = perf_counter()
-            _prepare_city_nodes_temp_table(conn, city_node_ids)
-            city_setup_totals["city_setup"] += perf_counter() - setup_t0
-            city_setup_counts["city_setup"] += 1
-
-            setup_t0 = perf_counter()
-            city_already_processed_keys = _load_existing_processed_keys_for_nodes(conn, city_node_ids)
+            city_already_processed_keys = _load_existing_processed_keys_for_nodes(conn, all_city_node_ids)
             city_setup_totals["load_processed_keys"] += perf_counter() - setup_t0
             city_setup_counts["load_processed_keys"] += 1
 
-            city_total_work_units = len(city_node_ids) * len(MODE_VELOCITY_KMH)
+            city_total_work_units = sum(len(node_ids) for node_ids in mode_node_ids.values())
             city_completed_work_units = 0
 
             for mode, velocity in MODE_VELOCITY_KMH.items():
                 mode_started_at = perf_counter()
+                mode_city_node_ids = mode_node_ids[mode]
+
+                setup_t0 = perf_counter()
+                _prepare_city_nodes_temp_table(conn, mode_city_node_ids)
+                city_setup_totals["city_setup"] += perf_counter() - setup_t0
+                city_setup_counts["city_setup"] += 1
+
                 network_mode = _mode_to_network_mode(mode)
                 graph_sql = _build_city_graph_sql(network_mode)
                 routable_nodes = routable_nodes_by_mode.get(network_mode, set())
 
-                city_routable_node_ids = city_node_ids.intersection(routable_nodes)
-                city_unroutable_count = len(city_node_ids) - len(city_routable_node_ids)
+                city_routable_node_ids = mode_city_node_ids.intersection(routable_nodes)
+                city_unroutable_count = len(mode_city_node_ids) - len(city_routable_node_ids)
                 city_skipped_unroutable += city_unroutable_count * len(TRAVEL_TIMES_MIN)
                 mode_total_units = len(city_routable_node_ids) * len(TRAVEL_TIMES_MIN)
                 mode_completed_units = 0
@@ -642,7 +690,7 @@ def main() -> None:
                             )
                             mode_last_heartbeat_at = now
 
-                city_completed_work_units += len(city_node_ids)
+                city_completed_work_units += len(mode_city_node_ids)
                 city_setup_totals["mode_prep"] += perf_counter() - mode_started_at
                 city_setup_counts["mode_prep"] += 1
                 progress_bar = _render_progress_bar(city_completed_work_units, city_total_work_units)

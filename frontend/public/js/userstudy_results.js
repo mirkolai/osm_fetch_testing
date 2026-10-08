@@ -14,7 +14,8 @@ let defaultLayer = null;
 let personalizedLayer = null;
 let cityBoundariesLayer = null;
 let hasOpenedAnalysisModal = false;
-let spiderChart = null;
+let spiderChartStandard = null;
+let spiderChartPersonalized = null;
 
 // Crea una nuova sessione e riporta l'utente all'ingresso se questo step viene aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
@@ -335,9 +336,16 @@ function drawPOIs(analysisData, layerGroup) {
         return null;
     };
     
-    // Mostra tutti i POI (o imposta un limite alto se serve)
+    // Campiona lungo l'ordinamento per distanza, così il limite include anche i POI più lontani.
     const MAX_POI = 1000;
-    const poisToDisplay = analysisData.pois.slice(0, Math.min(MAX_POI, analysisData.pois.length));
+    const totalPois = analysisData.pois.length;
+    const poisToDisplay = totalPois <= MAX_POI
+        ? analysisData.pois
+        : Array.from(
+            { length: MAX_POI },
+            (_, index) => analysisData.pois[Math.round(index * (totalPois - 1) / (MAX_POI - 1))],
+        );
+    console.log(`Mostro ${poisToDisplay.length} POI distribuiti su ${totalPois} raggiungibili`);
     let count = 0;
     
     // Usa batching per non bloccare il thread
@@ -496,15 +504,23 @@ function displaySessionInfo() {
     
     if (searchParams) {
         const travelTime = sessionData.travel_time || 15;
-        const travelMode = sessionData.travel_mode === 'walking_cane' ? 'Con bastone' : 'A piedi';
+        const travelModeLabels = {
+            walking: 'Passo normale',
+            walking_cane: 'Senza fretta',
+            bike: 'In bicicletta',
+        };
+        const travelMode = travelModeLabels[sessionData.travel_mode] || travelModeLabels.walking;
         searchParams.innerHTML = `${travelTime} min • ${travelMode}`;
     }
     
     if (categoriesList) {
         if (sessionData.selected_categories && sessionData.selected_categories.length > 0) {
-            categoriesList.innerHTML = sessionData.selected_categories
-                .map(cat => `<span class="badge bg-primary">${cat}</span>`)
-                .join('');
+            categoriesList.replaceChildren(...sessionData.selected_categories.map(category => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-primary';
+                badge.textContent = window.getCategoryLabelIt(category);
+                return badge;
+            }));
         }
     }
 }
@@ -560,8 +576,7 @@ function drawSpiderChart(
     cityAverageParameters = null,
     citySamplePersonalizedParameters = null,
 ) {
-    const container = document.getElementById(elementId);
-    if (!container) {
+    if (!document.getElementById(elementId)) {
         return;
     }
     const clampScore = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
@@ -578,7 +593,7 @@ function drawSpiderChart(
     }
     console.groupEnd();
 
-    const chartData = [
+    const standardChartData = [
         {
             className: 'default',
             axes: [
@@ -589,6 +604,22 @@ function drawSpiderChart(
                 { axis: 'Connessività', value: clampScore(defaultParameters.closeness) },
             ],
         },
+    ];
+
+    if (cityAverageParameters) {
+        standardChartData.push({
+            className: 'city-average',
+            axes: [
+                { axis: 'Proximity', value: radarProximity(cityAverageParameters.proximity_score) },
+                { axis: 'Density', value: clampScore(cityAverageParameters.density_score) },
+                { axis: 'Entropy', value: clampScore(cityAverageParameters.entropy_score) },
+                { axis: 'Accessibility', value: clampScore(cityAverageParameters.poi_accessibility) },
+                { axis: 'Closeness', value: clampScore(cityAverageParameters.closeness) },
+            ],
+        });
+    }
+
+    const personalizedChartData = [
         {
             className: 'personalized',
             axes: [
@@ -601,21 +632,8 @@ function drawSpiderChart(
         },
     ];
 
-    if (cityAverageParameters) {
-        chartData.push({
-            className: 'city-average',
-            axes: [
-                { axis: 'Proximity', value: radarProximity(cityAverageParameters.proximity_score) },
-                { axis: 'Density', value: clampScore(cityAverageParameters.density_score) },
-                { axis: 'Entropy', value: clampScore(cityAverageParameters.entropy_score) },
-                { axis: 'Accessibility', value: clampScore(cityAverageParameters.poi_accessibility) },
-                { axis: 'Closeness', value: clampScore(cityAverageParameters.closeness) },
-            ],
-        });
-    }
-
     if (citySamplePersonalizedParameters) {
-        chartData.push({
+        personalizedChartData.push({
             className: 'city-sample-personalized',
             axes: [
                 { axis: 'Prossimità', value: clampScore(citySamplePersonalizedParameters.proximity_score) },
@@ -627,58 +645,57 @@ function drawSpiderChart(
         });
     }
 
-    if (spiderChart) {
-        spiderChart.updateData(chartData);
-    } else {
-        spiderChart = new SpiderChart(elementId, {
+    const updateOrCreateChart = (chart, containerId, data, colors) => {
+        if (chart) {
+            chart.updateData(data);
+            return chart;
+        }
+        return new SpiderChart(containerId, {
             width: 250,
             height: 250,
             margin: 80,
             maxValue: 1,
             levels: 5,
-            color: ['#483d8b', '#f56565', '#f59e0b', '#0891b2'],
-            data: chartData,
+            color: colors,
+            data,
         });
-    }
+    };
 
-    renderStep5RadarLegend(Boolean(cityAverageParameters), citySamplePersonalizedParameters);
+    spiderChartStandard = updateOrCreateChart(
+        spiderChartStandard,
+        `${elementId}-standard`,
+        standardChartData,
+        ['#483d8b', '#f59e0b'],
+    );
+    spiderChartPersonalized = updateOrCreateChart(
+        spiderChartPersonalized,
+        `${elementId}-personalized`,
+        personalizedChartData,
+        ['#f56565', '#0891b2'],
+    );
+
+    renderStep5RadarLegend('step5-standard-legend', [
+        { label: 'Area selezionata', color: '#483d8b', opacity: 0.25 },
+        ...(cityAverageParameters ? [{ label: 'Media città', color: '#f59e0b', opacity: 0.22 }] : []),
+    ]);
+    renderStep5RadarLegend('step5-personalized-legend', [
+        { label: 'Area selezionata Personalizzata', color: '#f56565', opacity: 0.35 },
+        ...(citySamplePersonalizedParameters ? [{
+            label: `Media città personalizzata (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
+            color: '#0891b2',
+            opacity: 0.28,
+        }] : []),
+    ]);
 }
 
 
-function renderStep5RadarLegend(showCityAverage, citySamplePersonalizedParameters = null) {
-    const container = document.getElementById('spider-chart-modal');
+function renderStep5RadarLegend(containerId, traces) {
+    const container = document.getElementById(containerId);
     if (!container) {
         return;
     }
 
-    const oldLegend = container.querySelector('.step5-radar-legend');
-    if (oldLegend) {
-        oldLegend.remove();
-    }
-
-    const legend = document.createElement('div');
-    legend.className = 'step5-radar-legend';
-    legend.style.marginTop = '10px';
-    legend.style.fontSize = '11px';
-    legend.style.color = '#333';
-    legend.style.display = 'flex';
-    legend.style.flexDirection = 'column';
-    legend.style.gap = '6px';
-
-    const traces = [
-        { label: 'Area selezionata', color: '#483d8b', opacity: 0.25 },
-        { label: 'Area selezionata Personalizzata', color: '#f56565', opacity: 0.35 },
-    ];
-    if (showCityAverage) {
-        traces.push({ label: 'Media città', color: '#f59e0b', opacity: 0.22 });
-    }
-    if (citySamplePersonalizedParameters) {
-        traces.push({
-            label: `Media città personalizzata (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
-            color: '#0891b2',
-            opacity: 0.28,
-        });
-    }
+    container.replaceChildren();
 
     traces.forEach(trace => {
         const row = document.createElement('div');
@@ -699,10 +716,8 @@ function renderStep5RadarLegend(showCityAverage, citySamplePersonalizedParameter
 
         row.appendChild(swatch);
         row.appendChild(label);
-        legend.appendChild(row);
+        container.appendChild(row);
     });
-
-    container.appendChild(legend);
 }
 
 // Coordina il caricamento dello step 5: sessione, analisi, mappa, grafico e stato UI.
