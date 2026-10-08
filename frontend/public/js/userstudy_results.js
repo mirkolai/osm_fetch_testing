@@ -681,7 +681,7 @@ function drawSpiderChart(
     renderStep5RadarLegend('step5-personalized-legend', [
         { label: 'Area selezionata Personalizzata', color: '#f56565', opacity: 0.35 },
         ...(citySamplePersonalizedParameters ? [{
-            label: `Media città personalizzata (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
+            label: `Media città personalizzata`,// (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
             color: '#0891b2',
             opacity: 0.28,
         }] : []),
