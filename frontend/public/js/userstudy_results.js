@@ -1,4 +1,4 @@
-import { SpiderChart } from './components/SpiderChart.js';
+import { renderProgressBarChart } from './components/ProgressBarChart.js';
 
 /**
  * Modulo per Passo 5/7 - Esplora i Risultati
@@ -14,8 +14,6 @@ let defaultLayer = null;
 let personalizedLayer = null;
 let cityBoundariesLayer = null;
 let hasOpenedAnalysisModal = false;
-let spiderChartStandard = null;
-let spiderChartPersonalized = null;
 
 // Crea una nuova sessione e riporta l'utente all'ingresso se questo step viene aperto fuori flusso.
 function createSessionAndRedirectToWelcome() {
@@ -579,115 +577,20 @@ function drawSpiderChart(
     if (!document.getElementById(elementId)) {
         return;
     }
-    const clampScore = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
-    const radarProximity = (value) => 1 - clampScore(value);
-
-    console.group('[DEBUG] drawSpiderChart - Metric Values');
-    console.log('Default parameters:', defaultParameters);
-    console.log('Personalized parameters:', personalizedParameters);
-    if (cityAverageParameters) {
-        console.log('City average parameters:', cityAverageParameters);
-    }
-    if (citySamplePersonalizedParameters) {
-        console.log('City sample personalized parameters:', citySamplePersonalizedParameters);
-    }
-    console.groupEnd();
-
-    const standardChartData = [
-        {
-            className: 'default',
-            axes: [
-                { axis: 'Prossimità', value: radarProximity(defaultParameters.proximity_score) },
-                { axis: 'Densità', value: clampScore(defaultParameters.density_score) },
-                { axis: 'Varietà', value: clampScore(defaultParameters.entropy_score) },
-                { axis: 'Accessibilità', value: clampScore(defaultParameters.poi_accessibility) },
-                { axis: 'Connessività', value: clampScore(defaultParameters.closeness) },
-            ],
-        },
-    ];
-
-    if (cityAverageParameters) {
-        standardChartData.push({
-            className: 'city-average',
-            axes: [
-                { axis: 'Proximity', value: radarProximity(cityAverageParameters.proximity_score) },
-                { axis: 'Density', value: clampScore(cityAverageParameters.density_score) },
-                { axis: 'Entropy', value: clampScore(cityAverageParameters.entropy_score) },
-                { axis: 'Accessibility', value: clampScore(cityAverageParameters.poi_accessibility) },
-                { axis: 'Closeness', value: clampScore(cityAverageParameters.closeness) },
-            ],
-        });
-    }
-
-    const personalizedChartData = [
-        {
-            className: 'personalized',
-            axes: [
-                { axis: 'Prossimità', value: clampScore(personalizedParameters.proximity_score) },
-                { axis: 'Densità', value: clampScore(personalizedParameters.density_score) },
-                { axis: 'Varietà', value: clampScore(personalizedParameters.entropy_score) },
-                { axis: 'Accessibilità', value: clampScore(personalizedParameters.poi_accessibility) },
-                { axis: 'Connessività', value: clampScore(personalizedParameters.closeness) },
-            ],
-        },
-    ];
-
-    if (citySamplePersonalizedParameters) {
-        personalizedChartData.push({
-            className: 'city-sample-personalized',
-            axes: [
-                { axis: 'Prossimità', value: clampScore(citySamplePersonalizedParameters.proximity_score) },
-                { axis: 'Densità', value: clampScore(citySamplePersonalizedParameters.density_score) },
-                { axis: 'Varietà', value: clampScore(citySamplePersonalizedParameters.entropy_score) },
-                { axis: 'Accessibilità', value: clampScore(citySamplePersonalizedParameters.poi_accessibility) },
-                { axis: 'Connessività', value: clampScore(citySamplePersonalizedParameters.closeness) },
-            ],
-        });
-    }
-
-    const updateOrCreateChart = (chart, containerId, data, colors) => {
-        if (chart) {
-            chart.updateData(data);
-            return chart;
-        }
-        return new SpiderChart(containerId, {
-            width: 250,
-            height: 250,
-            margin: 80,
-            maxValue: 1,
-            levels: 5,
-            color: colors,
-            data,
-        });
-    };
-
-    spiderChartStandard = updateOrCreateChart(
-        spiderChartStandard,
-        `${elementId}-standard`,
-        standardChartData,
-        ['#483d8b', '#f59e0b'],
-    );
-    spiderChartPersonalized = updateOrCreateChart(
-        spiderChartPersonalized,
+    renderProgressBarChart(`${elementId}-standard`, defaultParameters, cityAverageParameters, '#483d8b');
+    renderProgressBarChart(
         `${elementId}-personalized`,
-        personalizedChartData,
-        ['#f56565', '#0891b2'],
+        personalizedParameters,
+        citySamplePersonalizedParameters,
+        '#f56565',
     );
-
-    renderStep5RadarLegend('step5-standard-legend', [
-        { label: 'Area selezionata', color: '#483d8b', opacity: 0.25 },
-        ...(cityAverageParameters ? [{ label: 'Media città', color: '#f59e0b', opacity: 0.22 }] : []),
-    ]);
-    renderStep5RadarLegend('step5-personalized-legend', [
-        { label: 'Area selezionata Personalizzata', color: '#f56565', opacity: 0.35 },
-        ...(citySamplePersonalizedParameters ? [{
-            label: `Media città personalizzata`,// (stima su ${citySamplePersonalizedParameters.sample_count} incroci)`,
-            color: '#0891b2',
-            opacity: 0.28,
-        }] : []),
-    ]);
+    ['step5-standard-legend', 'step5-personalized-legend'].forEach((id) => {
+        const legend = document.getElementById(id);
+        if (legend) {
+            legend.replaceChildren();
+        }
+    });
 }
-
 
 function renderStep5RadarLegend(containerId, traces) {
     const container = document.getElementById(containerId);

@@ -1,11 +1,10 @@
-import { SpiderChart } from './components/SpiderChart.js';
+import { renderProgressBarChart } from './components/ProgressBarChart.js';
 
 let currentSessionId = sessionStorage.getItem('session_id');
 let selectedStreet = null;
 let selectedCoords = null;
 let analysisComplete = false;
 let streetSelectionLocked = false;
-let spiderChart = null;
 
 // Crea una sessione anonima di fallback e riporta l'utente all'inizio del flow.
 function createSessionAndRedirectToWelcome() {
@@ -592,113 +591,12 @@ function showSpiderChartModal(parameters, cityAverageParameters = null) {
         Number.isFinite(cityAverageParameters.poi_accessibility) &&
         Number.isFinite(cityAverageParameters.closeness);
 
-    console.group('[DEBUG] Step 3 showSpiderChartModal - Building radar data');
-    console.log('Input parameters:', parameters);
-    
-    // Initialize spider chart
-    const chartData = [
-        {
-            className: "metrics",
-            axes: [
-                { axis: "Prossimità", value: 1 - Math.max(0, Math.min(Number(parameters.proximity_score) || 0, 1)) },
-                { axis: "Densità", value: Math.max(parameters.density_score, 0) },
-                { axis: "Varietà", value: Math.max(parameters.entropy_score, 0) },
-                { axis: "Accessibilità", value: Math.max(parameters.poi_accessibility, 0) },
-                { axis: "Connettività", value: Math.max(parameters.closeness, 0) }
-            ]
-        }
-    ];
+    renderProgressBarChart('spider-chart-modal', parameters, hasValidCityAverage ? cityAverageParameters : null, '#483d8b');
 
-    console.log('Radar axes data:', chartData[0].axes);
-    if (hasValidCityAverage) {
-        chartData.push({
-            className: "city-average",
-            axes: [
-                { axis: "Prossimità", value: 1 - Math.max(0, Math.min(Number(cityAverageParameters.proximity_score) || 0, 1)) },
-                { axis: "Densità", value: Math.max(cityAverageParameters.density_score, 0) },
-                { axis: "Varietà", value: Math.max(cityAverageParameters.entropy_score, 0) },
-                { axis: "Accessibilità", value: Math.max(cityAverageParameters.poi_accessibility, 0) },
-                { axis: "Connettività", value: Math.max(cityAverageParameters.closeness, 0) }
-            ]
-        });
-        console.log('City average radar axes data:', chartData[1].axes);
-    } else if (cityAverageParameters) {
-        console.warn('City average payload presente ma incompleto; traccia non disegnata.', cityAverageParameters);
-    }
-    console.groupEnd();
-    
-    // Se il grafico esiste già lo aggiorna, altrimenti lo inizializza una sola volta.
-    if (spiderChart) {
-        spiderChart.updateData(chartData);
-    } else {
-        spiderChart = new SpiderChart('spider-chart-modal', {
-            width: 250,
-            height: 250,
-            margin: 80,
-            maxValue: 1,
-            levels: 5,
-            color: ['#483d8b', '#f59e0b'],
-            data: chartData
-        });
-    }
-
-    renderStep3RadarLegend(Boolean(hasValidCityAverage));
-    
     modalOverlay.classList.add('show');
 }
 
 
-function renderStep3RadarLegend(showCityAverage) {
-    const container = document.getElementById('spider-chart-modal');
-    if (!container) {
-        return;
-    }
-
-    const oldLegend = container.querySelector('.step3-radar-legend');
-    if (oldLegend) {
-        oldLegend.remove();
-    }
-
-    const legend = document.createElement('div');
-    legend.className = 'step3-radar-legend';
-    legend.style.marginTop = '10px';
-    legend.style.fontSize = '11px';
-    legend.style.color = '#333';
-    legend.style.display = 'flex';
-    legend.style.flexDirection = 'column';
-    legend.style.gap = '6px';
-
-    const traces = [
-        { label: 'Area selezionata', color: '#483d8b', opacity: 0.35 },
-    ];
-    if (showCityAverage) {
-        traces.push({ label: 'Media città', color: '#f59e0b', opacity: 0.22 });
-    }
-
-    traces.forEach(trace => {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '8px';
-
-        const swatch = document.createElement('span');
-        swatch.style.display = 'inline-block';
-        swatch.style.width = '14px';
-        swatch.style.height = '14px';
-        swatch.style.border = `1px solid ${trace.color}`;
-        swatch.style.background = trace.color;
-        swatch.style.opacity = String(trace.opacity);
-
-        const label = document.createElement('span');
-        label.textContent = trace.label;
-
-        row.appendChild(swatch);
-        row.appendChild(label);
-        legend.appendChild(row);
-    });
-
-    container.appendChild(legend);
-}
 
 // Modal close button
 modalClose.addEventListener('click', () => {
