@@ -1,9 +1,10 @@
 """
 Endpoint FastAPI per lo user study
 """
+from unicodedata import normalize
 from urllib import request
 from pathlib import Path
-
+import numpy as np
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, List, Optional, Tuple
 import json
@@ -249,16 +250,17 @@ def _compute_city_sample_personalized_parameters(
 
 
             minimum_values = {
-                "proximity": min(proximities) if proximities else 0,
-                "entropy": min(entropies) if entropies else 0,
-                "density": min(densities) if densities else 0,
-                "closeness": min(closenesses) if closenesses else 0,
+                "proximity": np.percentile(proximities, 10) if proximities else 0,
+                "entropy": np.percentile(entropies, 10) if entropies else 0,
+                "density": np.percentile(densities, 10) if densities else 0,
+                "closeness": np.percentile(closenesses, 10) if closenesses else 0,
             }
+
             maximum_values = {
-                "proximity": max(proximities) if proximities else 0,
-                "entropy": max(entropies) if entropies else 0,
-                "density": max(densities) if densities else 0,
-                "closeness": max(closenesses) if closenesses else 0,
+                "proximity": np.percentile(proximities, 90) if proximities else 0,
+                "entropy": np.percentile(entropies, 90) if entropies else 0,
+                "density": np.percentile(densities, 90) if densities else 0,
+                "closeness": np.percentile(closenesses, 90) if closenesses else 0,
             }
         except Exception as e:
             print(f"Error computing parameters for node_id {node_id}: {e}")
@@ -512,11 +514,30 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         #print("minimum sample",mininum_sample)
         #print("maximum sample",maximum_sample)
         metrics_payload = {
-            "proximity_score": ((parameters.get("proximity")-mininum_sample["proximity"])/(maximum_sample["proximity"]-mininum_sample["proximity"])) if (maximum_sample["proximity"]-mininum_sample["proximity"])>0 else 0,
-            "density_score": (parameters.get("density")-mininum_sample["density"])/(maximum_sample["density"]-mininum_sample["density"]) if (maximum_sample["density"]-mininum_sample["density"])>0 else 0,
-            "entropy_score": (parameters.get("entropy")-mininum_sample["entropy"])/(maximum_sample["entropy"]-mininum_sample["entropy"]) if (maximum_sample["entropy"]-mininum_sample["entropy"])>0 else 0,
-            "closeness": (parameters.get("closeness")-mininum_sample["closeness"])/(maximum_sample["closeness"]-mininum_sample["closeness"]) if (maximum_sample["closeness"]-mininum_sample["closeness"])>0 else 0
-        }
+                "proximity_score": np.clip(
+                    (parameters.get("proximity") - mininum_sample["proximity"]) /
+                    (maximum_sample["proximity"] - mininum_sample["proximity"]),
+                    0, 1
+                ) if (maximum_sample["proximity"] - mininum_sample["proximity"]) > 0 else 0,
+
+                "density_score": np.clip(
+                    (parameters.get("density") - mininum_sample["density"]) /
+                    (maximum_sample["density"] - mininum_sample["density"]),
+                    0, 1
+                ) if (maximum_sample["density"] - mininum_sample["density"]) > 0 else 0,
+
+                "entropy_score": np.clip(
+                    (parameters.get("entropy") - mininum_sample["entropy"]) /
+                    (maximum_sample["entropy"] - mininum_sample["entropy"]),
+                    0, 1
+                ) if (maximum_sample["entropy"] - mininum_sample["entropy"]) > 0 else 0,
+
+                "closeness": np.clip(
+                    (parameters.get("closeness") - mininum_sample["closeness"]) /
+                    (maximum_sample["closeness"] - mininum_sample["closeness"]),
+                    0, 1
+                ) if (maximum_sample["closeness"] - mininum_sample["closeness"]) > 0 else 0
+            }
 
         metrics_payload["poi_accessibility"] = ((1-metrics_payload["proximity_score"]) + metrics_payload["density_score"] + metrics_payload["entropy_score"]) / 3.0
 
@@ -526,13 +547,34 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
                 status_code=500,
                 detail=f"Failed to save {request.analysis_type} analysis metrics",
             )
-
+        
         city_average_parameters = {
-                    "proximity_score":  ((avg_sample.get("proximity")-mininum_sample["proximity"])/(maximum_sample["proximity"]-mininum_sample["proximity"])) if (maximum_sample["proximity"]-mininum_sample["proximity"])>0 else 0,
-                    "density_score": (avg_sample.get("density")-mininum_sample["density"])/(maximum_sample["density"]-mininum_sample["density"]) if (maximum_sample["density"]-mininum_sample["density"])>0 else 0,
-                    "entropy_score": (avg_sample.get("entropy")-mininum_sample["entropy"])/(maximum_sample["entropy"]-mininum_sample["entropy"]) if (maximum_sample["entropy"]-mininum_sample["entropy"])>0 else 0,
-                    "closeness": (avg_sample.get("closeness")-mininum_sample["closeness"])/(maximum_sample["closeness"]-mininum_sample["closeness"]) if (maximum_sample["closeness"]-mininum_sample["closeness"])>0 else 0
-                        }
+            "proximity_score": np.clip(
+                (avg_sample.get("proximity") - mininum_sample["proximity"]) /
+                (maximum_sample["proximity"] - mininum_sample["proximity"]),
+                0, 1
+            ) if (maximum_sample["proximity"] - mininum_sample["proximity"]) > 0 else 0,
+
+            "density_score": np.clip(
+                (avg_sample.get("density") - mininum_sample["density"]) /
+                (maximum_sample["density"] - mininum_sample["density"]),
+                0, 1
+            ) if (maximum_sample["density"] - mininum_sample["density"]) > 0 else 0,
+
+            "entropy_score": np.clip(
+                (avg_sample.get("entropy") - mininum_sample["entropy"]) /
+                (maximum_sample["entropy"] - mininum_sample["entropy"]),
+                0, 1
+            ) if (maximum_sample["entropy"] - mininum_sample["entropy"]) > 0 else 0,
+
+            "closeness": np.clip(
+                (avg_sample.get("closeness") - mininum_sample["closeness"]) /
+                (maximum_sample["closeness"] - mininum_sample["closeness"]),
+                0, 1
+            ) if (maximum_sample["closeness"] - mininum_sample["closeness"]) > 0 else 0
+        }
+
+
         city_average_parameters["poi_accessibility"] =  ((1-city_average_parameters["proximity_score"]) + city_average_parameters["density_score"] + city_average_parameters["entropy_score"]) / 3.0
 
         #print("metrics_payload",metrics_payload)
