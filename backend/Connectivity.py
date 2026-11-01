@@ -37,9 +37,9 @@ def get_nodes_in_city(N: int, PRO_COM_T: str, network_mode: NetworkMode):
             SELECT DISTINCT node_id
             FROM precomputed_metrics_rows
             WHERE city_code = %s
-              AND network_mode = %s
+            AND network_mode = %s
         ) AS city_nodes
-        ORDER BY RANDOM()
+        ORDER BY MD5(node_id::text)
         LIMIT %s
     """
 
