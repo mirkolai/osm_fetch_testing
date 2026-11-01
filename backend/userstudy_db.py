@@ -4,6 +4,7 @@ Funzioni per gestire le sessioni dello user study in MongoDB
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from backend.mongo_db import db
+from backend.RequestModels import UserStudyTravelMode
 from backend.UserStudySession import UserStudySessionModel
 import uuid
 
@@ -113,7 +114,7 @@ def save_selected_categories(
     session_id: str,
     categories: list,
     travel_time: int,
-    travel_mode: str
+    travel_mode: UserStudyTravelMode
 ) -> bool:
     """
     Salva le categorie e le impostazioni di viaggio selezionate

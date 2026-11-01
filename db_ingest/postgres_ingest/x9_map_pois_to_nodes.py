@@ -38,48 +38,8 @@ def _load_env_file():
 _load_env_file()
 
 
-def get_bike_spatial_scope(conn):
-    """
-    Restituisce bbox e convex hull della rete bike
-    da usare come filtro POI.
-    """
 
-    query = """
-        SELECT
-            ST_XMin(ST_Extent(geom)::box2d) AS min_lon,
-            ST_YMin(ST_Extent(geom)::box2d) AS min_lat,
-            ST_XMax(ST_Extent(geom)::box2d) AS max_lon,
-            ST_YMax(ST_Extent(geom)::box2d) AS max_lat,
-            ST_AsText(
-                ST_ConvexHull(
-                    ST_Collect(geom)
-                )
-            ) AS hull_wkt
-        FROM nodes
-        WHERE network_mode = 'bike'
-    """
-
-    with conn.cursor() as cursor:
-
-        cursor.execute(query)
-        row = cursor.fetchone()
-
-    if not row or row[0] is None:
-        return None, None
-
-    bbox = (
-        float(row[0]),
-        float(row[1]),
-        float(row[2]),
-        float(row[3])
-    )
-
-    hull_wkt = row[4]
-
-    return bbox, hull_wkt
-
-
-def load_pois_from_mongo():
+def load_pois_from_mongo(city_code: str):
 
     mongo_url = (
         os.getenv("MONGO_URL_LOCAL")
@@ -106,7 +66,7 @@ def load_pois_from_mongo():
 
         docs = list(
             db["pois"].find(
-                {
+                {   "city_code": city_code,
                     "location.coordinates": {
                         "$exists": True
                     }
@@ -126,40 +86,9 @@ def load_pois_from_mongo():
         client.close()
 
 
-def normalize_lon_lat(coords, bbox):
-    """
-    Normalizza coordinate Mongo in formato (lon, lat).
-
-    Alcuni dataset possono essere salvati erroneamente
-    come [lat, lon].
-    """
-
-    if len(coords) != 2:
-        return None, None
-
-    a = float(coords[0])
-    b = float(coords[1])
-
-    min_lon, min_lat, max_lon, max_lat = bbox
-
-    # Formato standard GeoJSON [lon, lat]
-    if (
-        min_lon <= a <= max_lon
-        and min_lat <= b <= max_lat
-    ):
-        return a, b
-
-    # Formato invertito [lat, lon]
-    if (
-        min_lon <= b <= max_lon
-        and min_lat <= a <= max_lat
-    ):
-        return b, a
-
-    return None, None
 
 
-def get_existing_poi_ids(conn, mode: str):
+def get_existing_poi_ids(conn, mode: str,city_code: str):
     """
     Recupera gli ID dei POI già mappati per una modalità.
 
@@ -169,14 +98,14 @@ def get_existing_poi_ids(conn, mode: str):
     query = """
         SELECT DISTINCT poi_id
         FROM node_poi
-        WHERE network_mode = %s
+        WHERE network_mode = %s AND city_code = %s
     """
 
     with conn.cursor() as cursor:
 
         cursor.execute(
             query,
-            (mode,)
+            (mode,city_code)
         )
 
         return {
@@ -188,13 +117,12 @@ def get_existing_poi_ids(conn, mode: str):
 def map_mode(
     conn,
     mode: str,
-    pois_docs,
-    bike_bbox,
-    bike_hull_wkt: str
+    city_code: str,
+    pois_docs
 ):
 
     print(
-        f"\nMapping POI -> nodo "
+        f"Mapping POI -> nodo "
         f"per mode={mode}"
     )
 
@@ -204,7 +132,8 @@ def map_mode(
 
     existing_poi_ids = get_existing_poi_ids(
         conn,
-        mode
+        mode,
+        city_code
     )
 
     print(
@@ -233,12 +162,7 @@ def map_mode(
 
         FROM nodes n, poi
 
-        WHERE n.network_mode = %s
-
-          AND ST_Contains(
-              ST_GeomFromText(%s, 4326),
-              poi.geom
-          )
+        WHERE n.network_mode = %s and n.city_code = %s
 
         ORDER BY n.geom <-> poi.geom
 
@@ -248,6 +172,7 @@ def map_mode(
     insert_query = """
         INSERT INTO node_poi (
             network_mode,
+            city_code,
             node_id,
             poi_id,
             distance_m
@@ -257,11 +182,13 @@ def map_mode(
             %s,
             %s,
             %s,
+            %s,
             %s
         )
 
         ON CONFLICT (
             network_mode,
+            city_code,
             node_id,
             poi_id
         )
@@ -280,7 +207,6 @@ def map_mode(
     with conn.cursor() as cursor:
 
         for poi in pois_docs:
-
             poi_id = poi.get("pois_id")
 
             if not poi_id:
@@ -307,10 +233,8 @@ def map_mode(
                 []
             )
 
-            lon, lat = normalize_lon_lat(
-                coords,
-                bike_bbox
-            )
+            lat = float(coords[1])
+            lon = float(coords[0])
 
             if lon is None:
 
@@ -327,7 +251,7 @@ def map_mode(
                     lon,
                     lat,
                     mode,
-                    bike_hull_wkt
+                    city_code
                 )
             )
 
@@ -343,6 +267,7 @@ def map_mode(
             rows.append(
                 (
                     mode,
+                    city_code,
                     int(node_id),
                     poi_id,
                     float(dist_m)
@@ -377,52 +302,53 @@ def map_mode(
     )
 
 
+def get_distinct_city_codes(conn):
+    query = """
+        SELECT DISTINCT city_code
+        FROM nodes
+        WHERE city_code IS NOT NULL
+        ORDER BY city_code
+    """
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        return [row[0] for row in cursor.fetchall()]
+
+
 def main():
 
     conn = get_postgres_connection()
 
     try:
 
-        bike_bbox, bike_hull_wkt = (
-            get_bike_spatial_scope(conn)
-        )
-
-        if (
-            bike_bbox is None
-            or not bike_hull_wkt
-        ):
-
-            print(
-                "Scope bike non disponibile: "
-                "controlla ingest rete in Postgres"
-            )
-
-            return
-
-        pois_docs = load_pois_from_mongo()
-
-        if not pois_docs:
-
-            print(
-                "Nessun POI trovato in Mongo"
-            )
-
-            return
-
-        print(
-            f"POI totali letti da Mongo: "
-            f"{len(pois_docs)}"
-        )
+        
 
         for mode in ("walk", "bike"):
+            for city_code in get_distinct_city_codes(conn):
+                pois_docs = load_pois_from_mongo(city_code=city_code)
 
-            map_mode(
-                conn,
-                mode,
-                pois_docs,
-                bike_bbox,
-                bike_hull_wkt
-            )
+
+                print("Mode:", mode, "City_code:", city_code)
+
+                if not pois_docs:
+
+                    print(
+                        "Nessun POI trovato in MongoDB per la modalità ", mode
+                    )
+
+                    return
+
+                print(
+                    f"POI totali letti da MongoDB per la modalità {mode}: "
+                    f"{len(pois_docs)}"
+                    )
+
+                map_mode(
+                    conn,
+                    mode,
+                    city_code,  # Sostituisci con il codice della città appropriato
+                    pois_docs
+                )
 
     finally:
 
@@ -431,4 +357,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

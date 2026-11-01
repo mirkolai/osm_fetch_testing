@@ -1,7 +1,7 @@
 import glob
 import numpy as np
 import geopandas as gpd
-from pymongo import MongoClient
+from pymongo import MongoClient, version
 from db_ingest import utils
 
 
@@ -12,7 +12,7 @@ collection = db["pois"]
 
 
 # Creazione indici
-collection.create_index([("pois_id", 1)], unique=True)
+collection.create_index([("pois_id", 1), ("city_code", 1)], unique=True)
 collection.create_index([("location", "2dsphere")])
 
 
@@ -41,6 +41,7 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
 
     for _, row in poi_data.iterrows():
 
+        
         try:
             # ---------------------------------------------------------
             # Coordinate
@@ -54,11 +55,20 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
             # Categorie
             # ---------------------------------------------------------
 
+
             taxonomy = (
                 row.get("taxonomy")
                 if "taxonomy" in poi_data.columns
                 else None
             )
+
+            if isinstance(taxonomy, dict):
+                taxonomy = taxonomy.copy()
+
+                for key, value in taxonomy.items():
+                    if isinstance(value, np.ndarray):
+                        taxonomy[key] = value.tolist()
+                            
 
             basic_cat = (
                 row.get("basic_category")
@@ -68,7 +78,7 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
 
             if isinstance(taxonomy, dict):
 
-                primary = taxonomy.get("primary", basic_cat)
+                primary = taxonomy.get("primary")
 
                 alternate = taxonomy.get("alternate", [])
 
@@ -77,7 +87,7 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
 
             else:
 
-                primary = basic_cat
+                primary = None
                 alternate = []
 
 
@@ -102,7 +112,8 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
 
             poi_document = {
                 "pois_id": poi_id,
-
+                "city_code": city_code,
+                 
                 "location": {
                     "type": "Point",
                     "coordinates": [
@@ -112,11 +123,16 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
                 },
 
                 "names": names,
-
+                "basic_category": basic_cat,
+                "taxonomy": taxonomy,
                 "categories": {
                     "primary": primary,
                     "alternate": alternate
-                }
+                },
+                "version": row.get("version")
+
+
+                
             }
 
 
@@ -125,13 +141,17 @@ for gzip_filename in glob.glob("db_ingest/graphml/* PoI.feather.zstd"):
             # ---------------------------------------------------------
 
             result = collection.update_one(
-                {"pois_id": poi_id},
+                {"pois_id": poi_id, "city_code": city_code},
+
 
                 {
                     "$set": {
                         "location": poi_document["location"],
                         "names": poi_document["names"],
-                        "categories": poi_document["categories"]
+                        "basic_category": poi_document["basic_category"],
+                        "taxonomy": poi_document["taxonomy"],
+                        "categories": poi_document["categories"],
+                        "version": poi_document["version"]
                     }
                 },
 

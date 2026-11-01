@@ -32,8 +32,7 @@ PHASES = {
         "db_ingest/postgres_ingest/x8_ingest_network.py",
         "db_ingest/postgres_ingest/x9_map_pois_to_nodes.py",
         "db_ingest/postgres_ingest/x10_precompute_metrics_rows.py",
-        "db_ingest/postgres_ingest/x11_precompute_metric_ranges.py",
-        "db_ingest/postgres_ingest/x12_add_spatial_indexes.py",
+        "db_ingest/postgres_ingest/x11_add_spatial_indexes.py",
     ],
 }
 

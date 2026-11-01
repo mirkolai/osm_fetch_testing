@@ -25,8 +25,14 @@ collection = db["nodes"]
 
 
 # Indice univoco sul nodo
-collection.create_index("node_id", unique=True)
-
+collection.create_index(
+    [
+        ("node_id", 1),
+        ("network_mode", 1),
+        ("city_code", 1)
+    ],
+    unique=True
+)
 # Indice geospaziale
 collection.create_index([("location", "2dsphere")])
 
@@ -34,16 +40,16 @@ print("Indice geospaziale 2dsphere creato su 'location'.")
 
 
 for travel_type in utils.TRAVEL_SPEEDS.keys():
-
+    print(f"Processing travel_type: {travel_type}")
     for gzip_filename in glob.glob(
-        f"db_ingest/graphml/* {travel_type} extended.graphml.gz"
+        f"db_ingest/graphml/* {travel_type}.graphml.gz"
     ):
 
         city_code = (
             gzip_filename
             .split("/")[-1]
             .replace(
-                f" {travel_type} extended.graphml.gz",
+                f" {travel_type}.graphml.gz",
                 ""
             )
             .strip()
@@ -65,6 +71,8 @@ for travel_type in utils.TRAVEL_SPEEDS.keys():
 
             node_data = {
                 "node_id": node_id,
+                "network_mode": travel_type,
+                "city_code": city_code,
                 "location": {
                     "type": "Point",
                     "coordinates": [
@@ -77,7 +85,10 @@ for travel_type in utils.TRAVEL_SPEEDS.keys():
             try:
 
                 result = collection.update_one(
-                    {"node_id": node_id},
+                    {  "node_id": node_id,
+                       "network_mode": travel_type,
+                       "city_code": city_code,
+                    },
                     {
                         "$set": {
                             "location": node_data["location"]
@@ -100,7 +111,7 @@ for travel_type in utils.TRAVEL_SPEEDS.keys():
                 )
 
         print(
-            f"  Inseriti: {inserted}, "
+            f"Inseriti: {inserted}, "
             f"Aggiornati: {updated}, "
             f"Invariati: {unchanged}"
         )

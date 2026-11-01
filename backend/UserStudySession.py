@@ -2,10 +2,11 @@
 Modello per gestire le sessioni dello user study
 """
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
 from bson import ObjectId
 import uuid
+from backend.RequestModels import UserStudyTravelMode
 
 # Modelli Pydantic per le risposte ai questionari
 
@@ -62,7 +63,7 @@ class UserStudySessionModel(BaseModel):
     # Step 4: Selezione categorie (personal)
     selected_categories: List[str] = []
     travel_time: Optional[int] = None  # minuti
-    travel_mode: Optional[str] = None  # "walking", "walking_cane", etc.
+    travel_mode: Optional[UserStudyTravelMode] = None
     categories_selected_at: Optional[datetime] = None
     
     # Step 5: Risultati e grafico (calcolati automaticamente)
@@ -91,11 +92,6 @@ class UserStudySessionModel(BaseModel):
 
 # Modelli per le richieste API
 
-class CreateSessionRequest(BaseModel):
-    """Richiesta per creare una nuova sessione"""
-    pass  # No parameters needed - generiamo automaticamente il sessionId
-
-
 class SubmitDemographicsRequest(BaseModel):
     """Richiesta per sottomettere i dati demografici"""
     session_id: str
@@ -121,7 +117,7 @@ class SelectCategoriesRequest(BaseModel):
     session_id: str
     categories: List[str]
     travel_time: int  # minuti
-    travel_mode: str  # walking, walking_cane, etc.
+    travel_mode: UserStudyTravelMode
 
 
 class SubmitPostexplorationRequest(BaseModel):
@@ -135,29 +131,14 @@ class GetSessionRequest(BaseModel):
     session_id: str
 
 
-class AnalyzeAreaRequest(BaseModel):
-    """Richiesta per analizzare un'area con parametri di default"""
-    session_id: str
-    latitude: float
-    longitude: float
-
-
 class AnalyzePersonalizedRequest(BaseModel):
-    """Richiesta per analizzare un'area con parametri personalizzati"""
+    """Richiesta di analisi; parametri omessi usano i valori standard."""
     session_id: str
     latitude: float
     longitude: float
-    travel_time: int  # minuti
-    travel_mode: str  # "walking", "walking_cane", etc.
-    categories: List[str]  # categorie selezionate
+    travel_time: int = 15  # minuti
+    travel_mode: UserStudyTravelMode = "walk"
+    categories: List[str] = Field(default_factory=list)  # categorie selezionate; vuoto = tutte
+    analysis_type: Literal["default", "personalized"] = "personalized"
 
 
-class CityAverageMetricsRequest(BaseModel):
-    """Richiesta per la media metriche cittadina su nodi precomputati."""
-    session_id: str
-    latitude: float
-    longitude: float
-    travel_time: int
-    travel_mode: str
-    categories: List[str] = []
-    apply_category_filter: bool = True

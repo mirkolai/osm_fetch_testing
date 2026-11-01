@@ -293,13 +293,14 @@ async function analyzeArea() {
             latitude: selectedCoords.lat,
             longitude: selectedCoords.lon
         });
-        const response = await fetch('/api/userstudy/analyze-area', {
+        const response = await fetch('/api/userstudy/analyze-personalized', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 session_id: currentSessionId,
                 latitude: selectedCoords.lat,
-                longitude: selectedCoords.lon
+                longitude: selectedCoords.lon,
+                analysis_type: 'default'
             })
         });
         
@@ -307,6 +308,18 @@ async function analyzeArea() {
         
         if (!response.ok) {
             throw new Error(data.detail || 'Errore nell\'analisi dell\'area');
+        }
+
+        // Riutilizzata nello step 5 per evitare una seconda chiamata identica.
+        try {
+            sessionStorage.setItem('default_analysis_cache', JSON.stringify({
+                session_id: currentSessionId,
+                latitude: selectedCoords.lat,
+                longitude: selectedCoords.lon,
+                data
+            }));
+        } catch (cacheError) {
+            console.warn('Cache analisi default non salvata:', cacheError);
         }
 
         console.group('[DEBUG] Step 3 (analyzeArea) - API Response');
@@ -363,133 +376,6 @@ function drawIsochrone(convexHull) {
         fillColor: '#483d8b',
         fillOpacity: 0.1
     }).addTo(map);
-}
-
-// Traduce una categoria Overture/POI in una icona FontAwesome coerente con la legenda visuale.
-function getIconClassForCategory(category) {
-    const normalizedCategory = category ? category.toLowerCase() : '';
-
-    if (normalizedCategory.includes('automotive') ||
-        normalizedCategory.includes('electric_vehicle')) {
-        return 'fa-solid fa-car';
-    }
-
-    if (normalizedCategory.includes('eat_and_drink') ||
-        normalizedCategory.includes('bar') ||
-        normalizedCategory.includes('restaurant') ||
-        normalizedCategory.includes('cafe')) {
-        return 'fa-solid fa-wine-glass';
-    }
-
-    if (normalizedCategory.includes('arts_and_entertainment') ||
-        normalizedCategory.includes('cinema') ||
-        normalizedCategory.includes('music') ||
-        normalizedCategory.includes('internet_cafe')) {
-        return 'fa-solid fa-music';
-    }
-
-    if (normalizedCategory.includes('beauty_and_spa') ||
-        normalizedCategory.includes('barber') ||
-        normalizedCategory.includes('beauty_salon')) {
-        return 'fa-solid fa-spa';
-    }
-
-    if (normalizedCategory.includes('active_life') ||
-        normalizedCategory.includes('sports_and_fitness_instruction') ||
-        normalizedCategory.includes('sports_and_recreation_venue')) {
-        return 'fa-regular fa-futbol';
-    }
-
-    if (normalizedCategory.includes('pets') ||
-        normalizedCategory.includes('pet_services') ||
-        normalizedCategory.includes('veterinarian')) {
-        return 'fa-solid fa-paw';
-    }
-
-    if (normalizedCategory.includes('education') ||
-        normalizedCategory.includes('college_university') ||
-        normalizedCategory.includes('educational_services') ||
-        normalizedCategory.includes('school')) {
-        return 'fa-solid fa-school';
-    }
-
-    if (normalizedCategory.includes('financial_service') ||
-        normalizedCategory.includes('atms')) {
-        return 'fa-solid fa-dollar-sign';
-    }
-
-    if (normalizedCategory.includes('retail') ||
-        normalizedCategory.includes('beverage_store') ||
-        normalizedCategory.includes('drugstore') ||
-        normalizedCategory.includes('food') ||
-        normalizedCategory.includes('meat_shop') ||
-        normalizedCategory.includes('pharmacy') ||
-        normalizedCategory.includes('seafood_market') ||
-        normalizedCategory.includes('shopping') ||
-        normalizedCategory.includes('water_store')) {
-        return 'fa-solid fa-bag-shopping';
-    }
-
-    if (normalizedCategory.includes('health_and_medical') ||
-        normalizedCategory.includes('ambulance') ||
-        normalizedCategory.includes('hospital') ||
-        normalizedCategory.includes('dentist') ||
-        normalizedCategory.includes('doctor') ||
-        normalizedCategory.includes('emergency_room') ||
-        normalizedCategory.includes('urgent_care')) {
-        return 'fa-solid fa-hospital';
-    }
-
-    if (normalizedCategory.includes('public_service_and_government') ||
-        normalizedCategory.includes('children_hall') ||
-        normalizedCategory.includes('civic_center') ||
-        normalizedCategory.includes('community_center') ||
-        normalizedCategory.includes('community_services') ||
-        normalizedCategory.includes('family_service_center') ||
-        normalizedCategory.includes('library') ||
-        normalizedCategory.includes('police_department') ||
-        normalizedCategory.includes('post_office') ||
-        normalizedCategory.includes('railway_service')) {
-        return 'fa-solid fa-landmark';
-    }
-
-    if (normalizedCategory.includes('religious_organization') ||
-        normalizedCategory.includes('buddhist_temple') ||
-        normalizedCategory.includes('church_cathedral') ||
-        normalizedCategory.includes('hindu_temple') ||
-        normalizedCategory.includes('mosque') ||
-        normalizedCategory.includes('shinto_shrines') ||
-        normalizedCategory.includes('sikh_temple') ||
-        normalizedCategory.includes('synagogue') ||
-        normalizedCategory.includes('temple')) {
-        return 'fa-solid fa-person-praying';
-    }
-
-    if (normalizedCategory.includes('travel') ||
-        normalizedCategory.includes('transportation')) {
-        return 'fa-solid fa-plane';
-    }
-
-    if (normalizedCategory.includes('professional_services') ||
-        normalizedCategory.includes('bike_repair_maintenance') ||
-        normalizedCategory.includes('child_care_and_day_care') ||
-        normalizedCategory.includes('community_gardens') ||
-        normalizedCategory.includes('emergency_service') ||
-        normalizedCategory.includes('laundry_services') ||
-        normalizedCategory.includes('mailbox_center') ||
-        normalizedCategory.includes('package_locker')) {
-        return 'fa-solid fa-user-tie';
-    }
-
-    if (normalizedCategory.includes('structure_and_geography') ||
-        normalizedCategory.includes('public_plaza') ||
-        normalizedCategory.includes('attractions_and_activities') ||
-        normalizedCategory.includes('park') ||
-        normalizedCategory.includes('plaza')) {
-        return 'fa-solid fa-monument';
-    }
-
-    return null;
 }
 
 // Disegna tutti i POI raggiungibili usando marker iconici o circle marker di fallback.
@@ -572,7 +458,7 @@ function drawPOIs(pois) {
                 marker.bindPopup(popupContent);
                 marker.addTo(map);
                 poiMarkers.push(marker);
-                console.log(`POI ${index + 1} disegnato:`, poiName, `(${lat.toFixed(6)}, ${lon.toFixed(6)})`, `- Categoria: ${primaryCategory}`);
+                //console.log(`POI ${index + 1} disegnato:`, poiName, `(${lat.toFixed(6)}, ${lon.toFixed(6)})`, `- Categoria: ${primaryCategory}`);
             }
         } catch (error) {
             console.error('Errore nel disegnare POI:', error, poi);

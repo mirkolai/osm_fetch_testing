@@ -38,13 +38,14 @@ def get_env(name, default=None):
 # Mongo usato dagli script ingest lanciati in locale.
 CONNECTION_STRING = get_env("MONGO_URL_LOCAL", get_env("MONGO_URL", "mongodb://user:pass@localhost:27017"))
 MONGO_DB_NAME = get_env("MONGO_DB", "15minute")
+#slow walking 2-3 km
 #walking 5 km
 #cycling 12.5 and 26.5 km/h
 
 
 TRAVEL_SPEEDS={
-    "walk":[3,5],
-    "bike":[12,20]
+    "walk":[2.5,5],
+    "bike":[15]
 }
 TRAVEL_TIMES={
     "walk":[5,10,15,20],

@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
-from typing import List, Optional
 
 import psycopg2
-from pydantic import BaseModel, Field
 
 
 def _load_env_file():
@@ -23,25 +21,10 @@ def _load_env_file():
 _load_env_file()
 
 
-class PostgresPrecomputedMetricsRow(BaseModel):
-    """Rappresenta una riga della tabella con metriche precompute per nodo/tempo/mode."""
-
-    city_code: str
-    neighbourhood_id: Optional[str] = None
-    network_mode: str
-    node_id: int
-    travel_time: int
-    category_primary_counts: List[int] = Field(default_factory=list)
-    category_secondary_counts: List[int] = Field(default_factory=list)
-    isochrone_area_km2: float = 0.0
-    total_pois: int = 0
-    proximity_value: Optional[float] = None
-
-
 def get_postgres_connection():
     """Create a PostgreSQL connection for routing queries."""
     postgres_url = os.getenv("POSTGRES_URL") or os.getenv("POSTGRES_URL_DOCKER") or os.getenv("POSTGRES_URL_LOCAL")
-    print(f"Using PostgreSQL URL: {postgres_url}")
+    #print(f"Using PostgreSQL URL: {postgres_url}")
     try:
         if postgres_url:
             return psycopg2.connect(postgres_url)

@@ -2,6 +2,7 @@ from typing import Union, List, Tuple, Dict, Optional
 
 from backend.mongo_db import db
 from backend.postgres_db import get_postgres_connection
+from backend.RequestModels import NetworkMode
 from shapely.geometry import MultiPoint, mapping
 import logging
 logging.basicConfig(
@@ -10,18 +11,11 @@ logging.basicConfig(
 )
 
 
-def _resolve_network_mode(travel_mode: str) -> str:
-    normalized_mode = (travel_mode or "walking").strip().lower()
-    if normalized_mode in {"bike", "bicycle", "cycling"}:
-        return "bike"
-    return "walk"
-
-
 def _fetch_reachable_nodes(
     node_id: int,
     minute: int,
     velocity: int,
-    network_mode: str,
+    network_mode: str,  
     conn=None,
     graph_sql: Optional[str] = None,
 ) -> List[Tuple[float, float]]:
@@ -66,12 +60,14 @@ def _build_isochrone_result(
     conn=None,
     graph_sql: Optional[str] = None,
 ):
-    network_mode = _resolve_network_mode(travel_mode)
+    if travel_mode not in {"walk", "bike"}:
+        return 400, "unsupported network_mode: use walk or bike", None
+
     reachable_coords = _fetch_reachable_nodes(
         node_id,
         minute,
         velocity,
-        network_mode,
+        travel_mode,
         conn=conn,
         graph_sql=graph_sql,
     )
@@ -93,45 +89,11 @@ def _build_isochrone_result(
     return 200, "OK", result
 
 
-def get_isochrone_bbox_by_node_id(
-    node_id: int,
-    minute: int,
-    velocity: int,
-    conn=None,
-    graph_sql: Optional[str] = None,
-) -> (
-        Tuple)[int, str, Union[List[float], None]]:
-    """
-    Recupera la bounding box dell'isocrona di un nodo dalla collezione 'isochrone_walk',
-    filtrando per node_id, minuti e velocità, e accedendo correttamente ai dati sotto 'convex_hull'.
-
-    :param node_id: ID del nodo
-    :param minute: Minuti dell'isocrona
-    :param velocity: Velocità dell'isocrona
-    :return: Tuple con codice di stato, messaggio e la bounding box [lon_min, lat_min, lon_max, lat_max]
-    """
-    try:
-        status, message, result = _build_isochrone_result(
-            node_id,
-            minute,
-            velocity,
-            "walking",
-            conn=conn,
-            graph_sql=graph_sql,
-        )
-        if status != 200:
-            return status, message, None
-        bbox = result["convex_hull"]["bbox"]
-        return 200, "OK", bbox
-    except Exception as e:
-        return 500, f"Errore del server: {str(e)}", None
-
-
 def get_isocronewalk_by_node_id(
     node_id: int,
     minute: int,
     velocity: int,
-    travel_mode: str = "walking",
+    travel_mode: str,
     conn=None,
     graph_sql: Optional[str] = None,
 ) -> (

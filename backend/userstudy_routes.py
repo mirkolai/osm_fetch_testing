@@ -1,8 +1,11 @@
 """
 Endpoint FastAPI per lo user study
 """
+from urllib import request
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import json
 import os
 import math
@@ -13,9 +16,7 @@ from backend.UserStudySession import (
     SelectCategoriesRequest,
     SubmitPostexplorationRequest,
     GetSessionRequest,
-    AnalyzeAreaRequest,
     AnalyzePersonalizedRequest,
-    CityAverageMetricsRequest,
 )
 from backend.userstudy_db import (
     create_session as db_create_session,
@@ -33,73 +34,24 @@ from backend.userstudy_db import (
 )
 # Importa le funzioni per le API
 from backend.Isochrones import get_isocronewalk_by_node_id
-from backend.Poi import get_detailed_pois_by_node_id, expand_requested_categories
-from backend.Connectivity import get_closeness_by_node_id, _resolve_connectivity_collection
+from backend.Poi import get_detailed_pois_by_node_id
+from backend.Connectivity import get_nodes_in_city
 from backend.Parameters import compute_isochrone_parameters
 from backend.Nodes import get_id_node_by_coordinates
-from backend.RequestModels import Coordinates
+from backend.RequestModels import Coordinates, NetworkMode, UserStudyTravelMode
 from backend.postgres_db import get_postgres_connection
 from backend.mongo_db import db as mongo_db
 
 router = APIRouter(prefix="/api/userstudy", tags=["userstudy"])
 
-_ATOMIC_CATEGORIES_CACHE: List[str] = []
-_PRECOMPUTED_TRAVEL_BUCKETS: List[int] = [5, 10, 15, 20]
+
 _CITY_BOUNDARIES_CACHE: Optional[Dict[str, Any]] = None
 
 
-def _normalize_metric_value(value: Optional[float], q1: Optional[float], q3: Optional[float], fallback: float = 0.0) -> float:
-    """
-    Normalizza un valore usando quartili robusti (Q1/Q3 al posto di min/max).
-    - Valori < Q1 → 0.0
-    - Valori > Q3 → 1.0
-    - Valori tra Q1 e Q3 → interpolazione lineare tra 0 e 1
-    """
-    if value is None:
-        return float(fallback)
-    if q1 is None or q3 is None:
-        return float(max(0.0, min(1.0, fallback)))
-
-    q1_float = float(q1)
-    q3_float = float(q3)
-    
-    # Se Q1 e Q3 sono uguali, fallback
-    if q3_float <= q1_float:
-        return float(fallback)
-    
-    value_float = float(value)
-    
-    # Valori sotto Q1 → 0.0
-    if value_float <= q1_float:
-        return 0.0
-    
-    # Valori sopra Q3 → 1.0
-    if value_float >= q3_float:
-        return 1.0
-    
-    # Interpolazione lineare tra Q1 e Q3
-    normalized = (value_float - q1_float) / (q3_float - q1_float)
-    return float(max(0.0, min(1.0, normalized)))
+def _network_mode_for_travel_mode(travel_mode: UserStudyTravelMode) -> NetworkMode:
+    return "walk" if travel_mode == "slow_walk" else travel_mode
 
 
-def _normalize_inverse_metric_value(
-    value: Optional[float],
-    q1: Optional[float],
-    q3: Optional[float],
-    fallback: float = 0.0,
-) -> float:
-    if value is None:
-        return float(fallback)
-    return 1.0 - _normalize_metric_value(value, q1, q3, fallback=1.0 - fallback)
-
-
-def _resolve_precomputed_mode(travel_mode: str) -> str:
-    mode = (travel_mode or "walking").strip().lower()
-    if mode in {"bike", "bicycle", "cycling"}:
-        return "bike"
-    if mode in {"walking_cane", "cane", "slow_walk"}:
-        return "slow_walk"
-    return "walk"
 
 
 def _normalize_city_code(city_code: Any) -> Optional[str]:
@@ -177,290 +129,16 @@ def _load_city_boundaries_feature_collection() -> Dict[str, Any]:
     return feature_collection
 
 
-def _load_atomic_categories() -> List[str]:
-    global _ATOMIC_CATEGORIES_CACHE
-    if _ATOMIC_CATEGORIES_CACHE:
-        return _ATOMIC_CATEGORIES_CACHE
 
+
+def _load_categories() -> Tuple[List[str], List[str],Dict[str, List[str]]]:
     categories_path = os.path.join(os.path.dirname(__file__), "categories.json")
     with open(categories_path, "r", encoding="utf-8") as file_obj:
         categories_by_group = json.load(file_obj)
+    primary_categories = sorted(categories_by_group.keys())
+    secondary_categories = sorted({cat for values in categories_by_group.values() for cat in values})
+    return primary_categories, secondary_categories,categories_by_group
 
-    ordered: List[str] = []
-    seen = set()
-    for _, values in categories_by_group.items():
-        for category in values:
-            if category not in seen:
-                seen.add(category)
-                ordered.append(category)
-
-    _ATOMIC_CATEGORIES_CACHE = ordered
-    return ordered
-
-
-def _fetch_precomputed_row(node_id: int, travel_time: int, network_mode: str) -> Dict[str, Any]:
-    query = """
-        SELECT
-            category_primary_counts,
-            category_secondary_counts,
-            isochrone_area_km2,
-            total_pois,
-            proximity_value
-        FROM precomputed_metrics_rows
-        WHERE network_mode = %s
-          AND node_id = %s
-          AND travel_time = %s
-        LIMIT 1
-    """
-
-    conn = get_postgres_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (network_mode, node_id, travel_time))
-            row = cursor.fetchone()
-            if not row:
-                return {}
-            return {
-                "category_primary_counts": list(row[0] or []),
-                "category_secondary_counts": list(row[1] or []),
-                "isochrone_area_km2": float(row[2] or 0.0),
-                "total_pois": int(row[3] or 0),
-                "proximity_value": float(row[4]) if row[4] is not None else None,
-            }
-    finally:
-        conn.close()
-
-
-def _fetch_city_metric_ranges(city_code: str, network_mode: str, travel_time: int) -> Dict[str, float]:
-    normalized_city_code = _normalize_city_code(city_code)
-    if not normalized_city_code:
-        return {}
-
-
-    query = """
-        SELECT
-            density_raw_min,
-            density_raw_q1,
-            density_raw_q2,
-            density_raw_q3,
-            density_raw_max,
-            entropy_score_min,
-            entropy_score_q1,
-            entropy_score_q2,
-            entropy_score_q3,
-            entropy_score_max,
-            closeness_raw_min,
-            closeness_raw_q1,
-            closeness_raw_q2,
-            closeness_raw_q3,
-            closeness_raw_max,
-            proximity_min,
-            proximity_q1,
-            proximity_q2,
-            proximity_q3,
-            proximity_max,
-            density_avg,
-            entropy_avg,
-            proximity_avg,
-            closeness_avg
-        FROM precomputed_metric_ranges
-        WHERE city_code = %s
-          AND network_mode = %s
-                    AND travel_time = %s
-        LIMIT 1
-    """
-
-    print(query, (normalized_city_code, network_mode, travel_time))
-
-    conn = get_postgres_connection()
-    print(1)
-    try:
-        with conn.cursor() as cursor:
-            print(2)
-            cursor.execute(query, (normalized_city_code, network_mode, travel_time))
-            print(3)
-            row = cursor.fetchone()
-            print("row")
-            print(row)
-            if not row:
-                return {}
-
-            return {
-                "density_raw_min": float(row[0]) if row[0] is not None else 0.0,
-                "density_raw_q1": float(row[1]) if row[1] is not None else 0.0,
-                "density_raw_q2": float(row[2]) if row[2] is not None else 0.0,
-                "density_raw_q3": float(row[3]) if row[3] is not None else 0.0,
-                "density_raw_max": float(row[4]) if row[4] is not None else 0.0,
-                "entropy_score_min": float(row[5]) if row[5] is not None else 0.0,
-                "entropy_score_q1": float(row[6]) if row[6] is not None else 0.0,
-                "entropy_score_q2": float(row[7]) if row[7] is not None else 0.0,
-                "entropy_score_q3": float(row[8]) if row[8] is not None else 0.0,
-                "entropy_score_max": float(row[9]) if row[9] is not None else 0.0,
-                "closeness_raw_min": float(row[10]) if row[10] is not None else 0.0,
-                "closeness_raw_q1": float(row[11]) if row[11] is not None else 0.0,
-                "closeness_raw_q2": float(row[12]) if row[12] is not None else 0.0,
-                "closeness_raw_q3": float(row[13]) if row[13] is not None else 0.0,
-                "closeness_raw_max": float(row[14]) if row[14] is not None else 0.0,
-                "proximity_min": float(row[15]) if row[15] is not None else 0.0,
-                "proximity_q1": float(row[16]) if row[16] is not None else 0.0,
-                "proximity_q2": float(row[17]) if row[17] is not None else 0.0,
-                "proximity_q3": float(row[18]) if row[18] is not None else 0.0,
-                "proximity_max": float(row[19]) if row[19] is not None else 60.0,
-                "density_avg": float(row[20]) if row[20] is not None else 0.0,
-                "entropy_avg": float(row[21]) if row[21] is not None else 0.0,
-                "proximity_avg": float(row[22]) if row[22] is not None else 0.0,
-                "closeness_avg": float(row[23]) if row[23] is not None else 0.0,
-            }
-    
-    except Exception as e:
-        # Stampa il messaggio di errore
-        print(f"Si è verificato un errore: {e}")
-    finally:
-        conn.close()
-
-
-def _apply_city_metric_ranges(parameters: Dict[str, Any], city_ranges: Dict[str, float]) -> Dict[str, Any]:
-    if not city_ranges:
-        adjusted = dict(parameters)
-        try:
-            adjusted["proximity_score"] = max(
-                0.0,
-                min(1.0, 1.0 - float(adjusted.get("proximity_score", 1.0))),
-            )
-        except (TypeError, ValueError):
-            adjusted["proximity_score"] = 0.0
-        adjusted["poi_accessibility"] = (
-            float(adjusted.get("proximity_score", 0.0))
-            + float(adjusted.get("density_score", 0.0))
-            + float(adjusted.get("entropy_score", 0.0))
-        ) / 3.0
-        return adjusted
-
-    adjusted = dict(parameters)
-    
-    print(f"[DEBUG] _apply_city_metric_ranges - Input:")
-    print(f"  parameters: {parameters}")
-    print(f"  city_ranges: {city_ranges}")
-    
-    old_density = adjusted.get("density_score")
-    adjusted["density_score"] = _normalize_metric_value(
-        adjusted.get("density_raw"),
-        city_ranges.get("density_raw_q1"),
-        city_ranges.get("density_raw_q3"),
-        fallback=float(adjusted.get("density_score", 0.0) or 0.0),
-    )
-    print(f"  density_raw: {adjusted.get('density_raw')} -> density_score: {old_density} -> {adjusted['density_score']}")
-    print(f"    (city ranges Q1-Q3: {city_ranges.get('density_raw_q1')} to {city_ranges.get('density_raw_q3')})")
-    
-    old_entropy = adjusted.get("entropy_score")
-    adjusted["entropy_score"] = _normalize_metric_value(
-        adjusted.get("entropy_raw"),
-        city_ranges.get("entropy_score_q1"),
-        city_ranges.get("entropy_score_q3"),
-        fallback=float(adjusted.get("entropy_score", 0.0) or 0.0),
-    )
-    print(f"  entropy_raw: {adjusted.get('entropy_raw')} -> entropy_score: {old_entropy} -> {adjusted['entropy_score']}")
-    print(f"    (city ranges Q1-Q3: {city_ranges.get('entropy_score_q1')} to {city_ranges.get('entropy_score_q3')})")
-
-    proximity_raw = adjusted.get("proximity")
-    try:
-        proximity_raw_value = float(proximity_raw)
-    except Exception:
-        proximity_raw_value = None
-
-    adjusted["proximity_score"] = _normalize_inverse_metric_value(
-        proximity_raw_value,
-        city_ranges.get("proximity_q1"),
-        city_ranges.get("proximity_q3"),
-        fallback=0.0,
-    )
-    adjusted["closeness"] = _normalize_metric_value(
-        adjusted.get("closeness"),
-        city_ranges.get("closeness_raw_q1"),
-        city_ranges.get("closeness_raw_q3"),
-        fallback=0.0,
-    )
-
-    adjusted["poi_accessibility"] = (
-        float(adjusted.get("proximity_score", 0.0))
-        + float(adjusted.get("density_score", 0.0))
-        + float(adjusted.get("entropy_score", 0.0))
-    ) / 3.0
-    print(f"  Output: density={adjusted['density_score']:.4f}, entropy={adjusted['entropy_score']:.4f}, proximity={adjusted['proximity_score']:.4f}, poi_accessibility={adjusted['poi_accessibility']:.4f}")
-    print()
-    return adjusted
-
-
-def _fetch_precomputed_rows_for_node(node_id: int, network_mode: str) -> Dict[int, Dict[str, Any]]:
-    query = """
-        SELECT
-            travel_time,
-            category_primary_counts,
-            category_secondary_counts,
-            isochrone_area_km2,
-            total_pois,
-            proximity_value
-        FROM precomputed_metrics_rows
-        WHERE network_mode = %s
-          AND node_id = %s
-          AND travel_time = ANY(%s)
-    """
-
-    conn = get_postgres_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (network_mode, node_id, _PRECOMPUTED_TRAVEL_BUCKETS))
-            rows = cursor.fetchall()
-            result: Dict[int, Dict[str, Any]] = {}
-            for row in rows:
-                minute = int(row[0])
-                result[minute] = {
-                    "category_primary_counts": list(row[1] or []),
-                    "category_secondary_counts": list(row[2] or []),
-                    "isochrone_area_km2": float(row[3] or 0.0),
-                    "total_pois": int(row[4] or 0),
-                    "proximity_value": float(row[5]) if row[5] is not None else None,
-                }
-            return result
-    finally:
-        conn.close()
-
-
-def _compute_category_based_proximity_minutes(
-    rows_by_minute: Dict[int, Dict[str, Any]],
-    selected_categories: List[str],
-) -> Optional[float]:
-    if not rows_by_minute:
-        return None
-
-    atomic_categories = _load_atomic_categories()
-    category_to_idx = {category: idx for idx, category in enumerate(atomic_categories)}
-    expanded_categories = expand_requested_categories(selected_categories)
-    selected_idxs = [category_to_idx[c] for c in expanded_categories if c in category_to_idx]
-
-    if not selected_idxs:
-        return None
-
-    for minute in sorted(_PRECOMPUTED_TRAVEL_BUCKETS):
-        row = rows_by_minute.get(minute)
-        if not row:
-            continue
-
-        primary_counts = row.get("category_primary_counts") or []
-        secondary_counts = row.get("category_secondary_counts") or []
-
-        all_categories_present = True
-        for idx in selected_idxs:
-            primary = primary_counts[idx] if idx < len(primary_counts) else 0
-            secondary = secondary_counts[idx] if idx < len(secondary_counts) else 0
-            if (primary + secondary) < 1:
-                all_categories_present = False
-                break
-
-        if all_categories_present:
-            return float(minute)
-
-    return None
 
 
 def _get_city_sample_size() -> int:
@@ -470,369 +148,136 @@ def _get_city_sample_size() -> int:
         return 100
 
 
-def _fetch_random_city_precomputed_rows(
-    city_code: str,
-    travel_time: int,
-    network_mode: str,
-    sample_size: int,
-) -> List[Dict[str, Any]]:
-    query = """
-        SELECT
-            node_id,
-            category_primary_counts,
-            category_secondary_counts,
-            isochrone_area_km2,
-            total_pois
-        FROM precomputed_metrics_rows
-        WHERE city_code = %s
-          AND network_mode = %s
-          AND travel_time = %s
-        ORDER BY RANDOM()
-        LIMIT %s
-    """
 
+def _resolve_city_code_for_node(node_id: int, travel_time: int, network_mode: NetworkMode) -> Optional[str]:
+    """Trova il codice PRO_COM_T del comune in city_polygon che contiene il nodo."""
     conn = get_postgres_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute(query, (city_code, network_mode, travel_time, sample_size))
-            return [
-                {
-                    "node_id": int(row[0]),
-                    "category_primary_counts": list(row[1] or []),
-                    "category_secondary_counts": list(row[2] or []),
-                    "isochrone_area_km2": float(row[3] or 0.0),
-                    "total_pois": int(row[4] or 0),
-                }
-                for row in cursor.fetchall()
-            ]
-    finally:
-        conn.close()
-
-
-def _fetch_bucket_rows_for_nodes(
-    node_ids: List[int],
-    network_mode: str,
-) -> Dict[int, Dict[int, Dict[str, Any]]]:
-    if not node_ids:
-        return {}
-
-    query = """
-        SELECT
-            node_id,
-            travel_time,
-            category_primary_counts,
-            category_secondary_counts
-        FROM precomputed_metrics_rows
-        WHERE network_mode = %s
-          AND node_id = ANY(%s)
-          AND travel_time = ANY(%s)
-    """
-
-    conn = get_postgres_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (network_mode, node_ids, _PRECOMPUTED_TRAVEL_BUCKETS))
-            rows_by_node: Dict[int, Dict[int, Dict[str, Any]]] = {}
-            for node_id, travel_time, primary_counts, secondary_counts in cursor.fetchall():
-                rows_by_node.setdefault(int(node_id), {})[int(travel_time)] = {
-                    "category_primary_counts": list(primary_counts or []),
-                    "category_secondary_counts": list(secondary_counts or []),
-                }
-            return rows_by_node
-    finally:
-        conn.close()
-
-
-def _fetch_closeness_for_nodes(
-    node_ids: List[int],
-    travel_mode: str,
-) -> Dict[int, float]:
-    if not node_ids:
-        return {}
-
-    collection_name = _resolve_connectivity_collection(travel_mode)
-    documents = mongo_db[collection_name].find(
-        {"node_id": {"$in": node_ids}},
-        {"_id": 0, "node_id": 1, "connectivity.closeness": 1},
-    )
-    return {
-        int(document["node_id"]): float((document.get("connectivity") or {}).get("closeness") or 0.0)
-        for document in documents
-    }
-
-
-def _resolve_city_code_for_node(node_id: int, travel_time: int, network_mode: str) -> Optional[str]:
-    query = """
-        SELECT city_code
-        FROM precomputed_metrics_rows
-        WHERE network_mode = %s
-          AND node_id = %s
-          AND travel_time = %s
-        LIMIT 1
-    """
-
-    conn = get_postgres_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (network_mode, node_id, travel_time))
+            cursor.execute(
+                """
+                SELECT ST_X(geom), ST_Y(geom)
+                FROM nodes
+                WHERE id = %s AND network_mode = %s
+                LIMIT 1
+                """,
+                (node_id, network_mode),
+            )
             row = cursor.fetchone()
-            if not row:
-                return _resolve_city_code_for_node_from_mongo(node_id)
-            return _normalize_city_code(row[0])
     finally:
         conn.close()
 
+    if not row or row[0] is None or row[1] is None:
+        return None
 
-def _resolve_city_code_for_node_from_mongo(node_id: int) -> Optional[str]:
-    """Fallback city lookup from Mongo nodes + city_polygon when precomputed row is missing."""
     try:
-        node_doc = mongo_db["nodes"].find_one({"node_id": node_id}, {"_id": 0, "location": 1})
-        if not node_doc or "location" not in node_doc:
-            return None
-
         city_doc = mongo_db["city_polygon"].find_one(
             {
                 "geometry": {
                     "$geoIntersects": {
-                        "$geometry": node_doc["location"]
+                        "$geometry": {"type": "Point", "coordinates": [float(row[0]), float(row[1])]}
                     }
                 }
             },
             {"_id": 0, "PRO_COM_T": 1},
         )
-        if not city_doc:
-            return None
-
-        city_code = city_doc.get("PRO_COM_T")
-        return _normalize_city_code(city_code)
     except Exception:
         return None
 
+    if not city_doc:
+        return None
+    return _normalize_city_code(city_doc.get("PRO_COM_T"))
 
-def _compute_city_average_parameters(
-    city_code: str,
-    travel_time: int,
-    travel_mode: str,
-) -> Dict[str, float]:
-    network_mode = _resolve_precomputed_mode(travel_mode)
-    city_ranges = _fetch_city_metric_ranges(
-        city_code=city_code,
-        network_mode=network_mode,
-        travel_time=travel_time,
-    )
-    if not city_ranges:
-        return {}
 
-    proximity_score = _normalize_inverse_metric_value(
-        city_ranges.get("proximity_q2"),
-        city_ranges.get("proximity_q1"),
-        city_ranges.get("proximity_q3"),
-        fallback=0.0,
-    )
-    density_score = _normalize_metric_value(
-        city_ranges.get("density_raw_q2"),
-        city_ranges.get("density_raw_q1"),
-        city_ranges.get("density_raw_q3"),
-        fallback=0.0,
-    )
-    entropy_score = _normalize_metric_value(
-        city_ranges.get("entropy_score_q2"),
-        city_ranges.get("entropy_score_q1"),
-        city_ranges.get("entropy_score_q3"),
-        fallback=0.0,
-    )
-    closeness_score = _normalize_metric_value(
-        city_ranges.get("closeness_raw_q2"),
-        city_ranges.get("closeness_raw_q1"),
-        city_ranges.get("closeness_raw_q3"),
-        fallback=0.0,
-    )
 
-    return {
-        "proximity_score": proximity_score,
-        "density_score": density_score,
-        "entropy_score": entropy_score,
-        "poi_accessibility": (proximity_score + density_score + entropy_score) / 3.0,
-        "closeness": closeness_score,
-    }
 
 
 def _compute_city_sample_personalized_parameters(
-    city_code: str,
-    travel_time: int,
-    travel_mode: str,
-    selected_categories: List[str],
-    city_ranges: Dict[str, float],
-) -> Dict[str, Any]:
-    if not city_ranges:
-        return {}
+            city_code,
+            network_mode,
+            velocity,
+            travel_time,
+            max_minutes,
+            selected_categories,
+            primary_categories,
+            secondary_categories,
+            groups_categories) -> list[Dict[str, Any]]:
 
-    network_mode = _resolve_precomputed_mode(travel_mode)
-    sample_rows = _fetch_random_city_precomputed_rows(
-        city_code=city_code,
-        travel_time=travel_time,
-        network_mode=network_mode,
-        sample_size=_get_city_sample_size(),
+
+    sample_rows = get_nodes_in_city(
+        _get_city_sample_size(),
+        city_code,
+        network_mode,
     )
-    if not sample_rows:
-        return {}
 
-    node_ids = [row["node_id"] for row in sample_rows]
-    bucket_rows_by_node = _fetch_bucket_rows_for_nodes(node_ids, network_mode)
-    closeness_by_node = _fetch_closeness_for_nodes(node_ids, travel_mode)
-    metric_keys = (
-        "proximity_score",
-        "density_score",
-        "entropy_score",
-        "poi_accessibility",
-        "closeness",
-    )
-    totals = {key: 0.0 for key in metric_keys}
-
+    proximities=[]
+    entropies=[]
+    densities=[]
+    closenesses=[]
+    i=0
     for row in sample_rows:
         node_id = row["node_id"]
-        category_proximity = _compute_category_based_proximity_minutes(
-            rows_by_minute=bucket_rows_by_node.get(node_id, {}),
-            selected_categories=selected_categories,
-        )
-        parameters = _build_parameters_from_precomputed(
-            precomputed_row=row,
-            selected_categories=selected_categories,
-            closeness_value=closeness_by_node.get(node_id, 0.0),
-            max_minutes=60,
-            proximity_min_override=category_proximity,
-            force_proximity_override=True,
-            city_ranges=city_ranges,
-        )
-        parameters = _apply_city_metric_ranges(parameters, city_ranges)
-        for key in metric_keys:
-            totals[key] += float(parameters.get(key, 0.0))
+        #print("row", i )
+        i+=1
 
-    sample_count = len(sample_rows)
-    averages = {key: value / sample_count for key, value in totals.items()}
-    averages["sample_count"] = sample_count
-    return averages
-
-
-def _build_parameters_from_precomputed(
-    precomputed_row: Dict[str, Any],
-    selected_categories: List[str],
-    closeness_value: float,
-    max_minutes: int = 60,
-    proximity_min_override: Optional[float] = None,
-    force_proximity_override: bool = False,
-    city_ranges: Optional[Dict[str, float]] = None,
-) -> Dict[str, Any]:
-    print(f"[DEBUG] _build_parameters_from_precomputed:"
-          f" precomputed_row={precomputed_row}, selected_categories={selected_categories}"
-          f" closeness_value={closeness_value}, max_minutes={max_minutes},"
-            f" proximity_min_override={proximity_min_override}, force_proximity_override={force_proximity_override},"
-            f" city_ranges={city_ranges}"
-            )
-    atomic_categories = _load_atomic_categories()
-    category_to_idx = {category: idx for idx, category in enumerate(atomic_categories)}
-
-    expanded_categories = expand_requested_categories(selected_categories)
-    selected_idxs = [category_to_idx[c] for c in expanded_categories if c in category_to_idx]
-
-    primary_counts = precomputed_row.get("category_primary_counts") or []
-    secondary_counts = precomputed_row.get("category_secondary_counts") or []
-    total_pois = int(precomputed_row.get("total_pois") or 0)
-    area_km2 = float(precomputed_row.get("isochrone_area_km2") or 0.0)
-    entropy_raw = 0.0
-    if force_proximity_override:
-        proximity_min = proximity_min_override
-    else:
-        proximity_min = proximity_min_override if proximity_min_override is not None else precomputed_row.get("proximity_value")
-
-    if selected_idxs:
-        matched_primary = sum(primary_counts[idx] for idx in selected_idxs if idx < len(primary_counts))
-        matched_secondary = sum(secondary_counts[idx] for idx in selected_idxs if idx < len(secondary_counts))
-        total_pois_effective = min(total_pois, matched_primary + matched_secondary)
-    else:
-        total_pois_effective = total_pois
-
-    if proximity_min is None:
-        # Per scheda 5 personalizzata: nessun bucket valido equivale al caso peggiore (60 min).
-        proximity_score = 1.0
-    else:
-        proximity_score = min(float(proximity_min) / float(max_minutes), 1.0)
-
-    if total_pois_effective == 0 or area_km2 <= 0:
-        density_score = 0.0
-    else:
-        density_raw = total_pois_effective / area_km2
-        density_score = 1.0 if density_raw > 100 else (density_raw / 100.0)
-
-    if total_pois_effective == 0 or not selected_idxs:
-        entropy_score = 0.0
-    else:
-        counts = [primary_counts[idx] if idx < len(primary_counts) else 0 for idx in selected_idxs]
-        total_selected = float(sum(counts))
-        if total_selected <= 0:
-            entropy_score = 0.0
-        else:
-            entropy = 0.0
-            for value in counts:
-                if value > 0:
-                    p = value / total_selected
-                    entropy -= p * math.log2(p)
-            max_entropy = math.log2(len(selected_idxs)) if len(selected_idxs) > 1 else 1.0
-            entropy_raw = entropy / max_entropy if max_entropy > 0 else 0.0
-            entropy_score = entropy_raw
-
-    density_raw = (total_pois_effective / area_km2) if total_pois_effective > 0 and area_km2 > 0 else 0.0
-
-    print(f"[DEBUG] _build_parameters_from_precomputed:")
-    print(f"  area_km2: {area_km2}, total_pois_effective: {total_pois_effective}")
-    print(f"  density_raw: {density_raw} (POI/km²)")
-    print(f"  city_ranges available: {bool(city_ranges)}")
-    if city_ranges:
-        print(f"  density_raw_min: {city_ranges.get('density_raw_min')}, density_raw_max: {city_ranges.get('density_raw_max')}")
-
-    if city_ranges:
-        density_score = _normalize_metric_value(
-            density_raw,
-            city_ranges.get("density_raw_min"),
-            city_ranges.get("density_raw_max"),
-            fallback=density_score,
-        )
-        print(f"  density_score after normalization: {density_score}")
-        entropy_score = _normalize_metric_value(
-            entropy_raw,
-            city_ranges.get("entropy_score_min"),
-            city_ranges.get("entropy_score_max"),
-            fallback=entropy_score,
-        )
-        print(f"  entropy_score after normalization: {entropy_score}")
-    else:
-        # Mantiene il comportamento precedente se i range per citta non sono disponibili.
-        if total_pois_effective != 0 and area_km2 > 0:
-            density_score = 1.0 if density_raw > 100 else (density_raw / 100.0)
-        entropy_score = entropy_raw
-        print(f"  Using fallback (no city_ranges): density_score={density_score}, entropy_score={entropy_score}")
-
-    poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
-
-    return {
-        "proximity": float(proximity_min) if proximity_min is not None else None,
-        "density_raw": float(density_raw),
-        "entropy_raw": float(entropy_raw),
-        "proximity_score": float(proximity_score),
-        "density_score": float(density_score),
-        "entropy_score": float(entropy_score),
-        "poi_accessibility": float(poi_accessibility),
-        "closeness": float(closeness_value or 0.0),
-    }
+        try:
+        
+            parameters = compute_isochrone_parameters(
+                        node_id,
+                        city_code,
+                        velocity,
+                        travel_time,
+                        network_mode,
+                        max_minutes,
+                        selected_categories,
+                        primary_categories, 
+                        secondary_categories,
+                        groups_categories,)
+            proximities.append(parameters["proximity"])
+            entropies.append(parameters["entropy"])
+            densities.append(parameters["density"])
+            closenesses.append(parameters["closeness"])
 
 
-def resolve_velocity_kmh(travel_mode: str) -> int:
-    mode = (travel_mode or "walking").strip().lower()
-    if mode in {"bike", "bicycle", "cycling"}:
+
+            averages = {
+                "proximity": sum(proximities) / len(proximities) if proximities else 0,
+                "entropy": sum(entropies) / len(entropies) if entropies else 0,
+                "density": sum(densities) / len(densities) if densities else 0,
+                "closeness": sum(closenesses) / len(closenesses) if closenesses else 0,
+            }
+
+
+            minimum_values = {
+                "proximity": min(proximities) if proximities else 0,
+                "entropy": min(entropies) if entropies else 0,
+                "density": min(densities) if densities else 0,
+                "closeness": min(closenesses) if closenesses else 0,
+            }
+            maximum_values = {
+                "proximity": max(proximities) if proximities else 0,
+                "entropy": max(entropies) if entropies else 0,
+                "density": max(densities) if densities else 0,
+                "closeness": max(closenesses) if closenesses else 0,
+            }
+        except Exception as e:
+            print(f"Error computing parameters for node_id {node_id}: {e}")
+            
+
+    return averages,minimum_values,maximum_values
+
+
+
+
+
+def resolve_velocity_kmh(travel_mode: UserStudyTravelMode) -> int:
+    if travel_mode == "bike":
         return 15
-    if mode in {"walking_cane", "cane"}:
-        return 4
-    return 5
+    if travel_mode == "slow_walk":
+        return 2
+    if travel_mode == "walk":
+        return 5
+    raise ValueError("unsupported travel mode: use walk, slow_walk or bike")
 
 
 @router.get("/categories")
@@ -956,165 +401,11 @@ async def submit_preexploration(request: SubmitPreexplorationRequest) -> Dict[st
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/analyze-area")
-async def analyze_area(request: AnalyzeAreaRequest) -> Dict[str, Any]:
-    """
-    Analizza un'area con parametri di default (15 minuti, walking, tutte le categorie)
-    Restituisce dati per isochrone, POI, e parametri del radar chart
-    """
-    import time
-    start_total = time.time()
-    
-    try:
-        # Verifica che la sessione esista
-        session = db_get_session(request.session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-        # Parametri di default
-        minutes = 15
-        velocity = 5  # walking speed (km/h)
-        
-        # Leggi tutte le categorie da categories.json
-        start = time.time()
-        with open('backend/categories.json', 'r', encoding='utf-8') as f:
-            categories_dict = json.load(f)
-        all_categories = list(categories_dict.keys())
-        expanded_categories = expand_requested_categories(all_categories)
-        print(f"[TIMING] Load categories: {time.time() - start:.3f}s")
-        
-        coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
-        
-        # Step 1: Trova il node_id più vicino
-        start = time.time()
-        status_code, message, node_id = get_id_node_by_coordinates(coordinates, travel_mode="walking")
-        print(f"[TIMING] get_id_node_by_coordinates: {time.time() - start:.3f}s (node_id={node_id})")
-        if status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Node not found: {message}")
-        
-        # Step 2: Recupera l'isochrone
-        start = time.time()
-        iso_status, iso_msg, isochrone_data = get_isocronewalk_by_node_id(
-            node_id=node_id,
-            minute=minutes,
-            velocity=velocity,
-            travel_mode="walking"
-        )
-        print(f"[TIMING] get_isocronewalk_by_node_id: {time.time() - start:.3f}s")
-        if iso_status != 200:
-            raise HTTPException(status_code=404, detail=f"Isochrone not found: {iso_msg}")
-        
-        # Step 3: Recupera i POI
-        start = time.time()
-        poi_status, poi_msg, pois_data, total_pois = get_detailed_pois_by_node_id(
-            node_id=node_id,
-            min=minutes,
-            vel=velocity,
-            categories=all_categories,
-            travel_mode="walk"
-        )
-        print(f"[TIMING] get_detailed_pois_by_node_id: {time.time() - start:.3f}s (total_pois={total_pois})")
-        if poi_status != 200:
-            # Se non ci sono POI, continua comunque
-            pois_data = []
-            total_pois = 0
-        
-        # Step 4: Calcola i parametri per il radar chart
-        start = time.time()
-        closeness_status, _, closeness_value = get_closeness_by_node_id(
-            node_id=node_id,
-            travel_mode="walk",
-        )
-        print(f"[TIMING] get_closeness_by_node_id: {time.time() - start:.3f}s")
-        if closeness_status != 200:
-            closeness_value = 0.0
-
-        start = time.time()
-        city_code = _resolve_city_code_for_node(
-            node_id=node_id,
-            travel_time=minutes,
-            network_mode="walk",
-        )
-        print(f"[TIMING] resolve city_code: {time.time() - start:.3f}s (city_code={city_code})")
-
-        start = time.time()
-        city_ranges = _fetch_city_metric_ranges(
-            city_code=city_code,
-            network_mode="walk",
-            travel_time=minutes,
-        ) if city_code else {}
-        print(f"[TIMING] fetch city_ranges: {time.time() - start:.3f}s (city_code={city_code})")
-
-        start = time.time()
-        precomputed_row = _fetch_precomputed_row(
-            node_id=node_id,
-            travel_time=minutes,
-            network_mode="walk",
-        )
-        print(f"[TIMING] _fetch_precomputed_row: {time.time() - start:.3f}s")
-        
-        start = time.time()
-        parameters = _build_parameters_from_precomputed(
-            precomputed_row=precomputed_row,
-            selected_categories=all_categories,
-            closeness_value=float(closeness_value or 0.0),
-            max_minutes=60,
-            city_ranges=city_ranges,
-        )
-        
-        print(f"[TIMING] build/compute parameters: {time.time() - start:.3f}s")
-
-        start = time.time()
-        parameters = _apply_city_metric_ranges(parameters, city_ranges)
-        print(f"[TIMING] _apply_city_metric_ranges: {time.time() - start:.3f}s")
-        
-        start = time.time()
-        city_average_parameters = (
-            _compute_city_average_parameters(
-                city_code=city_code,
-                travel_time=minutes,
-                travel_mode="walk",
-            )
-            if city_code
-            else {}
-        )
-        print(f"[TIMING] _compute_city_average_parameters: {time.time() - start:.3f}s")
-
-        # Salva in sessione le metriche baseline per export finale e analisi successive.
-        metrics_payload = {
-            "proximity_score": parameters.get("proximity_score", 0.2),
-            "density_score": parameters.get("density_score", 0.2),
-            "entropy_score": parameters.get("entropy_score", 0.2),
-            "poi_accessibility": parameters.get("poi_accessibility", 0.2),
-            "closeness": parameters.get("closeness", 0.2)
-        }
-        start = time.time()
-        save_ok = save_analysis_metrics(request.session_id, "default", metrics_payload)
-        print(f"[TIMING] save_analysis_metrics: {time.time() - start:.3f}s")
-        if not save_ok:
-            raise HTTPException(status_code=500, detail="Failed to save default analysis metrics")
-        
-        print(f"[TIMING] TOTAL analyze_area: {time.time() - start_total:.3f}s\n")
-        
-        return {
-            "status": "success",
-            "node_id": node_id,
-            "isochrone": isochrone_data,
-            "pois": pois_data,
-            "total_pois": total_pois,
-            "parameters": metrics_payload,
-            "city_average_parameters": city_average_parameters,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/analyze-personalized")
 async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str, Any]:
     """
-    Analizza un'area con parametri personalizzati (tempo, modalità, categorie)
-    Restituisce dati per isochrone, POI, e parametri del radar chart
+    Analizza un'area con parametri personalizzati o standard (15 minuti e tutte le categorie).
+    Restituisce dati per isochrone, POI, e parametri del radar chart.
     """
     try:
         # Verifica che la sessione esista
@@ -1122,131 +413,131 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Parametri personalizzati
+        # Risolve i parametri richiesti o i valori standard.
+        #print("request",request)
+        #request di esempio
+        # request session_id='b04a5b90-a82e-4441-b677-aa03b6ccf62a'
+        #  latitude=45.076953 
+        # longitude=7.6761215 
+        # travel_time=15 
+        # travel_mode='walk' 
+        # categories=[] 
+        # analysis_type='default'       
         minutes = request.travel_time
+        #5, 10, 12, 20
         velocity = resolve_velocity_kmh(request.travel_mode)
-        categories = request.categories
-        expanded_categories = expand_requested_categories(categories)
-        
+        # 2 o 5 se walk, 15 se bike
+        network_mode = _network_mode_for_travel_mode(request.travel_mode)
+        #walk o bike (se walk, velocity=5 km/h; se bike, velocity=15 km/h, se slow_walk, velocity=2 km/h)
+        primary_categories, secondary_categories, groups_categories = _load_categories()
+        selected_categories = request.categories or secondary_categories
         coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
         
         # Step 1: Trova il node_id più vicino
-        status_code, message, node_id = get_id_node_by_coordinates(coordinates, travel_mode=request.travel_mode)
+        # usa ST_SetSRID sulla collezione mongo node
+        status_code, message, node_id = get_id_node_by_coordinates(coordinates, travel_mode=network_mode)
         if status_code != 200:
             raise HTTPException(status_code=404, detail=f"Node not found: {message}")
+        #print("node_id", node_id)
+        #es node_id 438238719 4, Corso Alessandro Tassoni, Campidoglio, Circoscrizione 4, Torino, Piemonte, 10143, Italia
         
         # Step 2: Recupera l'isochrone
+        # usa postgres con pgr_drivingDistance per torvare i nodi raggiungibili
+        # MultiPoint(reachable_coords).convex_hull per generare l'isochrona
         iso_status, iso_msg, isochrone_data = get_isocronewalk_by_node_id(
             node_id=node_id,
             minute=minutes,
             velocity=velocity,
-            travel_mode=request.travel_mode
+            travel_mode=network_mode
         )
         if iso_status != 200:
             raise HTTPException(status_code=404, detail=f"Isochrone not found: {iso_msg}")
         
         # Step 3: Recupera i POI (con le categorie selezionate)
+        # indivia i nodi raggiungibili con pgr_drivingDistance
+        # facendo la JOIN con node_poi individua i POI raggiungibili
         poi_status, poi_msg, pois_data, total_pois = get_detailed_pois_by_node_id(
             node_id=node_id,
             min=minutes,
             vel=velocity,
-            categories=categories,
-            travel_mode=request.travel_mode
+            categories=selected_categories,
+            travel_mode=network_mode
         )
+        #print("poi_status", poi_status,len(pois_data), "total_pois", total_pois)
         if poi_status != 200:
             # Se non ci sono POI, continua comunque
             pois_data = []
             total_pois = 0
-        
         # Step 4: Calcola i parametri per il radar chart
-        closeness_status, _, closeness_value = get_closeness_by_node_id(
-            node_id=node_id,
-            travel_mode=request.travel_mode,
-        )
-        if closeness_status != 200:
-            closeness_value = 0.0
 
-        network_mode = _resolve_precomputed_mode(request.travel_mode)
+
+        # Step 4.2 recupera il codice istat della città
+        # trovando una riga precompute per il nodo e il tempo selezionato
+        # nella tabella precomputed_metrics_rows in postgress
         city_code = _resolve_city_code_for_node(
             node_id=node_id,
             travel_time=minutes,
             network_mode=network_mode,
         )
-        city_ranges = _fetch_city_metric_ranges(
+        #print("city_code", city_code)
+        if not city_code:
+            raise HTTPException(status_code=404, detail="City code not found for selected node")
+        
+        parameters = compute_isochrone_parameters(
+                node_id=node_id,
+                city_code=city_code,
+                network_mode=network_mode,
+                velocity=velocity,
+                travel_time=minutes,
+                max_minutes=60,
+                selected_categories=selected_categories,
+                primary_categories=primary_categories,
+                secondary_categories=secondary_categories,
+                groups_categories=groups_categories,
+        )
+        #print("parameters",parameters)
+
+        avg_sample, mininum_sample, maximum_sample = _compute_city_sample_personalized_parameters(
             city_code=city_code,
             network_mode=network_mode,
+            velocity=velocity,
             travel_time=minutes,
-        ) if city_code else {}
-
-        
-        precomputed_row = _fetch_precomputed_row(
-            node_id=node_id,
-            travel_time=minutes,
-            network_mode=network_mode,
-        )
-        if precomputed_row:
-            node_bucket_rows = _fetch_precomputed_rows_for_node(
-                node_id=node_id,
-                network_mode=network_mode,
-            )
-            category_based_proximity_min = _compute_category_based_proximity_minutes(
-                rows_by_minute=node_bucket_rows,
-                selected_categories=categories,
-            )
-            parameters = _build_parameters_from_precomputed(
-                precomputed_row=precomputed_row,
-                selected_categories=categories,
-                closeness_value=float(closeness_value or 0.0),
-                max_minutes=60,
-                proximity_min_override=category_based_proximity_min,
-                force_proximity_override=True,
-                city_ranges=city_ranges,
-            )
-        else:
-            parameters = compute_isochrone_parameters(
-                pois_data=pois_data,
-                isochrone_data=isochrone_data,
-                vel=velocity,
-                total_pois=total_pois,
-                max_minutes=60,
-                categories=expanded_categories,
-                closeness_value=closeness_value,
-            )
-
-        parameters = _apply_city_metric_ranges(parameters, city_ranges)
-        city_average_parameters = (
-            _compute_city_average_parameters(
-                city_code=city_code,
-                travel_time=minutes,
-                travel_mode=request.travel_mode,
-            )
-            if city_code
-            else {}
-        )
-        city_sample_personalized_parameters = (
-            _compute_city_sample_personalized_parameters(
-                city_code=city_code,
-                travel_time=minutes,
-                travel_mode=request.travel_mode,
-                selected_categories=categories,
-                city_ranges=city_ranges,
-            )
-            if city_code
-            else {}
-        )
-
+            max_minutes=60,
+            selected_categories=selected_categories,
+            primary_categories=primary_categories,
+            secondary_categories=secondary_categories,
+            groups_categories=groups_categories)
         # Salva in sessione le metriche personalizzate per export finale e confronto.
+        #print("parameters",parameters)
+        #print("minimum sample",mininum_sample)
+        #print("maximum sample",maximum_sample)
         metrics_payload = {
-            "proximity_score": parameters.get("proximity_score", 0.2),
-            "density_score": parameters.get("density_score", 0.2),
-            "entropy_score": parameters.get("entropy_score", 0.2),
-            "poi_accessibility": parameters.get("poi_accessibility", 0.2),
-            "closeness": parameters.get("closeness", 0.2)
+            "proximity_score": ((parameters.get("proximity")-mininum_sample["proximity"])/(maximum_sample["proximity"]-mininum_sample["proximity"])) if (maximum_sample["proximity"]-mininum_sample["proximity"])>0 else 0,
+            "density_score": (parameters.get("density")-mininum_sample["density"])/(maximum_sample["density"]-mininum_sample["density"]) if (maximum_sample["density"]-mininum_sample["density"])>0 else 0,
+            "entropy_score": (parameters.get("entropy")-mininum_sample["entropy"])/(maximum_sample["entropy"]-mininum_sample["entropy"]) if (maximum_sample["entropy"]-mininum_sample["entropy"])>0 else 0,
+            "closeness": (parameters.get("closeness")-mininum_sample["closeness"])/(maximum_sample["closeness"]-mininum_sample["closeness"]) if (maximum_sample["closeness"]-mininum_sample["closeness"])>0 else 0
         }
-        save_ok = save_analysis_metrics(request.session_id, "personalized", metrics_payload)
+
+        metrics_payload["poi_accessibility"] = ((1-metrics_payload["proximity_score"]) + metrics_payload["density_score"] + metrics_payload["entropy_score"]) / 3.0
+
+        save_ok = save_analysis_metrics(request.session_id, request.analysis_type, metrics_payload)
         if not save_ok:
-            raise HTTPException(status_code=500, detail="Failed to save personalized analysis metrics")
-        
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to save {request.analysis_type} analysis metrics",
+            )
+
+        city_average_parameters = {
+                    "proximity_score":  ((avg_sample.get("proximity")-mininum_sample["proximity"])/(maximum_sample["proximity"]-mininum_sample["proximity"])) if (maximum_sample["proximity"]-mininum_sample["proximity"])>0 else 0,
+                    "density_score": (avg_sample.get("density")-mininum_sample["density"])/(maximum_sample["density"]-mininum_sample["density"]) if (maximum_sample["density"]-mininum_sample["density"])>0 else 0,
+                    "entropy_score": (avg_sample.get("entropy")-mininum_sample["entropy"])/(maximum_sample["entropy"]-mininum_sample["entropy"]) if (maximum_sample["entropy"]-mininum_sample["entropy"])>0 else 0,
+                    "closeness": (avg_sample.get("closeness")-mininum_sample["closeness"])/(maximum_sample["closeness"]-mininum_sample["closeness"]) if (maximum_sample["closeness"]-mininum_sample["closeness"])>0 else 0
+                        }
+        city_average_parameters["poi_accessibility"] =  ((1-city_average_parameters["proximity_score"]) + city_average_parameters["density_score"] + city_average_parameters["entropy_score"]) / 3.0
+
+        #print("metrics_payload",metrics_payload)
+        #print("city_average_parameters",city_average_parameters)
+
         return {
             "status": "success",
             "node_id": node_id,
@@ -1255,7 +546,6 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             "total_pois": total_pois,
             "parameters": metrics_payload,
             "city_average_parameters": city_average_parameters,
-            "city_sample_personalized_parameters": city_sample_personalized_parameters,
         }
     except HTTPException:
         raise
@@ -1263,48 +553,6 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/city-average-metrics")
-async def city_average_metrics(request: CityAverageMetricsRequest) -> Dict[str, Any]:
-    """Restituisce le metriche medie precompute per città, modalità e tempo."""
-    try:
-        session = db_get_session(request.session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
-        status_code, message, node_id = get_id_node_by_coordinates(
-            coordinates,
-            travel_mode=request.travel_mode,
-        )
-        if status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Node not found: {message}")
-
-        network_mode = _resolve_precomputed_mode(request.travel_mode)
-        city_code = _resolve_city_code_for_node(
-            node_id=node_id,
-            travel_time=request.travel_time,
-            network_mode=network_mode,
-        )
-        if not city_code:
-            raise HTTPException(status_code=404, detail="City code not found for selected node")
-
-        city_average_parameters = _compute_city_average_parameters(
-            city_code=city_code,
-            travel_time=request.travel_time,
-            travel_mode=request.travel_mode,
-        )
-        if not city_average_parameters:
-            raise HTTPException(status_code=404, detail="City average metrics not found")
-
-        return {
-            "status": "success",
-            "city_code": city_code,
-            "parameters": city_average_parameters,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/street/select")

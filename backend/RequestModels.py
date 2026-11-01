@@ -1,7 +1,11 @@
 # questo file contiene quali dati servono per le richieste API (per validazione, prima di mandare al backend)
 
-from typing import List
+from typing import List, Literal
 from pydantic import BaseModel
+
+
+NetworkMode = Literal["walk", "bike"]
+UserStudyTravelMode = Literal["walk", "slow_walk", "bike"]
 
 
 class Coordinates(BaseModel):

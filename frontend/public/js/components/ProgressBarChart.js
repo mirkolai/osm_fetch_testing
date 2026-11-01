@@ -46,6 +46,20 @@ function buildBar(label, value, average, color, { small = false } = {}) {
  * poi_accessibility, closeness. averages può essere null.
  */
 export function renderProgressBarChart(containerId, values, averages, color = '#483d8b') {
+
+    console.log('===== PROGRESS BAR CHART =====');
+    console.log('Container:', containerId);
+    console.log('Values:', values);
+    console.log('Averages:', averages);
+
+    console.log('Media accessibilità:',averages);
+    console.log('Media prossimità:', averages);
+    console.log('Media varietà:', averages);
+    console.log('Media densità:', averages,);
+    console.log('Media connettività:', averages);
+
+    console.log('==============================');
+
     const container = document.getElementById(containerId);
     if (!container || !values) {
         return;

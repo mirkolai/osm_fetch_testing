@@ -1,738 +1,420 @@
+"""
+Calcola le metriche dei POI raggiungibili e le salva in PostgreSQL.
+Versione ULTRA-FAST: Rete in RAM (NetworkX/SciPy) + POI in RAM.
+"""
+
 import json
-import math
-import os
 from pathlib import Path
-from time import perf_counter
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
+import networkx as nx
+import numpy as np
 from psycopg2.extras import execute_batch
+from scipy.spatial import ConvexHull
 
-from backend.Isochrones import get_isocronewalk_by_node_id
-from backend.Parameters import compute_area_km2_from_iso
 from backend.mongo_db import db as mongo_db
 from backend.postgres_db import get_postgres_connection
 
-
-# Velocita canonical per mode: una sola velocita per mantenere la matrice N x T x C.
-MODE_VELOCITY_KMH: Dict[str, int] = {
-    "walk": 5,
-    "slow_walk": 2,
-    "bike": 15,
-}
-
-# Tempi canonical condivisi con lo user study.
-TRAVEL_TIMES_MIN: List[int] = [5, 10, 15, 20]
-
 TABLE_NAME = "precomputed_metrics_rows"
-PHASE_ORDER = ("reachable", "counts", "area", "proximity", "upsert")
-SETUP_PHASE_ORDER = ("city_setup", "load_processed_keys", "mode_prep")
-MODE_HEARTBEAT_SECONDS = 10.0
+TRAVEL_TIMES_MIN = (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
+SPEEDS_KMH = {
+    "walk": (2, 5),
+    "bike": (15,),
+}
+BATCH_SIZE = 1000
 
 
-def _load_atomic_categories() -> List[str]:
-    categories_path = Path(__file__).resolve().parents[2] / "backend" / "categories.json"
-    with categories_path.open("r", encoding="utf-8") as file_obj:
-        categories_by_group = json.load(file_obj)
-
-    ordered: List[str] = []
-    seen = set()
-    for _, values in categories_by_group.items():
-        for category in values:
-            if category not in seen:
-                seen.add(category)
-                ordered.append(category)
-    return ordered
+def _load_categories() -> Tuple[List[str], List[str]]:
+    path = Path(__file__).resolve().parents[2] / "backend" / "categories.json"
+    with path.open("r", encoding="utf-8") as file_obj:
+        groups = json.load(file_obj)
+    primary_categories = sorted(groups.keys())
+    secondary_categories = sorted({cat for values in groups.values() for cat in values})
+    return primary_categories, secondary_categories
 
 
-def _render_progress_bar(current: int, total: int, width: int = 28) -> str:
-    if total <= 0:
-        return "[" + ("-" * width) + "]"
-    filled = int((current / total) * width)
-    if filled > width:
-        filled = width
-    return "[" + ("#" * filled) + ("-" * (width - filled)) + "]"
+def _preload_poi_categories() -> Dict[str, Tuple[Optional[str], Optional[str]]]:
+    """Carica i POI da MongoDB in RAM."""
+    print("Pre-caricamento POI da MongoDB in RAM...")
+    poi_map = {}
+    projection = {"_id": 0, "pois_id": 1, "taxonomy.hierarchy": 1}
+
+    for poi in mongo_db["pois"].find({}, projection):
+        poi_id = str(poi.get("pois_id"))
+        hierarchy = (poi.get("taxonomy") or {}).get("hierarchy") or []
+
+        prim = hierarchy[0] if len(hierarchy) >= 1 else None
+        sec = hierarchy[1] if len(hierarchy) >= 2 else None
+        poi_map[poi_id] = (prim, sec)
+
+    print(f"Caricati {len(poi_map)} POI in RAM.")
+    return poi_map
 
 
-def _format_phase_averages(phase_totals: Dict[str, float], phase_counts: Dict[str, int]) -> str:
-    parts: List[str] = []
-    for phase in PHASE_ORDER:
-        count = phase_counts.get(phase, 0)
-        if count <= 0:
+def _get_cities_to_process() -> List[str]:
+    from db_ingest import utils
+
+    cities = []
+    for city in mongo_db["neighbourhood_polygon"].find({}, {"_id": 0, "PRO_COM_T": 1}):
+        city_code = str(city.get("PRO_COM_T"))
+        if utils.should_process_city(city_code):
+            cities.append(city_code)
+    return cities
+
+
+def _get_city_network_node_ids(city_code: str, network_mode: str) -> set[int]:
+    projection = {"_id": 0, "node_id": 1}
+    query = {"city_code": city_code, "network_mode": network_mode}
+    return {
+        int(node["node_id"])
+        for node in mongo_db["nodes"].find(query, projection)
+        if node.get("node_id") is not None
+    }
+
+
+def _get_completed_node_ids(
+    conn, city_code: str, network_mode: str, speeds: Tuple[int, ...]
+) -> set[int]:
+    query = f"""
+        SELECT node_id
+        FROM {TABLE_NAME}
+        WHERE city_code = %s
+          AND network_mode = %s
+          AND travel_time = ANY(%s)
+          AND velocity_kmh = ANY(%s)
+        GROUP BY node_id
+        HAVING COUNT(DISTINCT (travel_time, velocity_kmh)) = %s
+    """
+    expected_rows_per_node = len(TRAVEL_TIMES_MIN) * len(speeds)
+
+    with conn.cursor() as cursor:
+        cursor.execute(
+            query,
+            (
+                city_code,
+                network_mode,
+                list(TRAVEL_TIMES_MIN),
+                list(speeds),
+                expected_rows_per_node,
+            ),
+        )
+        return {int(row[0]) for row in cursor.fetchall()}
+
+
+def _get_neighbourhood_node_pairs(city_code: str,mode: str) -> Dict[int, Optional[str]]:
+    from db_ingest import utils
+
+    projection = {
+        "_id": 0,
+        "PRO_COM_T": 1,
+        "neighbourhoods.id": 1,
+        "neighbourhoods.nodes": 1,
+    }
+    node_to_neighbourhood: Dict[int, Optional[str]] = {}
+
+    for city in mongo_db["neighbourhood_polygon"].find({"PRO_COM_T": city_code,"mode": mode}, projection):
+        if not utils.should_process_city(str(city.get("PRO_COM_T"))):
             continue
-        avg_ms = (phase_totals.get(phase, 0.0) / float(count)) * 1000.0
-        parts.append(f"{phase}:{avg_ms:.1f}ms")
-    return " | ".join(parts) if parts else "n/a"
+
+        for neighbourhood in city.get("neighbourhoods") or []:
+            neighbourhood_id = neighbourhood.get("id")
+            for value in neighbourhood.get("nodes") or []:
+                try:
+                    node_id = int(value)
+                    node_to_neighbourhood[node_id] = (
+                        str(neighbourhood_id) if neighbourhood_id is not None else None
+                    )
+                except (TypeError, ValueError):
+                    continue
+
+    return node_to_neighbourhood
 
 
-def _merge_phase_stats(
-    target_totals: Dict[str, float],
-    target_counts: Dict[str, int],
-    source_totals: Dict[str, float],
-    source_counts: Dict[str, int],
-) -> None:
-    for phase in PHASE_ORDER:
-        target_totals[phase] = target_totals.get(phase, 0.0) + source_totals.get(phase, 0.0)
-        target_counts[phase] = target_counts.get(phase, 0) + source_counts.get(phase, 0)
+def _load_city_graph_and_pois(
+    conn, city_code: str, network_mode: str
+) -> Tuple[nx.Graph, Dict[int, List[Tuple[str, float]]], Dict[int, Tuple[float, float]]]:
+    """Carica l'intero grafo della città, le coordinate dei nodi e le associazioni nodi-POI in RAM."""
+    G = nx.Graph()
+    node_coords: Dict[int, Tuple[float, float]] = {}
+
+    with conn.cursor() as cursor:
+        # 1. Carica gli archi della città
+        cursor.execute(
+            """
+            SELECT source, target, cost 
+            FROM edges 
+            WHERE city_code = %s AND network_mode = %s
+            """,
+            (city_code, network_mode),
+        )
+        for src, tgt, cost in cursor.fetchall():
+            G.add_edge(int(src), int(tgt), weight=float(cost))
+
+        # 2. Carica le coordinate WGS84 dei nodi per il calcolo dell'Hull
+        cursor.execute(
+            """
+            SELECT n.id, ST_X(n.geom), ST_Y(n.geom) 
+            FROM nodes n
+            """
+        )
+        for n_id, lon, lat in cursor.fetchall():
+            if n_id in G:
+                node_coords[int(n_id)] = (float(lon), float(lat))
+
+        # 3. Carica la mappa nodo -> POI
+        cursor.execute(
+            """
+            SELECT node_id, poi_id, COALESCE(distance_m, 0)
+            FROM node_poi
+            WHERE network_mode = %s
+            """,
+            (network_mode,),
+        )
+        node_to_pois: Dict[int, List[Tuple[str, float]]] = {}
+        for n_id, poi_id, dist in cursor.fetchall():
+            n_id = int(n_id)
+            if n_id in G:
+                node_to_pois.setdefault(n_id, []).append((str(poi_id), float(dist)))
+
+    return G, node_to_pois, node_coords
 
 
-def _format_setup_averages(setup_totals: Dict[str, float], setup_counts: Dict[str, int]) -> str:
-    parts: List[str] = []
-    for phase in SETUP_PHASE_ORDER:
-        count = setup_counts.get(phase, 0)
-        if count <= 0:
-            continue
-        avg_ms = (setup_totals.get(phase, 0.0) / float(count)) * 1000.0
-        parts.append(f"{phase}:{avg_ms:.1f}ms")
-    return " | ".join(parts) if parts else "n/a"
-
-
-def _merge_setup_stats(
-    target_totals: Dict[str, float],
-    target_counts: Dict[str, int],
-    source_totals: Dict[str, float],
-    source_counts: Dict[str, int],
-) -> None:
-    for phase in SETUP_PHASE_ORDER:
-        target_totals[phase] = target_totals.get(phase, 0.0) + source_totals.get(phase, 0.0)
-        target_counts[phase] = target_counts.get(phase, 0) + source_counts.get(phase, 0)
-
-
-def _mode_to_travel_mode(mode: str) -> str:
-    if mode == "bike":
-        return "bike"
-    return "walking"
-
-
-def _mode_to_network_mode(mode: str) -> str:
-    if mode == "bike":
-        return "bike"
-    return "walk"
+def _calculate_hull_area_km2(points: List[Tuple[float, float]]) -> float:
+    """Calcola l'area dell'Hull sui punti WGS84 approssimando i gradi in km."""
+    if len(points) < 3:
+        return 0.0
+    try:
+        pts = np.array(points)
+        # Converti approssimativamente gradi -> km (1 deg lat ~ 111km, lon regolata da cos(lat))
+        mean_lat = np.radians(np.mean(pts[:, 1]))
+        pts_km = np.column_stack(
+            (pts[:, 0] * 111.0 * np.cos(mean_lat), pts[:, 1] * 111.0)
+        )
+        hull = ConvexHull(pts_km)
+        return float(hull.volume)  # In 2D, hull.volume restituisce l'Area
+    except Exception:
+        return 0.0
 
 
 def _ensure_table(conn) -> None:
-    create_sql = f"""
+    create_table = f"""
         CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
             city_code TEXT NOT NULL,
             neighbourhood_id TEXT,
             network_mode TEXT NOT NULL,
-            node_id BIGINT NOT NULL,
             travel_time INTEGER NOT NULL,
-            category_primary_counts INTEGER[] NOT NULL DEFAULT '{{}}',
-            category_secondary_counts INTEGER[] NOT NULL DEFAULT '{{}}',
-            isochrone_area_km2 DOUBLE PRECISION NOT NULL DEFAULT 0,
-            total_pois INTEGER NOT NULL DEFAULT 0,
-            density_all_services DOUBLE PRECISION,
-            entropy_all_services DOUBLE PRECISION,
-            proximity_value DOUBLE PRECISION,
-            PRIMARY KEY (network_mode, node_id, travel_time)
-        );
-
-        DO $$
-        BEGIN
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = current_schema()
-                  AND table_name = '{TABLE_NAME}'
-                  AND column_name = 'density_15m_all_services'
-            ) THEN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = current_schema()
-                      AND table_name = '{TABLE_NAME}'
-                      AND column_name = 'density_all_services'
-                ) THEN
-                    UPDATE {TABLE_NAME}
-                    SET density_all_services = COALESCE(density_all_services, density_15m_all_services);
-                ELSE
-                    ALTER TABLE {TABLE_NAME}
-                    RENAME COLUMN density_15m_all_services TO density_all_services;
-                END IF;
-            END IF;
-
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = current_schema()
-                  AND table_name = '{TABLE_NAME}'
-                  AND column_name = 'entropy_15m_all_services'
-            ) THEN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = current_schema()
-                      AND table_name = '{TABLE_NAME}'
-                      AND column_name = 'entropy_all_services'
-                ) THEN
-                    UPDATE {TABLE_NAME}
-                    SET entropy_all_services = COALESCE(entropy_all_services, entropy_15m_all_services);
-                ELSE
-                    ALTER TABLE {TABLE_NAME}
-                    RENAME COLUMN entropy_15m_all_services TO entropy_all_services;
-                END IF;
-            END IF;
-        END $$;
-
-        ALTER TABLE {TABLE_NAME}
-        ADD COLUMN IF NOT EXISTS density_all_services DOUBLE PRECISION;
-
-        ALTER TABLE {TABLE_NAME}
-        ADD COLUMN IF NOT EXISTS entropy_all_services DOUBLE PRECISION;
-
-        CREATE INDEX IF NOT EXISTS idx_precomputed_metrics_city
-        ON {TABLE_NAME}(city_code);
-
-        CREATE INDEX IF NOT EXISTS idx_precomputed_metrics_neighbourhood
-        ON {TABLE_NAME}(neighbourhood_id);
-
-        CREATE INDEX IF NOT EXISTS idx_precomputed_metrics_city_mode_time
-        ON {TABLE_NAME}(city_code, network_mode, travel_time);
-
-        CREATE INDEX IF NOT EXISTS idx_precomputed_metrics_node
-        ON {TABLE_NAME}(node_id);
-    """
-    with conn.cursor() as cursor:
-        cursor.execute(create_sql)
-    conn.commit()
-
-
-def _ensure_routing_indexes(conn) -> None:
-    create_sql = """
-        CREATE INDEX IF NOT EXISTS idx_edges_mode_source
-        ON edges(network_mode, source);
-
-        CREATE INDEX IF NOT EXISTS idx_edges_mode_target
-        ON edges(network_mode, target);
-    """
-    with conn.cursor() as cursor:
-        cursor.execute(create_sql)
-    conn.commit()
-
-
-def _fetch_reachable_pois(
-    conn,
-    node_id: int,
-    max_distance_m: float,
-    network_mode: str,
-    graph_sql: Optional[str] = None,
-) -> List[Tuple[str, float]]:
-    graph_sql_text = graph_sql or (
-        "SELECT id, source, target, cost, cost AS reverse_cost "
-        f"FROM edges WHERE network_mode = ''{network_mode}''"
-    )
-    query = f"""
-        WITH reachable AS (
-            SELECT node, agg_cost
-            FROM pgr_drivingDistance(
-                '{graph_sql_text}',
-                %s,
-                %s,
-                directed := false
+            velocity_kmh INTEGER NOT NULL,
+            node_id BIGINT NOT NULL,
+            category_primary_counts INTEGER[] NOT NULL,
+            category_secondary_counts INTEGER[] NOT NULL,
+            isochrone_area_km2 DOUBLE PRECISION NOT NULL,
+            total_pois INTEGER NOT NULL,
+            PRIMARY KEY (
+                city_code,
+                network_mode,
+                velocity_kmh,
+                node_id,
+                travel_time
             )
-        )
-        SELECT
-            np.poi_id,
-            MIN(reachable.agg_cost + COALESCE(np.distance_m, 0)) AS distance
-        FROM reachable
-        JOIN node_poi np ON np.node_id = reachable.node AND np.network_mode = %s
-        GROUP BY np.poi_id
-        HAVING MIN(reachable.agg_cost + COALESCE(np.distance_m, 0)) < %s
-        ORDER BY distance ASC
+        );
     """
 
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (node_id, max_distance_m, network_mode, max_distance_m))
-            rows = cursor.fetchall()
-    except Exception:
-        return []
+    indexes = [
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_metrics_city_network_node
+        ON {TABLE_NAME} (
+            city_code,
+            network_mode,
+            node_id
+        );
+        """,
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_metrics_network_velocity_node_time
+        ON {TABLE_NAME} (
+            network_mode,
+            velocity_kmh,
+            node_id,
+            travel_time
+        );
+        """,
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_metrics_city_network_velocity_time
+        ON {TABLE_NAME} (
+            city_code,
+            network_mode,
+            velocity_kmh,
+            travel_time
+        );
+        """
+    ]
 
-    result: List[Tuple[str, float]] = []
-    for poi_id, distance in rows:
-        result.append((str(poi_id), float(distance)))
-    return result
+    with conn.cursor() as cursor:
+        cursor.execute(create_table)
 
+        for index_sql in indexes:
+            cursor.execute(index_sql)
 
-def _compute_area(
-    conn,
-    node_id: int,
-    minute: int,
-    velocity: int,
-    mode: str,
-    graph_sql: Optional[str] = None,
-) -> float:
-    status, _, isochrone_data = get_isocronewalk_by_node_id(
-        node_id=node_id,
-        minute=minute,
-        velocity=velocity,
-        travel_mode=_mode_to_travel_mode(mode),
-        conn=conn,
-        graph_sql=graph_sql,
-    )
-    if status != 200 or not isochrone_data:
-        return 0.0
-    return float(compute_area_km2_from_iso(isochrone_data))
-
-
-def _compute_counts(
-    reachable: List[Tuple[str, float]],
-    category_to_idx: Dict[str, int],
-) -> Tuple[List[int], List[int], int]:
-    primary_counts = [0] * len(category_to_idx)
-    secondary_counts = [0] * len(category_to_idx)
-
-    if not reachable:
-        return primary_counts, secondary_counts, 0
-
-    poi_ids = [poi_id for poi_id, _ in reachable]
-    pois_docs = list(
-        mongo_db["pois"].find(
-            {"pois_id": {"$in": poi_ids}},
-            {"_id": 0, "pois_id": 1, "categories": 1},
-        )
-    )
-    by_id = {str(doc["pois_id"]): doc for doc in pois_docs}
-
-    for poi_id in poi_ids:
-        doc = by_id.get(poi_id)
-        if not doc:
-            continue
-
-        categories = doc.get("categories") or {}
-        primary = categories.get("primary")
-        if primary in category_to_idx:
-            primary_counts[category_to_idx[primary]] += 1
-
-        alternate = categories.get("alternate") or []
-        for alt in dict.fromkeys(alternate):
-            if alt in category_to_idx:
-                secondary_counts[category_to_idx[alt]] += 1
-
-    return primary_counts, secondary_counts, len(poi_ids)
+    conn.commit()
 
 
-def _compute_proximity_minutes(reachable: List[Tuple[str, float]], velocity_kmh: int) -> Optional[float]:
-    if not reachable:
-        return None
 
-    speed_m_per_min = (velocity_kmh * 1000.0) / 60.0
-    if speed_m_per_min <= 0:
-        return None
-
-    times = [distance / speed_m_per_min for _, distance in reachable]
-    return float(max(times)) if times else None
-
-
-def _compute_density_all_services(total_pois: int, area_km2: float) -> float:
-    if total_pois <= 0 or area_km2 <= 0:
-        return 0.0
-    return float(total_pois) / float(area_km2)
-
-
-def _compute_entropy_all_services(primary_counts: List[int], categories_count: int) -> float:
-    if categories_count <= 1:
-        return 0.0
-
-    total = float(sum(primary_counts or []))
-    if total <= 0:
-        return 0.0
-
-    entropy = 0.0
-    for value in (primary_counts or []):
-        if value > 0:
-            p = float(value) / total
-            entropy -= p * math.log2(p)
-
-    max_entropy = math.log2(float(categories_count))
-    if max_entropy <= 0:
-        return 0.0
-    return float(entropy / max_entropy)
-
-
-def _iter_city_nodes() -> Iterable[Tuple[str, Dict[int, Optional[str]]]]:
-    from db_ingest import utils as _utils
-    collection = mongo_db["neighbourhood_polygon"]
-
-    for city_doc in collection.find({}, {"_id": 0, "PRO_COM_T": 1, "neighbourhoods.id": 1, "neighbourhoods.nodes": 1}):
-        city_code = str(city_doc.get("PRO_COM_T"))
-        if not _utils.should_process_city(city_code):
-            continue
-        node_to_neighbourhood: Dict[int, Optional[str]] = {}
-
-        for neighbourhood in city_doc.get("neighbourhoods") or []:
-            neighbourhood_id = str(neighbourhood.get("id"))
-            for node in neighbourhood.get("nodes") or []:
-                try:
-                    node_id = int(node)
-                except Exception:
-                    continue
-                # Se un nodo appare in piu quartieri, mantiene il primo mapping trovato.
-                node_to_neighbourhood.setdefault(node_id, neighbourhood_id)
-
-        if node_to_neighbourhood:
-            yield city_code, node_to_neighbourhood
-
-
-def _load_city_bike_nodes(city_code: str, routable_bike_nodes: set[int]) -> set[int]:
-    if not routable_bike_nodes:
-        return set()
-
-    city_code_query: object = city_code
-    if city_code.isdigit():
-        city_code_query = {"$in": [city_code, int(city_code)]}
-
-    city_doc = mongo_db["city_polygon"].find_one(
-        {"PRO_COM_T": city_code_query},
-        {"_id": 0, "geometry": 1},
-    )
-    if not city_doc or not city_doc.get("geometry"):
-        return set()
-
-    city_nodes: set[int] = set()
-    node_cursor = mongo_db["nodes"].find(
-        {"location": {"$geoWithin": {"$geometry": city_doc["geometry"]}}},
-        {"_id": 0, "node_id": 1},
-    )
-    for node_doc in node_cursor:
-        try:
-            node_id = int(node_doc["node_id"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if node_id in routable_bike_nodes:
-            city_nodes.add(node_id)
-
-    return city_nodes
-
-
-def _upsert_rows(conn, rows: List[Tuple]) -> None:
+def _save_rows(conn, rows: List[Tuple]) -> None:
     if not rows:
         return
 
-    upsert_sql = f"""
+    query = f"""
         INSERT INTO {TABLE_NAME} (
-            city_code,
-            neighbourhood_id,
-            network_mode,
-            node_id,
-            travel_time,
-            category_primary_counts,
-            category_secondary_counts,
-            isochrone_area_km2,
-            total_pois,
-            density_all_services,
-            entropy_all_services,
-            proximity_value
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (network_mode, node_id, travel_time)
+            city_code, neighbourhood_id, network_mode, travel_time,
+            velocity_kmh, node_id, category_primary_counts,
+            category_secondary_counts, isochrone_area_km2,
+            total_pois
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (city_code, network_mode, velocity_kmh, node_id, travel_time)
         DO UPDATE SET
-            city_code = EXCLUDED.city_code,
             neighbourhood_id = EXCLUDED.neighbourhood_id,
             category_primary_counts = EXCLUDED.category_primary_counts,
             category_secondary_counts = EXCLUDED.category_secondary_counts,
             isochrone_area_km2 = EXCLUDED.isochrone_area_km2,
-            total_pois = EXCLUDED.total_pois,
-            density_all_services = EXCLUDED.density_all_services,
-            entropy_all_services = EXCLUDED.entropy_all_services,
-            proximity_value = EXCLUDED.proximity_value
+            total_pois = EXCLUDED.total_pois
     """
-
     with conn.cursor() as cursor:
-        execute_batch(cursor, upsert_sql, rows, page_size=500)
+        execute_batch(cursor, query, rows, page_size=BATCH_SIZE)
     conn.commit()
-
-
-def _load_routable_nodes_by_network_mode(conn) -> Dict[str, set[int]]:
-    """Carica i nodi instradabili per mode (presenti almeno in un edge come source/target)."""
-    query = """
-        SELECT network_mode, node_id
-        FROM (
-            SELECT network_mode, source AS node_id FROM edges
-            UNION
-            SELECT network_mode, target AS node_id FROM edges
-        ) t
-    """
-
-    by_mode: Dict[str, set[int]] = {}
-    with conn.cursor() as cursor:
-        cursor.execute(query)
-        for network_mode, node_id in cursor.fetchall():
-            try:
-                by_mode.setdefault(str(network_mode), set()).add(int(node_id))
-            except Exception:
-                continue
-    return by_mode
-
-
-def _load_existing_processed_keys_for_nodes(conn, node_ids: set[int]) -> set[Tuple[str, int, int]]:
-    """Carica solo le chiavi gia presenti per i nodi della citta corrente."""
-    if not node_ids:
-        return set()
-
-    query = f"""
-        SELECT network_mode, node_id, travel_time
-        FROM {TABLE_NAME}
-        WHERE node_id = ANY(%s)
-                    AND density_all_services IS NOT NULL
-                    AND entropy_all_services IS NOT NULL
-    """
-
-    processed: set[Tuple[str, int, int]] = set()
-    with conn.cursor() as cursor:
-        cursor.execute(query, (list(node_ids),))
-        for network_mode, node_id, travel_time in cursor.fetchall():
-            try:
-                processed.add((str(network_mode), int(node_id), int(travel_time)))
-            except Exception:
-                continue
-    return processed
-
-
-def _prepare_city_nodes_temp_table(conn, node_ids: set[int]) -> None:
-    """Prepara tabella temporanea con i nodi della citta per filtrare il grafo pgRouting."""
-    with conn.cursor() as cursor:
-        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS tmp_city_nodes (node_id BIGINT PRIMARY KEY)")
-        cursor.execute("TRUNCATE tmp_city_nodes")
-
-    rows = [(int(node_id),) for node_id in node_ids]
-    if rows:
-        with conn.cursor() as cursor:
-            execute_batch(
-                cursor,
-                "INSERT INTO tmp_city_nodes (node_id) VALUES (%s) ON CONFLICT (node_id) DO NOTHING",
-                rows,
-                page_size=5000,
-            )
-    conn.commit()
-
-
-def _build_city_graph_sql(network_mode: str) -> str:
-    return (
-        "SELECT e.id, e.source, e.target, e.cost, e.cost AS reverse_cost "
-        "FROM edges e "
-        "JOIN tmp_city_nodes src ON src.node_id = e.source "
-        "JOIN tmp_city_nodes tgt ON tgt.node_id = e.target "
-        f"WHERE e.network_mode = ''{network_mode}''"
-    )
 
 
 def main() -> None:
-    categories = _load_atomic_categories()
-    category_to_idx = {category: idx for idx, category in enumerate(categories)}
+    primary_categories, secondary_categories = _load_categories()
+    primary_idx = {cat: i for i, cat in enumerate(primary_categories)}
+    secondary_idx = {cat: i for i, cat in enumerate(secondary_categories)}
 
+    poi_map = _preload_poi_categories()
     conn = get_postgres_connection()
+
     try:
         _ensure_table(conn)
-        _ensure_routing_indexes(conn)
-        routable_nodes_by_mode = _load_routable_nodes_by_network_mode(conn)
 
-        total_rows = 0
-        total_skipped_unroutable = 0
-        total_skipped_already_processed = 0
-        global_phase_totals = {phase: 0.0 for phase in PHASE_ORDER}
-        global_phase_counts = {phase: 0 for phase in PHASE_ORDER}
-        global_setup_totals = {phase: 0.0 for phase in SETUP_PHASE_ORDER}
-        global_setup_counts = {phase: 0 for phase in SETUP_PHASE_ORDER}
-        for city_code, node_to_neighbourhood in _iter_city_nodes():
-            print(f"Processing city {city_code} with {len(node_to_neighbourhood)} neighbourhood nodes")
-            batch: List[Tuple] = []
-            city_skipped_unroutable = 0
-            city_skipped_already_processed = 0
+        for city_code in _get_cities_to_process():
 
-            city_node_ids = set(node_to_neighbourhood.keys())
-            bike_city_node_ids = _load_city_bike_nodes(
-                city_code,
-                routable_nodes_by_mode.get("bike", set()),
-            )
-            mode_node_ids = {
-                mode: set(city_node_ids)
-                for mode in MODE_VELOCITY_KMH
-            }
-            mode_node_ids["bike"].update(bike_city_node_ids)
-            all_city_node_ids = set().union(*mode_node_ids.values())
-            print(
-                f"[city {city_code}] bike graph nodes inside city: "
-                f"{len(bike_city_node_ids)}"
-            )
-
-            city_phase_totals = {phase: 0.0 for phase in PHASE_ORDER}
-            city_phase_counts = {phase: 0 for phase in PHASE_ORDER}
-            city_setup_totals = {phase: 0.0 for phase in SETUP_PHASE_ORDER}
-            city_setup_counts = {phase: 0 for phase in SETUP_PHASE_ORDER}
-
-            setup_t0 = perf_counter()
-            city_already_processed_keys = _load_existing_processed_keys_for_nodes(conn, all_city_node_ids)
-            city_setup_totals["load_processed_keys"] += perf_counter() - setup_t0
-            city_setup_counts["load_processed_keys"] += 1
-
-            city_total_work_units = sum(len(node_ids) for node_ids in mode_node_ids.values())
-            city_completed_work_units = 0
-
-            for mode, velocity in MODE_VELOCITY_KMH.items():
-                mode_started_at = perf_counter()
-                mode_city_node_ids = mode_node_ids[mode]
-
-                setup_t0 = perf_counter()
-                _prepare_city_nodes_temp_table(conn, mode_city_node_ids)
-                city_setup_totals["city_setup"] += perf_counter() - setup_t0
-                city_setup_counts["city_setup"] += 1
-
-                network_mode = _mode_to_network_mode(mode)
-                graph_sql = _build_city_graph_sql(network_mode)
-                routable_nodes = routable_nodes_by_mode.get(network_mode, set())
-
-                city_routable_node_ids = mode_city_node_ids.intersection(routable_nodes)
-                city_unroutable_count = len(mode_city_node_ids) - len(city_routable_node_ids)
-                city_skipped_unroutable += city_unroutable_count * len(TRAVEL_TIMES_MIN)
-                mode_total_units = len(city_routable_node_ids) * len(TRAVEL_TIMES_MIN)
-                mode_completed_units = 0
-                mode_last_heartbeat_at = perf_counter()
-
-                for node_id in city_routable_node_ids:
-                    neighbourhood_id = node_to_neighbourhood.get(node_id)
-                    for minute in TRAVEL_TIMES_MIN:
-                        mode_completed_units += 1
-                        row_key = (mode, node_id, minute)
-                        if row_key in city_already_processed_keys:
-                            city_skipped_already_processed += 1
-                            now = perf_counter()
-                            if now - mode_last_heartbeat_at >= MODE_HEARTBEAT_SECONDS:
-                                mode_bar = _render_progress_bar(mode_completed_units, mode_total_units)
-                                elapsed_s = now - mode_started_at
-                                avg_info = _format_phase_averages(city_phase_totals, city_phase_counts)
-                                print(
-                                    f"[city {city_code}] mode={mode} heartbeat combos(node*minute) {mode_completed_units}/{mode_total_units} {mode_bar} | elapsed {elapsed_s:.1f}s | avg {avg_info}",
-                                    flush=True,
-                                )
-                                mode_last_heartbeat_at = now
-                            continue
-
-                        max_distance_m = (velocity * 1000.0 / 60.0) * minute
-
-                        t0 = perf_counter()
-                        reachable = _fetch_reachable_pois(
-                            conn,
-                            node_id,
-                            max_distance_m,
-                            network_mode,
-                            graph_sql=graph_sql,
-                        )
-                        city_phase_totals["reachable"] += perf_counter() - t0
-                        city_phase_counts["reachable"] += 1
-
-                        t0 = perf_counter()
-                        primary_counts, secondary_counts, total_pois = _compute_counts(
-                            reachable=reachable,
-                            category_to_idx=category_to_idx,
-                        )
-                        city_phase_totals["counts"] += perf_counter() - t0
-                        city_phase_counts["counts"] += 1
-
-                        t0 = perf_counter()
-                        area_km2 = _compute_area(
-                            conn=conn,
-                            node_id=node_id,
-                            minute=minute,
-                            velocity=velocity,
-                            mode=mode,
-                            graph_sql=graph_sql,
-                        )
-                        city_phase_totals["area"] += perf_counter() - t0
-                        city_phase_counts["area"] += 1
-
-                        t0 = perf_counter()
-                        proximity_value = _compute_proximity_minutes(reachable=reachable, velocity_kmh=velocity)
-                        city_phase_totals["proximity"] += perf_counter() - t0
-                        city_phase_counts["proximity"] += 1
-
-                        density_all_services = _compute_density_all_services(
-                            total_pois=total_pois,
-                            area_km2=area_km2,
-                        )
-                        entropy_all_services = _compute_entropy_all_services(
-                            primary_counts=primary_counts,
-                            categories_count=len(category_to_idx),
-                        )
-
-                        batch.append(
-                            (
-                                city_code,
-                                neighbourhood_id,
-                                mode,
-                                node_id,
-                                minute,
-                                primary_counts,
-                                secondary_counts,
-                                area_km2,
-                                total_pois,
-                                density_all_services,
-                                entropy_all_services,
-                                proximity_value,
-                            )
-                        )
-
-                        if len(batch) >= 1000:
-                            upsert_started = perf_counter()
-                            _upsert_rows(conn, batch)
-                            upsert_elapsed = perf_counter() - upsert_started
-                            city_phase_totals["upsert"] += upsert_elapsed
-                            city_phase_counts["upsert"] += len(batch)
-                            for row in batch:
-                                city_already_processed_keys.add((str(row[2]), int(row[3]), int(row[4])))
-                            total_rows += len(batch)
-                            print(f"Inserted/updated {total_rows} rows")
-                            batch = []
-
-                        now = perf_counter()
-                        if now - mode_last_heartbeat_at >= MODE_HEARTBEAT_SECONDS:
-                            mode_bar = _render_progress_bar(mode_completed_units, mode_total_units)
-                            elapsed_s = now - mode_started_at
-                            avg_info = _format_phase_averages(city_phase_totals, city_phase_counts)
-                            print(
-                                f"[city {city_code}] mode={mode} heartbeat combos(node*minute) {mode_completed_units}/{mode_total_units} {mode_bar} | elapsed {elapsed_s:.1f}s | avg {avg_info}",
-                                flush=True,
-                            )
-                            mode_last_heartbeat_at = now
-
-                city_completed_work_units += len(mode_city_node_ids)
-                city_setup_totals["mode_prep"] += perf_counter() - mode_started_at
-                city_setup_counts["mode_prep"] += 1
-                progress_bar = _render_progress_bar(city_completed_work_units, city_total_work_units)
-                avg_info = _format_phase_averages(city_phase_totals, city_phase_counts)
-                print(
-                    f"[city {city_code}] mode={mode} city-mode-pass progress(nodes*mode) {city_completed_work_units}/{city_total_work_units} {progress_bar} | avg {avg_info}",
-                    flush=True,
+            for network_mode in ("walk", "bike"):
+                node_to_neighbourhood = _get_neighbourhood_node_pairs(city_code,network_mode)
+                print(f"\nCaricamento grafo in RAM per {city_code} ({network_mode})...")
+                G, node_to_pois, node_coords = _load_city_graph_and_pois(
+                    conn, city_code, network_mode
                 )
 
-            if batch:
-                upsert_started = perf_counter()
-                _upsert_rows(conn, batch)
-                upsert_elapsed = perf_counter() - upsert_started
-                city_phase_totals["upsert"] += upsert_elapsed
-                city_phase_counts["upsert"] += len(batch)
-                for row in batch:
-                    city_already_processed_keys.add((str(row[2]), int(row[3]), int(row[4])))
-                total_rows += len(batch)
-                print(f"Inserted/updated {total_rows} rows")
+                if G.number_of_nodes() == 0:
+                    continue
 
-            if city_skipped_unroutable:
-                total_skipped_unroutable += city_skipped_unroutable
-                print(f"Skipped {city_skipped_unroutable} unroutable rows in city {city_code}")
+                mongo_node_ids = _get_city_network_node_ids(city_code, network_mode)
+                speeds = SPEEDS_KMH[network_mode]
+                completed_node_ids = _get_completed_node_ids(
+                    conn, city_code, network_mode, speeds
+                )
+                candidate_nodes = [
+                    node_id for node_id in G.nodes() if node_id in mongo_node_ids
+                ]
+                completed_node_ids.intersection_update(candidate_nodes)
+                nodes = [
+                    node_id for node_id in candidate_nodes
+                    if node_id not in completed_node_ids
+                ]
+                total_nodes = len(nodes)
+                if total_nodes == 0:
+                    print(
+                        f"Nessun nodo da elaborare per {city_code} "
+                        f"({network_mode}); nodi già completati: "
+                        f"{len(completed_node_ids)}."
+                    )
+                    continue
 
-            if city_skipped_already_processed:
-                total_skipped_already_processed += city_skipped_already_processed
-                print(f"Skipped {city_skipped_already_processed} already-processed rows in city {city_code}")
+                max_possible_distance = max(speeds) * 1000 / 60 * max(TRAVEL_TIMES_MIN)
 
-            city_avg_info = _format_phase_averages(city_phase_totals, city_phase_counts)
-            city_setup_avg_info = _format_setup_averages(city_setup_totals, city_setup_counts)
-            print(f"[city {city_code}] average phase times: {city_avg_info}")
-            print(f"[city {city_code}] setup/mode times: {city_setup_avg_info}")
-            _merge_phase_stats(global_phase_totals, global_phase_counts, city_phase_totals, city_phase_counts)
-            _merge_setup_stats(global_setup_totals, global_setup_counts, city_setup_totals, city_setup_counts)
+                rows = []
+                print(
+                    f"Elaborazione in corso su {total_nodes} nodi "
+                    f"(saltati {len(completed_node_ids)} già completati)..."
+                )
 
-        print(f"Completed. Total rows inserted/updated: {total_rows}")
-        if total_skipped_unroutable:
-            print(f"Total skipped unroutable rows: {total_skipped_unroutable}")
-        if total_skipped_already_processed:
-            print(f"Total skipped already-processed rows: {total_skipped_already_processed}")
-        print(f"Global average phase times: {_format_phase_averages(global_phase_totals, global_phase_counts)}")
-        print(f"Global setup/mode times: {_format_setup_averages(global_setup_totals, global_setup_counts)}")
+                for completed, node_id in enumerate(nodes, start=1):
+                    # Dijkstra in RAM fino alla distanza massima
+                    node_distances = nx.single_source_dijkstra_path_length(
+                        G, node_id, cutoff=max_possible_distance
+                    )
+
+                    for travel_time in TRAVEL_TIMES_MIN:
+                        for velocity in speeds:
+                            cutoff = velocity * 1000 / 60 * travel_time
+
+                            # 1. Trova nodi e punti entro il cutoff
+                            reachable_nodes = [
+                                n for n, d in node_distances.items() if d <= cutoff
+                            ]
+                            points = [
+                                node_coords[n]
+                                for n in reachable_nodes
+                                if n in node_coords
+                            ]
+
+                            # 2. Calcolo dell'area Hull sui punti in RAM (SciPy)
+                            area_km2 = _calculate_hull_area_km2(points)
+
+                            # 3. Raccogli e conta POI
+                            primary_counts = [0] * len(primary_idx)
+                            secondary_counts = [0] * len(secondary_idx)
+                            poi_distances: Dict[str, float] = {}
+
+                            for r_node in reachable_nodes:
+                                r_dist = node_distances[r_node]
+                                for poi_id, poi_offset in node_to_pois.get(
+                                    r_node, []
+                                ):
+                                    tot_dist = r_dist + poi_offset
+                                    if tot_dist <= cutoff:
+                                        if (
+                                            poi_id not in poi_distances
+                                            or tot_dist < poi_distances[poi_id]
+                                        ):
+                                            poi_distances[poi_id] = tot_dist
+
+                            for poi_id in poi_distances:
+                                cat_info = poi_map.get(poi_id)
+                                if cat_info:
+                                    prim, sec = cat_info
+                                    if prim in primary_idx:
+                                        primary_counts[primary_idx[prim]] += 1
+                                    if sec in secondary_idx:
+                                        secondary_counts[secondary_idx[sec]] += 1
+
+                            rows.append(
+                                (
+                                    city_code,
+                                    node_to_neighbourhood.get(node_id),
+                                    network_mode,
+                                    travel_time,
+                                    velocity,
+                                    node_id,
+                                    primary_counts,
+                                    secondary_counts,
+                                    area_km2,
+                                    len(poi_distances),
+                                )
+                            )
+
+                            if len(rows) >= BATCH_SIZE:
+                                _save_rows(conn, rows)
+                                rows.clear()
+
+                    if completed % 100 == 0 or completed == total_nodes:
+                        print(
+                            f"\rProgresso {city_code} ({network_mode}): {completed*100/total_nodes:.1f}%",
+                            end="",
+                            flush=True,
+                        )
+
+                _save_rows(conn, rows)
+                print()
+
     finally:
         conn.close()
 

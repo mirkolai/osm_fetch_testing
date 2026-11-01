@@ -32,9 +32,8 @@ Percorso ciclabile esteso: 001001_bike_extended.graphml.gz
 """
 
 
-
 # Carica lo shapefile dei comuni Italiani (scaricato da Istat)
-shapefile_path = "db_ingest/data/Limiti01012024_g/Com01012024_g/Com01012024_g_WGS84.shp"  # Specifica il percorso al tuo shapefile
+shapefile_path = "db_ingest/data/Limiti01012024_g/Com01012024_g/Com01012024_g_WGS84.shp"
 gdf = gpd.read_file(shapefile_path)
 
 # Facoltativo: filtro per provincia letto da .env (COD_PROV_FILTER)
@@ -63,54 +62,99 @@ os.makedirs("db_ingest/graphml", exist_ok=True)
 # Itera su ogni città e scarica il grafo
 graphs = {}
 for idx, row in region_gdf.iterrows():
-    city_code = row['PRO_COM_T']  # Nome della città
+    city_code = row['PRO_COM_T']
     print(city_code)
-    city_polygon = row['geometry']  # Geometria della città
-    #print(city_polygon)
+    city_polygon = row['geometry']
+
     for travel_type in utils.TRAVEL_SPEEDS.keys():
         gzip_filename = f"db_ingest/graphml/{city_code} {travel_type}.graphml.gz"
         graphml_filename = f"db_ingest/graphml/{city_code} {travel_type}.graphml"
 
-        #Se il file esiste già, non lo riscarica da OSM
+        # Se il file esiste già, non lo riscarica da OSM
         if not os.path.isfile(gzip_filename):
-            time.sleep(60)  # Aggiungi un ritardo di 1 secondo tra le richieste per evitare di sovraccaricare il server OSM
-            # Scarica la rete stradale per la città
-            graph = ox.graph_from_polygon(city_polygon, network_type=travel_type, retain_all=True)
 
-            ox.save_graphml(graph, graphml_filename)
+            wait_time = 60
 
-            # Comprime il file GraphML in formato .gz usando gzip
-            with open(graphml_filename, 'rb') as f_in:
-                with gzip.open(gzip_filename, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+            while True:
+                try:
+                    time.sleep(wait_time)
 
-            # Elimina il file GraphML non compresso, perchè non necessario
-            os.remove(graphml_filename)
+                    # Scarica la rete stradale per la città
+                    graph = ox.graph_from_polygon(
+                        city_polygon,
+                        network_type=travel_type,
+                        retain_all=True
+                    )
+
+                    ox.save_graphml(graph, graphml_filename)
+
+                    # Comprime il file GraphML in formato .gz usando gzip
+                    with open(graphml_filename, 'rb') as f_in:
+                        with gzip.open(gzip_filename, 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+
+                    # Elimina il file GraphML non compresso
+                    os.remove(graphml_filename)
+
+                    print(f"Download completato: {city_code} {travel_type}")
+                    break
+
+                except Exception as e:
+                    print(f"Errore download {city_code} {travel_type}: {e}")
+                    print(f"Nuovo tentativo tra {wait_time} secondi...")
+                    time.sleep(wait_time)
+                    wait_time = min(wait_time * 2, 600)
+
         else:
-            # Carica il grafo dal file decomresso
+            # Carica il grafo dal file decompresso
             graph = ox.load_graphml(gzip_filename)
-
 
         extended_gzip_filename = f"db_ingest/graphml/{city_code} {travel_type} extended.graphml.gz"
         extended_graphml_filename = f"db_ingest/graphml/{city_code} {travel_type} extended.graphml"
 
-
         if not os.path.isfile(extended_gzip_filename):
 
-            max_distance = int((max(utils.TRAVEL_TIMES[travel_type]) * 60) * max(utils.TRAVEL_SPEEDS[travel_type]) / 3.6)
+            # Calcola la distanza massima in base al tempo di viaggio e alla velocità di spostamento
+            max_distance = int(
+                (max(utils.TRAVEL_TIMES[travel_type]) * 60)
+                * max(utils.TRAVEL_SPEEDS[travel_type]) / 3.6
+            )
+
             bbox = utils.get_extended_bebop_from_graph(graph, max_distance)
-            time.sleep(60)  # Aggiungi un ritardo di 1 secondo tra le richieste per evitare di sovraccaricare il server OSM
-            G = ox.graph_from_bbox(bbox=bbox, network_type=travel_type, retain_all=True)
-            print(f"BBox and graph recovered: {bbox}")
-            node_mapping = {node: str(node) for node in G.nodes}
-            G = nx.relabel_nodes(G, node_mapping)
-            # Esporta il grafo in formato GraphML compresso con gzip
-            ox.save_graphml(G, extended_graphml_filename)
 
-            # Comprime il file GraphML in formato .gz usando gzip
-            with open(extended_graphml_filename, 'rb') as f_in:
-                with gzip.open(extended_gzip_filename, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+            wait_time = 600
 
-            # Elimina il file GraphML non compresso, perchè non necessario
-            os.remove(extended_graphml_filename)
+            while True:
+                try:
+                    time.sleep(wait_time)
+
+                    G = ox.graph_from_bbox(
+                        bbox=bbox,
+                        network_type=travel_type,
+                        retain_all=True
+                    )
+
+                    print(f"BBox and graph recovered: {bbox}")
+
+                    node_mapping = {node: str(node) for node in G.nodes}
+                    G = nx.relabel_nodes(G, node_mapping)
+
+                    # Esporta il grafo in formato GraphML
+                    ox.save_graphml(G, extended_graphml_filename)
+
+                    # Comprime il file GraphML in formato .gz usando gzip
+                    with open(extended_graphml_filename, 'rb') as f_in:
+                        with gzip.open(extended_gzip_filename, 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+
+                    # Elimina il file GraphML non compresso
+                    os.remove(extended_graphml_filename)
+
+                    print(f"Download esteso completato: {city_code} {travel_type}")
+                    break
+
+                except Exception as e:
+                    print(f"Errore download esteso {city_code} {travel_type}: {e}")
+                    print(f"Nuovo tentativo tra {wait_time} secondi...")
+                    time.sleep(wait_time)
+                    wait_time = min(wait_time * 2, 600)

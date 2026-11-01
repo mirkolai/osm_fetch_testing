@@ -46,133 +46,6 @@ const TORINO_BOUNDS = [
 const MAP_MIN_ZOOM = 12;
 const MAP_MAX_ZOOM = 18;
 
-// Mappa le categorie dei POI alle icone usate nella visualizzazione su mappa.
-function getIconClassForCategory(category) {
-    const normalizedCategory = category ? category.toLowerCase() : '';
-
-    if (normalizedCategory.includes('automotive') ||
-        normalizedCategory.includes('electric_vehicle')) {
-        return 'fa-solid fa-car';
-    }
-
-    if (normalizedCategory.includes('eat_and_drink') ||
-        normalizedCategory.includes('bar') ||
-        normalizedCategory.includes('restaurant') ||
-        normalizedCategory.includes('cafe')) {
-        return 'fa-solid fa-wine-glass';
-    }
-
-    if (normalizedCategory.includes('arts_and_entertainment') ||
-        normalizedCategory.includes('cinema') ||
-        normalizedCategory.includes('music') ||
-        normalizedCategory.includes('internet_cafe')) {
-        return 'fa-solid fa-music';
-    }
-
-    if (normalizedCategory.includes('beauty_and_spa') ||
-        normalizedCategory.includes('barber') ||
-        normalizedCategory.includes('beauty_salon')) {
-        return 'fa-solid fa-spa';
-    }
-
-    if (normalizedCategory.includes('active_life') ||
-        normalizedCategory.includes('sports_and_fitness_instruction') ||
-        normalizedCategory.includes('sports_and_recreation_venue')) {
-        return 'fa-regular fa-futbol';
-    }
-
-    if (normalizedCategory.includes('pets') ||
-        normalizedCategory.includes('pet_services') ||
-        normalizedCategory.includes('veterinarian')) {
-        return 'fa-solid fa-paw';
-    }
-
-    if (normalizedCategory.includes('education') ||
-        normalizedCategory.includes('college_university') ||
-        normalizedCategory.includes('educational_services') ||
-        normalizedCategory.includes('school')) {
-        return 'fa-solid fa-school';
-    }
-
-    if (normalizedCategory.includes('financial_service') ||
-        normalizedCategory.includes('atms')) {
-        return 'fa-solid fa-dollar-sign';
-    }
-
-    if (normalizedCategory.includes('retail') ||
-        normalizedCategory.includes('beverage_store') ||
-        normalizedCategory.includes('drugstore') ||
-        normalizedCategory.includes('food') ||
-        normalizedCategory.includes('meat_shop') ||
-        normalizedCategory.includes('pharmacy') ||
-        normalizedCategory.includes('seafood_market') ||
-        normalizedCategory.includes('shopping') ||
-        normalizedCategory.includes('water_store')) {
-        return 'fa-solid fa-bag-shopping';
-    }
-
-    if (normalizedCategory.includes('health_and_medical') ||
-        normalizedCategory.includes('ambulance') ||
-        normalizedCategory.includes('hospital') ||
-        normalizedCategory.includes('dentist') ||
-        normalizedCategory.includes('doctor') ||
-        normalizedCategory.includes('emergency_room') ||
-        normalizedCategory.includes('urgent_care')) {
-        return 'fa-solid fa-hospital';
-    }
-
-    if (normalizedCategory.includes('public_service_and_government') ||
-        normalizedCategory.includes('children_hall') ||
-        normalizedCategory.includes('civic_center') ||
-        normalizedCategory.includes('community_center') ||
-        normalizedCategory.includes('community_services') ||
-        normalizedCategory.includes('family_service_center') ||
-        normalizedCategory.includes('library') ||
-        normalizedCategory.includes('police_department') ||
-        normalizedCategory.includes('post_office') ||
-        normalizedCategory.includes('railway_service')) {
-        return 'fa-solid fa-landmark';
-    }
-
-    if (normalizedCategory.includes('religious_organization') ||
-        normalizedCategory.includes('buddhist_temple') ||
-        normalizedCategory.includes('church_cathedral') ||
-        normalizedCategory.includes('hindu_temple') ||
-        normalizedCategory.includes('mosque') ||
-        normalizedCategory.includes('shinto_shrines') ||
-        normalizedCategory.includes('sikh_temple') ||
-        normalizedCategory.includes('synagogue') ||
-        normalizedCategory.includes('temple')) {
-        return 'fa-solid fa-person-praying';
-    }
-
-    if (normalizedCategory.includes('travel') ||
-        normalizedCategory.includes('transportation')) {
-        return 'fa-solid fa-plane';
-    }
-
-    if (normalizedCategory.includes('professional_services') ||
-        normalizedCategory.includes('bike_repair_maintenance') ||
-        normalizedCategory.includes('child_care_and_day_care') ||
-        normalizedCategory.includes('community_gardens') ||
-        normalizedCategory.includes('emergency_service') ||
-        normalizedCategory.includes('laundry_services') ||
-        normalizedCategory.includes('mailbox_center') ||
-        normalizedCategory.includes('package_locker')) {
-        return 'fa-solid fa-user-tie';
-    }
-
-    if (normalizedCategory.includes('structure_and_geography') ||
-        normalizedCategory.includes('public_plaza') ||
-        normalizedCategory.includes('attractions_and_activities') ||
-        normalizedCategory.includes('park') ||
-        normalizedCategory.includes('plaza')) {
-        return 'fa-solid fa-monument';
-    }
-
-    return 'fa-solid fa-location-dot';
-}
-
 // Costruisce l'icona Leaflet per un POI a partire dalla sua categoria principale.
 function createPOIIcon(category) {
     const iconClass = getIconClassForCategory(category);
@@ -309,7 +182,7 @@ function drawPOIs(analysisData, layerGroup) {
     }
     
     console.log(`Inizio disegno ${analysisData.pois.length} POI`);
-
+    console.log('drawPOIs: analisiData', analysisData.pois);
     const toLatLon = (coords) => {
         if (!Array.isArray(coords) || coords.length !== 2) {
             return null;
@@ -435,13 +308,31 @@ async function loadDefaultAnalysis() {
     
     try {
         const coords = sessionData.selected_coordinates;
-        const response = await fetch('/api/userstudy/analyze-area', {
+
+        // Riusa l'analisi default calcolata nello step 3 se riferita alla stessa sessione e posizione.
+        try {
+            const cached = JSON.parse(sessionStorage.getItem('default_analysis_cache') || 'null');
+            if (
+                cached && cached.data && cached.data.status === 'success'
+                && cached.session_id === currentSessionId
+                && Math.abs(cached.latitude - coords.lat) < 1e-6
+                && Math.abs(cached.longitude - coords.lon) < 1e-6
+            ) {
+                defaultAnalysis = cached.data;
+                return true;
+            }
+        } catch (cacheError) {
+            console.warn('Cache analisi default non leggibile:', cacheError);
+        }
+
+        const response = await fetch('/api/userstudy/analyze-personalized', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 session_id: currentSessionId,
                 latitude: coords.lat,
-                longitude: coords.lon
+                longitude: coords.lon,
+                analysis_type: 'default'
             })
         });
         
@@ -471,14 +362,16 @@ async function loadPersonalizedAnalysis() {
                 latitude: coords.lat,
                 longitude: coords.lon,
                 travel_time: sessionData.travel_time || 15,
-                travel_mode: sessionData.travel_mode || 'walking',
-                categories: sessionData.selected_categories || []
+                travel_mode: sessionData.travel_mode || 'walk',
+                categories: sessionData.selected_categories || [],
+                analysis_type: 'personalized'
             })
         });
         
         const data = await response.json();
         if (response.ok && data.status === 'success') {
             personalizedAnalysis = data;
+            console.log('Analisi personalizzata caricata con successo:', personalizedAnalysis);
             return true;
         }
         return false;
@@ -503,11 +396,11 @@ function displaySessionInfo() {
     if (searchParams) {
         const travelTime = sessionData.travel_time || 15;
         const travelModeLabels = {
-            walking: 'Passo normale',
-            walking_cane: 'Senza fretta',
+            walk: 'Passo normale',
+            slow_walk: 'Passo lento',
             bike: 'In bicicletta',
         };
-        const travelMode = travelModeLabels[sessionData.travel_mode] || travelModeLabels.walking;
+        const travelMode = travelModeLabels[sessionData.travel_mode] || travelModeLabels.walk;
         searchParams.innerHTML = `${travelTime} min • ${travelMode}`;
     }
     
@@ -525,7 +418,9 @@ function displaySessionInfo() {
 
 // Prepara i dataset per il radar chart partendo dalle analisi disponibili.
 function buildChartDatasets() {
+
     const hasValidCityAverageMetrics = (params) => {
+        console.log('Verifica validità city average metrics:', params);
         if (!params) {
             return false;
         }
@@ -543,8 +438,8 @@ function buildChartDatasets() {
             ? personalizedAnalysis.city_average_parameters
             : null;
         const citySamplePersonalizedParameters = hasValidCityAverageMetrics(
-            personalizedAnalysis.city_sample_personalized_parameters,
-        ) ? personalizedAnalysis.city_sample_personalized_parameters : null;
+            personalizedAnalysis.city_average_parameters,
+        ) ? personalizedAnalysis.city_average_parameters : null;
         return { defaultParameters, personalizedParameters, cityAverageParameters, citySamplePersonalizedParameters };
     }
 
@@ -554,8 +449,8 @@ function buildChartDatasets() {
             ? personalizedAnalysis.city_average_parameters
             : null;
         const citySamplePersonalizedParameters = hasValidCityAverageMetrics(
-            personalizedAnalysis.city_sample_personalized_parameters,
-        ) ? personalizedAnalysis.city_sample_personalized_parameters : null;
+            personalizedAnalysis.city_average_parameters,
+        ) ? personalizedAnalysis.city_average_parameters : null;
         return {
             defaultParameters: personalizedParameters,
             personalizedParameters,
@@ -664,9 +559,12 @@ async function loadAndDisplay() {
         console.log(`✓ Analisi caricate - Default: ${defaultOk}, Personalizzata: ${personalizedOk}`);
         if (defaultAnalysis) {
             console.log(`  - Default: ${defaultAnalysis.pois?.length || 0} POI, parametri:`, defaultAnalysis.parameters);
+            console.log(`  - Default avg: ${defaultAnalysis.pois?.length || 0} POI, parametri:`, defaultAnalysis.city_average_parameters);
+
         }
         if (personalizedAnalysis) {
             console.log(`  - Personalizzata: ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.parameters);
+            console.log(`  - Personalizzata avg: ${personalizedAnalysis.pois?.length || 0} POI, parametri:`, personalizedAnalysis.city_average_parameters);
         }
         
         // Visualizza le informazioni della sessione
@@ -688,18 +586,45 @@ async function loadAndDisplay() {
         if (personalizedAnalysis) {
             console.log('  - Disegnando layer personalizzato...');
             personalizedLayer = L.featureGroup();
-            drawIsochrone(personalizedAnalysis, personalizedLayer, '#667eea', 0.15);
+            drawIsochrone(personalizedAnalysis, personalizedLayer, '#f56565', 0.15);
             personalizedLayer.addTo(map);
             console.log('  ✓ Isochrone personalizzato disegnato');
-            drawPOIs(personalizedAnalysis, personalizedLayer);
+            drawPOIs(personalizedAnalysis, personalizedLayer,'#f56565');
             console.log('  ✓ POI personalizzati in coda di disegno');
         }
         
-        // Centra la mappa sulle coordinate selezionate
+        // Centra la mappa sulle coordinate selezionate, allargando la vista per includere l'isocrona personalizzata
+        // (e quindi i POI raggiungibili anche lontani dalla via).
         if (sessionData.selected_coordinates) {
             const coords = sessionData.selected_coordinates;
             console.log('6. Centraggio mappa su:', coords);
-            map.setView([coords.lat, coords.lon], 14);
+            // Pin della via selezionata, sopra i marker dei POI.
+            L.marker([coords.lat, coords.lon], {
+                icon: L.divIcon({
+                    html: '<i class="fa-solid fa-location-dot" style="color: #483d8b; font-size: 32px;"></i>',
+                    className: 'custom-div-icon',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                }),
+                zIndexOffset: 1000,
+                title: sessionData.selected_street || 'Via selezionata'
+            }).addTo(map);
+            const bounds = L.latLngBounds([[coords.lat, coords.lon]]);
+            if (personalizedLayer && personalizedLayer.getBounds().isValid()) {
+                bounds.extend(personalizedLayer.getBounds());
+            }
+            // La sidebar fissa a destra copre la mappa: la escludo dall'area utile.
+            const sidebar = document.querySelector('.results-sidebar');
+            const sidebarWidth = sidebar ? sidebar.offsetWidth + 40 : 0;
+            if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+                map.setView([coords.lat, coords.lon], 14);
+            } else {
+                map.fitBounds(bounds, {
+                    paddingTopLeft: [20, 20],
+                    paddingBottomRight: [sidebarWidth, 20],
+                    maxZoom: 14,
+                });
+            }
             console.log('✓ Mappa centrata');
         }
         

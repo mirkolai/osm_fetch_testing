@@ -16,7 +16,7 @@ from db_ingest import utils
 
 """
 Questo script scarica i Point of Interest (PoI) dal database Overture per ciascun comune di cui è disponibile la rete ciclabile estesa.
-La rete ciclabile estesa include anche le aree raggiungibili a piedi e viene recuperata dalla cartella output, ad esempio:
+La rete ciclabile estesa include anche le aree raggiungibili in bicicletta (in bicicletta perchè si percorre più tragitto, quindi l'area coperta ìnclude quella a piedi) in 20 minuti dai confini amministrativi, e viene recuperata dalla cartella output, ad esempio:
 
 001001_bike_extended.graphml.gz
 
@@ -24,6 +24,77 @@ Overture consente di estrarre i PoI che ricadono all’interno del bounding box 
 Per ogni comune viene quindi generato un file contenente tutti i PoI inclusi in tale bounding box, salvato in formato Feather con compressione zstd:
 
 001001_PoI.feather.zstd
+
+
+esempio di un recodd di PoI:
+
+{
+  "id": "99003ee6-e75b-4dd6-8a8a-53a5a716c50d",
+  "geometry": "POINT (7.6869 45.0703)",
+  "bbox": {
+    "xmin": 7.6869,
+    "ymin": 45.0703,
+    "xmax": 7.6869,
+    "ymax": 45.0703
+  },
+  "theme": "places",
+  "type": "place",
+  "version": 1,
+  "sources": [
+    {
+      "property": null,
+      "dataset": "example",
+      "record_id": "123456",
+      "update_time": "2026-10-01T10:00:00Z",
+      "confidence": 0.95,
+      "license": null,
+      "provider": null,
+      "resource": null,
+      "version": null,
+      "between": null
+    }
+  ],
+  "operating_status": "open",
+  "basic_category": "restaurant",
+  "taxonomy": {
+    "primary": "restaurant",
+    "hierarchy": [
+      "food_and_drink",
+      "restaurant"
+    ],
+    "alternates": null
+  },
+  "confidence": 0.95,
+  "websites": [
+    "https://example.com"
+  ],
+  "socials": null,
+  "emails": null,
+  "phones": null,
+  "brand": {
+    "names": {
+      "primary": "Example Restaurant",
+      "common": null,
+      "rules": null
+    },
+    "wikidata": null
+  },
+  "addresses": [
+    {
+      "freeform": "Via Roma 1",
+      "locality": "Torino",
+      "postcode": "10121",
+      "region": "Piemonte",
+      "country": "IT"
+    }
+  ],
+  "names": {
+    "primary": "Example Restaurant",
+    "common": null,
+    "rules": null
+  }
+}
+
 
 """
 

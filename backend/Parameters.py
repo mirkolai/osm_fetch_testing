@@ -4,15 +4,61 @@ from shapely.geometry import shape
 from shapely.ops import transform
 import pyproj
 
+from backend.postgres_db import get_postgres_connection
+from backend.Connectivity import get_closeness_by_node_id
+
+
+
+def get_precomputed_metrics_rows(node_id, velocity, city_code, network_mode):
+    """
+    Legge da precomputed_metrics_rows le righe del nodo per velocity, city_code e network_mode.
+
+    Restituisce una riga per ogni tempo di percorrenza, ordinate per travel_time.
+    """
+    query = """
+        SELECT
+            city_code,
+            neighbourhood_id,
+            network_mode,
+            travel_time,
+            velocity_kmh,
+            node_id,
+            category_primary_counts,
+            category_secondary_counts,
+            isochrone_area_km2,
+            total_pois
+        FROM precomputed_metrics_rows
+        WHERE node_id = %s
+          AND velocity_kmh = %s
+          AND city_code = %s
+          AND network_mode = %s
+    """
+    query += " ORDER BY travel_time"
+
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (node_id, velocity, city_code, network_mode))
+            columns = [col[0] for col in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+
+
 
 def compute_isochrone_parameters(
-    pois_data,
-    isochrone_data,
-    vel,
-    total_pois,
-    max_minutes=60,
-    categories=None,
-    closeness_value=None,
+    node_id,
+    city_code,
+    velocity,
+    travel_time,
+    network_mode,
+    max_minutes,
+    selected_categories,
+    primary_categories, 
+    secondary_categories,
+    groups_categories,
 ):
     """
     Calcola le metriche aggregate mostrate nei grafici dello user study.
@@ -20,88 +66,101 @@ def compute_isochrone_parameters(
     Le metriche vengono tutte ricondotte nell'intervallo 0-1, così il frontend
     può confrontarle nello stesso radar chart senza altra normalizzazione.
     """
-    if categories is None:
-        categories = []
 
-    # L'area dell'isocrona è la base per density e per interpretare il numero di POI.
-    area_km2 = compute_area_km2_from_iso(isochrone_data)
+    result=get_precomputed_metrics_rows(node_id, velocity, city_code, network_mode)
 
-    # La proximity è il tempo massimo richiesto per raggiungere un POI nell'insieme filtrato.
-    if not pois_data:
-        proximity_min = "ND"
-    else:
-        speed_m_min = (vel * 1000) / 60.0
-        times = []
-        for poi in pois_data:
-            d_m = poi["distance"]
-            t = d_m / speed_m_min
-            times.append(t)
-        proximity_min = max(times)  # in minuti
-    #print("PROXIMITY NON NORM: ", proximity_min)
+    #print("result", result)
+    #esempio di result:
+    #[{'city_code': '001272', 'neighbourhood_id': '1', 'network_mode': 'walk', 'travel_time': 5, 'velocity_kmh': 5, 'node_id': 438238719, 'category_primary_counts': [1, 3, 1, 2, 8, 0, 117, 15, 3, 194, 17, 8, 6], 'category_secondary_counts': [0, 0, 1, 0, 0, 2, 0, 15, 0, 9, 0, 0, 0, 3, 2, 0, 20, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 3, 0, 26, 1, 0, 2, 0, 0, 1, 1, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 69, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 1, 111, 0, 0, 0, 6, 2, 0, 0, 2, 26, 0, 0, 1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 4, 11, 0, 0, 5, 2, 1, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 7], 'isochrone_area_km2': 0.13498390210836358, 'total_pois': 378}, {'city_code': '001272', 'neighbourhood_id': '1', 'network_mode': 'walk', 'travel_time': 10, 'velocity_kmh': 5, 'node_id': 438238719, 'category_primary_counts': [35, 36, 16, 31, 138, 1, 458, 125, 35, 909, 275, 43, 47], 'category_secondary_counts':...
+    for row in result:
+        if row["travel_time"] == travel_time:
+            category_secondary_counts = row["category_secondary_counts"] 
+            break
+    
+    # DENSITY
+    area_km2 = 0
+    total_pois = 0
 
-    if isinstance(proximity_min, str) and proximity_min == "ND":
-        proximity_score = 0.0
-    else:
-        proximity_score = min(proximity_min / max_minutes, 0)
-
-    # La density rapporta il numero totale di POI all'area dell'isocrona.
+    area_km2 = row["isochrone_area_km2"]
+            
+    for i in range(len(secondary_categories)):
+        if secondary_categories[i] in selected_categories:
+            total_pois = total_pois + category_secondary_counts[i]
+            
+    
     if total_pois == 0 or area_km2 == 0:
-        density_raw = 0
+        density = 0
     else:
-        density_raw = total_pois/area_km2
+        density = total_pois/area_km2
+    #print("density", density)
 
-    # Oltre 100 POI/km^2 la metrica viene saturata a 1 per evitare valori estremi.
-    if density_raw > 100:
-        density_score = 1.0
-    else:
-        density_score = density_raw / 100.0
+    # ENTROPY
+    counts = {cat: 0 for cat in selected_categories}
 
-    # L'entropia misura quanto le categorie sono distribuite in modo vario.
-    if total_pois == 0:
-        entropy_score = 0.0
+    for i in range(len(secondary_categories)):
+        if secondary_categories[i] in selected_categories:
+            counts[secondary_categories[i]] = category_secondary_counts[i]
+
+
+
+    H = 0.0
+    for cat in selected_categories:
+        if counts[cat] > 0:
+            p = counts[cat] / total_pois
+            H -= p * math.log2(p)
+
+    k = len(selected_categories)
+    max_H = math.log2(k) if k > 1 else 1.0
+    if max_H > 0:
+        entropy = H / max_H
     else:
-        counts = {cat: 0 for cat in categories}
-        for poi in pois_data:
-            primary = poi["categories"]["primary"]
-            if primary in counts:
-                counts[primary] += 1
-            else:
-                # Se la categoria primaria non rientra nel filtro, prova con le alternate.
-                for alt in (poi["categories"].get("alternate") or []):
-                    if alt in counts:
-                        counts[alt] += 1
+        entropy = 0
+    #print("entropy", entropy)
+
+
+    # PROXIMITY
+    sorted_precomputed_row = sorted(result, key=lambda x: x['travel_time'])
+    proximity = max_minutes
+
+    for item in sorted_precomputed_row:
+        primary_present = []
+
+        for primary, secondary_list in groups_categories.items():
+
+            found = False
+
+            for i, secondary in enumerate(secondary_categories):
+
+                if secondary in secondary_list:
+                    if item['category_secondary_counts'][i] > 0:
+                        found = True
                         break
 
-        total_pois = float(total_pois)
-        H = 0.0
-        for cat in categories:
-            if counts[cat] > 0:
-                p = counts[cat] / total_pois
-                H -= p * math.log2(p)
-        #print("ENTROPY NON NORM: ", H)
+            if found:
+                primary_present.append(primary)
 
-        k = len(categories)
-        max_H = math.log2(k) if k > 1 else 1.0
-        if max_H > 0:
-            entropy_score = H / max_H
-        else:
-            entropy_score = 0.0
+        # Verifica che tutte le primary category siano presenti
+        if len(primary_present) == len(groups_categories):
+            proximity = item['travel_time']
+            break
 
-    # PoiAccessibility sintetizza le tre metriche principali in un unico punteggio medio.
-    poi_accessibility = (proximity_score + density_score + entropy_score) / 3.0
 
+    #print("proximity", proximity)
     # La closeness arriva dalla collection connectivity; fallback 0.0 se non disponibile.
-    closeness_score = 0.0 if closeness_value is None else float(closeness_value)
+    
+    closeness_status, _, closeness = get_closeness_by_node_id(
+        node_id=node_id,
+        travel_mode=network_mode,
+    )
+    if closeness_status != 200:
+        closeness = 0.0
 
+    #print("closeness", closeness)
     return {
-        "proximity": proximity_min,
-        "proximity_score": proximity_score,
-        "density_raw": density_raw,
-        "density_score": density_score,
-        "entropy_raw": entropy_score,
-        "entropy_score": entropy_score,
-        "closeness": closeness_score,
-        "poi_accessibility": poi_accessibility,
+        "proximity": proximity,
+        "density": density,
+        "entropy": entropy,
+        "closeness": closeness,
     }
 
 def compute_area_km2_from_iso(isochrone_data: dict) -> float:

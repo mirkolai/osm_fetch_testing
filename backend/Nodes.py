@@ -3,6 +3,7 @@ from typing import Union, Tuple
 from pydantic import BaseModel
 
 from backend.postgres_db import get_postgres_connection
+from backend.RequestModels import NetworkMode
 import logging
 logging.basicConfig(
     #level=logging.INFO,
@@ -15,20 +16,15 @@ class Coordinates(BaseModel):
     lon: float
 
 
-def _resolve_network_mode(travel_mode: str) -> str:
-    normalized_mode = (travel_mode or "walking").strip().lower()
-    if normalized_mode in {"bike", "bicycle", "cycling"}:
-        return "bike"
-    return "walk"
-
-
-def get_id_node_by_coordinates(coordinates: Coordinates, travel_mode: str = "walking") -> Tuple[int, str, Union[int, None]]:
+def get_id_node_by_coordinates(coordinates: Coordinates, travel_mode: NetworkMode = "walk") -> Tuple[int, str, Union[int, None]]:
     """Restituisce il node_id più vicino sulla rete corretta per la modalità richiesta."""
     try:
         logging.info("get_id_node_by_coordinates 0")
         logging.info(coordinates)
 
-        network_mode = _resolve_network_mode(travel_mode)
+        if travel_mode not in {"walk", "bike"}:
+            return 400, "unsupported network_mode: use walk or bike", None
+
         conn = get_postgres_connection()
         try:
             with conn.cursor() as cursor:
@@ -40,7 +36,7 @@ def get_id_node_by_coordinates(coordinates: Coordinates, travel_mode: str = "wal
                     ORDER BY geom <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326)
                     LIMIT 1
                     """,
-                    (network_mode, coordinates.lon, coordinates.lat),
+                    (travel_mode, coordinates.lon, coordinates.lat),
                 )
                 row = cursor.fetchone()
         finally:

@@ -47,7 +47,8 @@ def ensure_routing_schema(conn):
             """
             CREATE TABLE IF NOT EXISTS nodes (
                 id BIGINT NOT NULL,
-                network_mode TEXT NOT NULL DEFAULT 'walk',
+                network_mode TEXT NOT NULL,
+                city_code TEXT NOT NULL,
                 x DOUBLE PRECISION,
                 y DOUBLE PRECISION,
                 geom geometry(POINT, 4326),
@@ -73,6 +74,7 @@ def ensure_routing_schema(conn):
             CREATE TABLE IF NOT EXISTS edges (
                 id BIGSERIAL PRIMARY KEY,
                 network_mode TEXT NOT NULL DEFAULT 'walk',
+                city_code TEXT NOT NULL,
                 source BIGINT NOT NULL,
                 target BIGINT NOT NULL,
                 cost DOUBLE PRECISION NOT NULL,
@@ -89,13 +91,15 @@ def ensure_routing_schema(conn):
             """
             CREATE TABLE IF NOT EXISTS node_poi (
                 id BIGSERIAL PRIMARY KEY,
-                network_mode TEXT NOT NULL DEFAULT 'walk',
+                network_mode TEXT NOT NULL,
+                city_code TEXT NOT NULL,
                 node_id BIGINT NOT NULL,
                 poi_id TEXT NOT NULL,
                 distance_m DOUBLE PRECISION,
 
                 UNIQUE (
                     network_mode,
+                    city_code,
                     node_id,
                     poi_id
                 )
@@ -110,7 +114,7 @@ def ensure_routing_schema(conn):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_nodes_mode_id
-            ON nodes(network_mode, id)
+            ON nodes(network_mode, city_code, id)
             """
         )
 
@@ -128,7 +132,7 @@ def ensure_routing_schema(conn):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_edges_mode_source
-            ON edges(network_mode, source)
+            ON edges(network_mode, city_code, source)
             """
         )
 
@@ -144,7 +148,7 @@ def ensure_routing_schema(conn):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_edges_mode_source_target
-            ON edges(network_mode, source, target)
+            ON edges(network_mode, city_code, source, target)
             """
         )
 
@@ -155,14 +159,14 @@ def ensure_routing_schema(conn):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_node_poi_mode_node
-            ON node_poi(network_mode, node_id)
+            ON node_poi(network_mode, city_code, node_id)
             """
         )
 
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_node_poi_poi
-            ON node_poi(poi_id)
+            ON node_poi(poi_id,city_code, network_mode)
             """
         )
 
@@ -212,7 +216,7 @@ def resolve_city_code(path: str) -> str:
 # NODES
 # ============================================================
 
-def upsert_nodes(conn, mode: str, nodes_rows):
+def upsert_nodes(conn, mode: str, city_code: str, nodes_rows):
     """
     Inserisce i nodi.
 
@@ -230,11 +234,13 @@ def upsert_nodes(conn, mode: str, nodes_rows):
         INSERT INTO nodes (
             id,
             network_mode,
+            city_code,
             x,
             y,
             geom
         )
         VALUES (
+            %s,
             %s,
             %s,
             %s,
@@ -290,6 +296,7 @@ def insert_edges(conn, edge_rows):
     query = """
         INSERT INTO edges (
             network_mode,
+            city_code,
             source,
             target,
             cost,
@@ -297,6 +304,7 @@ def insert_edges(conn, edge_rows):
         )
         SELECT
             data.network_mode,
+            data.city_code,
             data.source,
             data.target,
             data.cost,
@@ -322,10 +330,12 @@ def insert_edges(conn, edge_rows):
                 %s,
                 %s,
                 %s,
+                %s,
                 %s
             )
         ) AS data(
             network_mode,
+            city_code,
             source,
             target,
             cost,
@@ -338,8 +348,9 @@ def insert_edges(conn, edge_rows):
             SELECT 1
             FROM edges e
             WHERE e.network_mode = data.network_mode
-              AND e.source = data.source
-              AND e.target = data.target
+                AND e.city_code = data.city_code
+                AND e.source = data.source
+                AND e.target = data.target
         )
     """
 
@@ -422,6 +433,7 @@ def ingest_graphml(path: str, conn):
                 (
                     int(node_id),
                     mode,
+                    city_code,
                     x,
                     y,
                     x,
@@ -445,6 +457,7 @@ def ingest_graphml(path: str, conn):
         upsert_nodes(
             conn,
             mode,
+            city_code,
             nodes_rows
         )
 
@@ -472,6 +485,7 @@ def ingest_graphml(path: str, conn):
 
             edge_key = (
                 mode,
+                city_code,
                 source,
                 target
             )
@@ -505,6 +519,7 @@ def ingest_graphml(path: str, conn):
             edge_rows.append(
                 (
                     mode,
+                    city_code,
                     source,
                     target,
                     cost,
@@ -556,7 +571,7 @@ def main():
         glob.glob(
             os.path.join(
                 graphml_dir,
-                "*.graphml*"
+                "*extended.graphml*"
             )
         )
     )
@@ -579,6 +594,7 @@ def main():
     for path in paths:
 
         city_code = resolve_city_code(path)
+        mode = resolve_mode(path)
 
         if not utils.should_process_city(
             city_code

@@ -16,13 +16,6 @@ class Place(BaseModel):
         list[float], Len(min_length=2, max_length=2)]  # = Field(default=None, examples=[[-19.9160819,0.17]])
 
 
-class ReverseGeocodingResult(BaseModel):
-    status: int  # = Field(default=None, examples=[200])
-    message: str  # = Field(default=None, examples=["OK"])
-    result: Union[List[Place], None]  # = Field(default=None, examples=[{"name":"Tonga","importance":0.6379760396975804,
-    # "coordinates":["-19.9160819","-175.202642"]}])
-
-
 @lru_cache(maxsize=1000)
 def reverse_geocoding(query: str) -> Tuple[int, str, Union[List[Place] | None]]:
     """Interroga Nominatim e restituisce una lista di candidati per un testo libero."""
