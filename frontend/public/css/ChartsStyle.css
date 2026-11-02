@@ -266,3 +266,10 @@
 .pbc-group:hover .pbc-details, .pbc-group:focus-within .pbc-details { max-height: 200px; opacity: 1; }
 .pbc-legend { font-size: 12px; color: #333; display: flex; align-items: center; gap: 6px; }
 .pbc-avg-sample { display: inline-block; width: 3px; height: 14px; background: #000; }
+
+/* Gauge chart */
+.gauge-chart { width: 100%; margin-top: 24px; padding-top: 16px; border-top: 1px solid #ececf2; text-align: center; }
+.gauge-title { font-size: 15px; font-weight: 600; color: #333; }
+.gauge-subtitle { font-size: 12px; color: #777; margin-bottom: 4px; }
+.gauge-svg { width: 100%; max-width: 380px; height: auto; }
+.gauge-caption { font-size: 13px; color: #555; }

@@ -1,4 +1,5 @@
 import { renderProgressBarChart } from './components/ProgressBarChart.js';
+import { renderGaugeChart } from './components/GaugeChart.js';
 
 /**
  * Modulo per Passo 5/7 - Esplora i Risultati
@@ -479,6 +480,8 @@ function drawSpiderChart(
         citySamplePersonalizedParameters,
         '#f56565',
     );
+    renderGaugeChart(`gauge-chart-modal-standard`, defaultParameters, cityAverageParameters);
+    renderGaugeChart(`gauge-chart-modal-personalized`, personalizedParameters, citySamplePersonalizedParameters);
     ['step5-standard-legend', 'step5-personalized-legend'].forEach((id) => {
         const legend = document.getElementById(id);
         if (legend) {

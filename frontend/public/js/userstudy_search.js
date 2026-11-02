@@ -1,4 +1,5 @@
 import { renderProgressBarChart } from './components/ProgressBarChart.js';
+import { renderGaugeChart } from './components/GaugeChart.js';
 
 let currentSessionId = sessionStorage.getItem('session_id');
 let selectedStreet = null;
@@ -478,6 +479,7 @@ function showSpiderChartModal(parameters, cityAverageParameters = null) {
         Number.isFinite(cityAverageParameters.closeness);
 
     renderProgressBarChart('spider-chart-modal', parameters, hasValidCityAverage ? cityAverageParameters : null, '#483d8b');
+    renderGaugeChart('gauge-chart-modal', parameters, hasValidCityAverage ? cityAverageParameters : null);
 
     modalOverlay.classList.add('show');
 }

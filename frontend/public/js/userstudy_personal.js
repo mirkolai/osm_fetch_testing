@@ -73,88 +73,76 @@ async function initializeCategories() {
 function renderCategories(categories) {
     DOM.categoriesContainer.innerHTML = '';
     
-    Object.entries(categories).forEach(([parentCategory, subCategories]) => {
+    Object.entries(categories).forEach(([parentCategory, subCategories], categoryIndex) => {
         const categoryId = parentCategory;
         selectedCategoryObjects[categoryId] = [];
         
         // Crea il contenitore della categoria padre
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'category-group';
-        categoryDiv.style.marginBottom = '5px';
-        categoryDiv.style.padding = '5px';
-        categoryDiv.style.backgroundColor = '#f9f9f9';
-        categoryDiv.style.borderRadius = '8px';
         
-        // Bottone della categoria padre
+        const categoryHeader = document.createElement('div');
+        categoryHeader.className = 'category-header';
+
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.id = `select-all-category-${categoryIndex}`;
+        selectAllCheckbox.className = 'select-all-checkbox';
+        selectAllCheckbox.setAttribute('aria-label', `Seleziona tutte le sottocategorie di ${getCategoryLabel(parentCategory)}`);
+
+        const selectAllLabel = document.createElement('label');
+        selectAllLabel.htmlFor = selectAllCheckbox.id;
+        selectAllLabel.className = 'select-all-label';
+        selectAllLabel.textContent = 'Tutte';
+        selectAllLabel.style.display = 'none';
+
+        // Il bottone della categoria padre apre e chiude le sottocategorie.
         const button = document.createElement('button');
         button.className = 'category-parent-btn';
         button.type = 'button';
         button.dataset.categoryId = categoryId;
-        button.style.width = '100%';
-        button.style.padding = '5px';
-        button.style.marginBottom = '5px';
-        button.style.border = '2px solid #ddd';
-        button.style.borderRadius = '6px';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-label', `Mostra o nascondi le sottocategorie di ${getCategoryLabel(parentCategory)}`);
         button.style.backgroundColor = COLORS.NONE;
         button.style.color = '#333';
-        button.style.fontWeight = '600';
-        button.style.fontSize = '14px';
-        button.title = 'Doppio clic per selezionare o deselezionare tutte le sottocategorie';
-        button.style.cursor = 'pointer';
-        button.style.transition = 'all 0.3s';
-        button.style.display = 'flex';
-        button.style.justifyContent = 'space-between';
-        button.style.alignItems = 'center';
-        button.style.flexWrap = 'wrap';
-        button.style.gap = '5px';
         
         // Formatta il nome della categoria padre
         const displayName = getCategoryLabel(parentCategory);
         
         const textSpan = document.createElement('span');
+        textSpan.className = 'category-parent-label';
         textSpan.textContent = displayName;
-        textSpan.style.flex = '1';
-        textSpan.style.textAlign = 'left';
-        textSpan.style.wordBreak = 'break-word';
         
         const toggleIcon = document.createElement('i');
-        toggleIcon.className = 'bi bi-chevron-down';
-        toggleIcon.style.fontSize = '14px';
-        toggleIcon.style.flexShrink = '0';
-        toggleIcon.style.marginLeft = '5px';
+        toggleIcon.className = 'bi bi-chevron-down category-toggle-icon';
         
         button.appendChild(textSpan);
         button.appendChild(toggleIcon);
+        categoryHeader.appendChild(selectAllCheckbox);
+        categoryHeader.appendChild(selectAllLabel);
+        categoryHeader.appendChild(button);
         
         // Container per le sottocategorie (collassabile)
         const collapseDiv = document.createElement('div');
         collapseDiv.className = 'subcategories-collapse';
         collapseDiv.style.display = 'none';
-        collapseDiv.style.paddingTop = '5px';
-        collapseDiv.style.borderTop = '1px solid #ddd';
         
         // Ogni sottocategoria aggiorna sia lo stato locale sia l'anteprima delle selezioni effettuate.
         subCategories.forEach(subCategory => {
             const itemDiv = document.createElement('div');
-            itemDiv.style.marginBottom = '5px';
-            itemDiv.style.display = 'flex';
-            itemDiv.style.alignItems = 'center';
+            itemDiv.className = 'subcategory-item';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.id = subCategory;
+            checkbox.id = `subcategory-${categoryIndex}-${collapseDiv.children.length}`;
             checkbox.value = subCategory;
             checkbox.className = 'category-checkbox';
             checkbox.dataset.parentCategory = categoryId;
-            checkbox.style.marginRight = '5px';
             checkbox.style.cursor = 'pointer';
             
             const label = document.createElement('label');
-            label.htmlFor = subCategory;
+            label.htmlFor = checkbox.id;
             label.textContent = getCategoryLabel(subCategory);
-            label.style.cursor = 'pointer';
-            label.style.fontSize = '14px';
-            label.style.marginBottom = '0';
             label.style.fontWeight = '400';
             label.className = 'subcategory-label';
             
@@ -177,20 +165,17 @@ function renderCategories(categories) {
             e.preventDefault();
             const isVisible = collapseDiv.style.display !== 'none';
             collapseDiv.style.display = isVisible ? 'none' : 'block';
+            button.setAttribute('aria-expanded', String(!isVisible));
             toggleIcon.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
             toggleIcon.style.transition = 'transform 0.3s';
         });
 
-        button.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const selectAll = selectedCategoryObjects[categoryId].length !== subCategories.length;
+        selectAllCheckbox.addEventListener('change', () => {
             const checkboxes = collapseDiv.querySelectorAll('.category-checkbox');
-            checkboxes.forEach((checkbox, index) => {
-                checkbox.checked = selectAll;
-                checkbox.nextElementSibling.style.fontWeight = selectAll ? '700' : '400';
-                updateCategorySelection(categoryId, subCategories[index], selectAll);
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+                checkbox.nextElementSibling.style.fontWeight = selectAllCheckbox.checked ? '700' : '400';
+                updateCategorySelection(categoryId, checkbox.value, selectAllCheckbox.checked);
             });
 
             updateParentButtonColor(categoryId, subCategories);
@@ -198,7 +183,7 @@ function renderCategories(categories) {
             updateNextButtonState();
         });
         
-        categoryDiv.appendChild(button);
+        categoryDiv.appendChild(categoryHeader);
         categoryDiv.appendChild(collapseDiv);
         DOM.categoriesContainer.appendChild(categoryDiv);
     });
@@ -240,18 +225,23 @@ function updateParentButtonColor(parentCategory, totalSubCategories) {
     
     button.style.backgroundColor = color;
     button.style.color = selectedCount > 0 ? 'white' : '#333';
+    const selectAllCheckbox = button.closest('.category-group')?.querySelector('.select-all-checkbox');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = selectedCount === totalCount && totalCount > 0;
+        selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+    }
     
     // Il checkmark rende immediatamente visibile che almeno una sottocategoria è attiva.
-    let checkmark = button.querySelector('.checkmark');
-    if (selectedCount > 0 && !checkmark) {
-        checkmark = document.createElement('i');
-        checkmark.className = 'bi bi-check-circle-fill checkmark';
-        checkmark.style.marginRight = '8px';
-        checkmark.style.color = 'white';
-        button.insertBefore(checkmark, button.firstChild);
-    } else if (selectedCount === 0 && checkmark) {
-        checkmark.remove();
-    }
+    //let checkmark = button.querySelector('.checkmark');
+    //if (selectedCount > 0 && !checkmark) {
+        //checkmark = document.createElement('i');
+        //checkmark.className = 'bi bi-check-circle-fill checkmark';
+        //checkmark.style.marginRight = '8px';
+        //checkmark.style.color = 'white';
+        //button.insertBefore(checkmark, button.firstChild);
+    //} else if (selectedCount === 0 && checkmark) {
+    //    checkmark.remove();
+    //}
 }
 
 // Mostra l'elenco sintetico delle categorie selezionate nel box riepilogativo in basso.
@@ -269,13 +259,6 @@ function updateSelectedBadges() {
         const badge = document.createElement('span');
         badge.className = 'category-badge';
         badge.textContent = getCategoryLabel(category);
-        badge.style.display = 'inline-block';
-        badge.style.backgroundColor = '#667eea';
-        badge.style.color = 'white';
-        badge.style.padding = '4px 8px';
-        badge.style.borderRadius = '20px';
-        badge.style.fontSize = '12px';
-        badge.style.margin = '3px 3px 3px 0';
         
         DOM.selectedBadges.appendChild(badge);
     });

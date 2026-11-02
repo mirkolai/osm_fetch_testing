@@ -132,69 +132,197 @@
         
         .categories-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
         }
         
-        .category-item {
-            position: relative;
+        .category-group {
+            min-width: 0;
+            padding: 12px !important;
+            margin-bottom: 0 !important;
+            border: 1px solid #e6e8f0;
+            border-radius: 14px !important;
+            background: #fff !important;
+            box-shadow: 0 3px 12px rgba(37, 45, 80, 0.06);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .category-group:has(.category-checkbox:checked) {
+            border-color: #b9b2e5;
+            box-shadow: 0 4px 16px rgba(72, 61, 139, 0.12);
         }
         
         .category-checkbox {
-            display: none;
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            accent-color: #483d8b;
+            margin: 0 10px 0 2px !important;
         }
-        
-        .category-label {
+
+        .category-header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 5px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            gap: 7px;
+        }
+
+        .select-all-checkbox {
+            width: 17px;
+            height: 17px;
+            flex: 0 0 auto;
+            margin: 0;
+            accent-color: #483d8b;
             cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-            font-weight: 500;
-            font-size: 15px;
+        }
+
+        .select-all-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 0 9px;
+            border: 1px solid #e5e3f2;
+            border-radius: 9px;
+            background: #f7f6fc;
+            color: #51477f;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .select-all-label:hover {
+            border-color: #b9b2e5;
+            background: #efedf9;
+        }
+
+        .category-parent-btn {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: 8px;
-            color: #555;
-            background: white;
+            width: auto !important;
+            min-height: 38px;
+            margin: 0 !important;
+            padding: 7px 10px !important;
+            border: 1px solid #e5e3f2 !important;
+            border-radius: 9px !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            line-height: 1.35;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
         }
-        
-        .category-checkbox:checked + .category-label {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-color: #667eea;
-            color: white;
+
+        .category-parent-btn:hover {
+            border-color: #b9b2e5 !important;
+            box-shadow: 0 2px 8px rgba(72, 61, 139, 0.1);
         }
-        
-        .category-label:hover {
-            border-color: #667eea;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+
+        .category-parent-btn:focus-visible,
+        .select-all-checkbox:focus-visible,
+        .category-checkbox:focus-visible + .subcategory-label {
+            outline: 3px solid rgba(102, 126, 234, 0.35);
+            outline-offset: 2px;
         }
-        
+
+        .category-parent-label {
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
+
+        .category-toggle-icon {
+            flex: 0 0 auto;
+            font-size: 12px;
+            opacity: 0.75;
+            transition: transform 0.2s ease;
+        }
+
+        .category-group .checkmark {
+            margin-right: 0 !important;
+            color: inherit !important;
+        }
+
+        .subcategories-collapse {
+            margin-top: 10px;
+            padding: 4px 2px 0;
+            border-top: 1px solid #ececf2;
+        }
+
+        .subcategory-item {
+            display: flex;
+            align-items: center;
+            min-height: 38px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            transition: background-color 0.15s ease;
+        }
+
+        .subcategory-item:hover {
+            background: #f7f6fc;
+        }
+
+        .subcategory-label {
+            flex: 1;
+            margin: 0 !important;
+            color: #4a4d5a;
+            font-size: 13px;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+
+        .category-checkbox:checked + .subcategory-label {
+            color: #403775;
+        }
+
         .selected-categories {
-            background: #f0f0ff;
-            border: 2px solid #e0e0e0;
+            background: #f7f6fc;
+            border: 1px solid #e5e3f2;
             border-radius: 12px;
-            padding: 5px;
-            margin-top: 20px;
+            padding: 14px;
+            margin-top: 12px;
             display: none;
         }
         
         .selected-categories.show {
             display: block;
         }
+
+        .selected-categories strong {
+            color: #51477f;
+            font-size: 13px;
+        }
         
         .category-badge {
             display: inline-block;
-            background: #667eea;
+            background: #51477f;
             color: white;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin: 3px 3px 3px 0;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            margin: 4px 4px 0 0;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 12px;
+            }
+
+            .card-custom {
+                padding: 24px 18px;
+            }
+
+            .categories-container {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 10px;
+            }
         }
         
         .button-group {
@@ -311,7 +439,7 @@
             
             <!-- Selected Categories -->
             <div class="selected-categories" id="selected-categories">
-                <strong style="color: #667eea; font-size: 14px;">Categorie selezionate:</strong>
+                <strong>Categorie selezionate:</strong>
                 <div id="selected-badges" style="margin-top: 6px;"></div>
             </div>
             
