@@ -35,10 +35,14 @@ from backend.userstudy_db import (
     get_session_count
 )
 # Importa le funzioni per le API
-from backend.Isochrones import get_isocronewalk_by_node_id
+from backend.Isochrones import get_isocronewalk_by_node_id, fetch_reachable_node_costs
 from backend.Poi import get_detailed_pois_by_node_id
-from backend.Connectivity import get_nodes_in_city
-from backend.Parameters import compute_isochrone_parameters
+from backend.Connectivity import get_nodes_in_city, get_closeness_by_node_ids
+from backend.Parameters import (
+    compute_isochrone_parameters,
+    compute_parameters_from_rows,
+    get_precomputed_metrics_rows_batch,
+)
 from backend.Nodes import get_id_node_by_coordinates
 from backend.RequestModels import Coordinates, NetworkMode, UserStudyTravelMode
 from backend.postgres_db import get_postgres_connection
@@ -199,57 +203,56 @@ def _compute_city_sample_personalized_parameters(
         network_mode,
     )
 
-    proximities=[]
-    entropies=[]
-    densities=[]
-    closenesses=[]
-    i=0
-    for row in sample_rows:
-        node_id = row["node_id"]
-        #print("row", i )
-        i+=1
+    node_ids = [row["node_id"] for row in sample_rows]
 
+    # Una query per le righe precomputate e una per la closeness di tutto il campione.
+    rows_by_node = get_precomputed_metrics_rows_batch(
+        node_ids, velocity, city_code, network_mode
+    )
+    closeness_by_node = get_closeness_by_node_ids(node_ids, network_mode)
+
+    proximities = []
+    entropies = []
+    densities = []
+    closenesses = []
+    for node_id in node_ids:
         try:
-        
-            parameters = compute_isochrone_parameters(
-                        node_id,
-                        city_code,
-                        velocity,
-                        travel_time,
-                        network_mode,
-                        max_minutes,
-                        selected_categories,)
-            proximities.append(parameters["proximity"])
-            entropies.append(parameters["entropy"])
-            densities.append(parameters["density"])
-            closenesses.append(parameters["closeness"])
-
-
-
-            averages = {
-                "proximity": sum(proximities) / len(proximities) if proximities else 0,
-                "entropy": sum(entropies) / len(entropies) if entropies else 0,
-                "density": sum(densities) / len(densities) if densities else 0,
-                "closeness": sum(closenesses) / len(closenesses) if closenesses else 0,
-            }
-
-
-            minimum_values = {
-                "proximity": np.percentile(proximities, 10) if proximities else 0,
-                "entropy": np.percentile(entropies, 10) if entropies else 0,
-                "density": np.percentile(densities, 10) if densities else 0,
-                "closeness": np.percentile(closenesses, 10) if closenesses else 0,
-            }
-
-            maximum_values = {
-                "proximity": np.percentile(proximities, 90) if proximities else 0,
-                "entropy": np.percentile(entropies, 90) if entropies else 0,
-                "density": np.percentile(densities, 90) if densities else 0,
-                "closeness": np.percentile(closenesses, 90) if closenesses else 0,
-            }
+            parameters = compute_parameters_from_rows(
+                rows_by_node.get(int(node_id), []),
+                closeness_by_node.get(int(node_id), 0.0),
+                travel_time,
+                max_minutes,
+                selected_categories,
+            )
         except Exception as e:
             print(f"Error computing parameters for node_id {node_id}: {e}")
-            
+            continue
+        proximities.append(parameters["proximity"])
+        entropies.append(parameters["entropy"])
+        densities.append(parameters["density"])
+        closenesses.append(parameters["closeness"])
+
+    if not proximities:
+        raise ValueError("nessun nodo del campione ha metriche calcolabili")
+
+    averages = {
+        "proximity": sum(proximities) / len(proximities),
+        "entropy": sum(entropies) / len(entropies),
+        "density": sum(densities) / len(densities),
+        "closeness": sum(closenesses) / len(closenesses),
+    }
+    minimum_values = {
+        "proximity": np.percentile(proximities, 10),
+        "entropy": np.percentile(entropies, 10),
+        "density": np.percentile(densities, 10),
+        "closeness": np.percentile(closenesses, 10),
+    }
+    maximum_values = {
+        "proximity": np.percentile(proximities, 90),
+        "entropy": np.percentile(entropies, 90),
+        "density": np.percentile(densities, 90),
+        "closeness": np.percentile(closenesses, 90),
+    }
 
     return averages,minimum_values,maximum_values
 
@@ -430,11 +433,19 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         # Step 2: Recupera l'isochrone
         # usa postgres con pgr_drivingDistance per torvare i nodi raggiungibili
         # MultiPoint(reachable_coords).convex_hull per generare l'isochrona
+        # pgr_drivingDistance viene eseguita una sola volta e riusata per i POI.
+        try:
+            reachable = fetch_reachable_node_costs(
+                node_id, (velocity * 1000 / 60) * minutes, network_mode
+            )
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"Isochrone not found: Errore del server: {e}")
         iso_status, iso_msg, isochrone_data = get_isocronewalk_by_node_id(
             node_id=node_id,
             minute=minutes,
             velocity=velocity,
-            travel_mode=network_mode
+            travel_mode=network_mode,
+            reachable=reachable,
         )
         if iso_status != 200:
             raise HTTPException(status_code=404, detail=f"Isochrone not found: {iso_msg}")
@@ -447,7 +458,8 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             min=minutes,
             vel=velocity,
             categories=selected_categories,
-            travel_mode=network_mode
+            travel_mode=network_mode,
+            reachable=reachable,
         )
         #print("poi_status", poi_status,len(pois_data), "total_pois", total_pois)
         if poi_status != 200:

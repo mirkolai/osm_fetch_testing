@@ -125,6 +125,24 @@ def ensure_routing_schema(conn):
             """
         )
 
+        # Indici GiST parziali per modalità: il nearest-neighbour
+        # (ORDER BY geom <-> punto) non deve scartare i nodi dell'altra rete.
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_nodes_geom_walk
+            ON nodes USING GIST(geom)
+            WHERE network_mode = 'walk'
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_nodes_geom_bike
+            ON nodes USING GIST(geom)
+            WHERE network_mode = 'bike'
+            """
+        )
+
         # ----------------------------------------------------
         # INDICI EDGES
         # ----------------------------------------------------
@@ -152,6 +170,16 @@ def ensure_routing_schema(conn):
             """
         )
 
+        # Covering index per leggere il grafo (pgr_drivingDistance) di una città
+        # senza accedere alla tabella.
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_edges_mode_city_cover
+            ON edges(network_mode, city_code)
+            INCLUDE (source, target, cost)
+            """
+        )
+
         # ----------------------------------------------------
         # INDICI NODE POI
         # ----------------------------------------------------
@@ -167,6 +195,15 @@ def ensure_routing_schema(conn):
             """
             CREATE INDEX IF NOT EXISTS idx_node_poi_poi
             ON node_poi(poi_id,city_code, network_mode)
+            """
+        )
+
+        # Covering index per il join con i nodi raggiungibili (index-only scan).
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_node_poi_mode_node_cover
+            ON node_poi(network_mode, node_id)
+            INCLUDE (poi_id, distance_m)
             """
         )
 

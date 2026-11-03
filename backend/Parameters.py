@@ -5,7 +5,7 @@ from shapely.ops import transform
 import pyproj
 
 from backend.postgres_db import get_postgres_connection
-from backend.Connectivity import get_closeness_by_node_id
+from backend.Connectivity import get_closeness_by_node_id, get_closeness_by_node_ids
 from backend.category_mapping import aggregate_secondary_counts, get_new_groups
 
 
@@ -46,6 +46,48 @@ def get_precomputed_metrics_rows(node_id, velocity, city_code, network_mode):
         conn.close()
 
 
+def get_precomputed_metrics_rows_batch(node_ids, velocity, city_code, network_mode):
+    """
+    Come get_precomputed_metrics_rows, ma per più nodi con una sola query.
+
+    Restituisce {node_id: [righe ordinate per travel_time]}.
+    """
+    node_ids = [int(node_id) for node_id in node_ids]
+    if not node_ids:
+        return {}
+
+    query = """
+        SELECT
+            city_code,
+            neighbourhood_id,
+            network_mode,
+            travel_time,
+            velocity_kmh,
+            node_id,
+            category_primary_counts,
+            category_secondary_counts,
+            isochrone_area_km2,
+            total_pois
+        FROM precomputed_metrics_rows
+        WHERE node_id = ANY(%s)
+          AND velocity_kmh = %s
+          AND city_code = %s
+          AND network_mode = %s
+        ORDER BY node_id, travel_time
+    """
+
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (node_ids, velocity, city_code, network_mode))
+            columns = [col[0] for col in cursor.description]
+            rows_by_node = {}
+            for row in cursor.fetchall():
+                record = dict(zip(columns, row))
+                rows_by_node.setdefault(int(record["node_id"]), []).append(record)
+            return rows_by_node
+    finally:
+        conn.close()
 
 
 
@@ -65,15 +107,44 @@ def compute_isochrone_parameters(
     può confrontarle nello stesso radar chart senza altra normalizzazione.
     """
 
-    result=get_precomputed_metrics_rows(node_id, velocity, city_code, network_mode)
+    result = get_precomputed_metrics_rows(node_id, velocity, city_code, network_mode)
+
+    # La closeness arriva dalla collection connectivity; fallback 0.0 se non disponibile.
+    closeness_status, _, closeness = get_closeness_by_node_id(
+        node_id=node_id,
+        travel_mode=network_mode,
+    )
+    if closeness_status != 200:
+        closeness = 0.0
+
+    return compute_parameters_from_rows(
+        result, closeness, travel_time, max_minutes, selected_categories
+    )
+
+
+def compute_parameters_from_rows(
+    result,
+    closeness,
+    travel_time,
+    max_minutes,
+    selected_categories,
+):
+    """
+    Calcolo puro delle metriche a partire dalle righe precomputate di un nodo
+    (una per travel_time) e dalla sua closeness. Non accede ai database.
+    """
 
     #print("result", result)
     #esempio di result:
     #[{'city_code': '001272', 'neighbourhood_id': '1', 'network_mode': 'walk', 'travel_time': 5, 'velocity_kmh': 5, 'node_id': 438238719, 'category_primary_counts': [1, 3, 1, 2, 8, 0, 117, 15, 3, 194, 17, 8, 6], 'category_secondary_counts': [0, 0, 1, 0, 0, 2, 0, 15, 0, 9, 0, 0, 0, 3, 2, 0, 20, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 3, 0, 26, 1, 0, 2, 0, 0, 1, 1, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 69, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 1, 111, 0, 0, 0, 6, 2, 0, 0, 2, 26, 0, 0, 1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 4, 11, 0, 0, 5, 2, 1, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 7], 'isochrone_area_km2': 0.13498390210836358, 'total_pois': 378}, {'city_code': '001272', 'neighbourhood_id': '1', 'network_mode': 'walk', 'travel_time': 10, 'velocity_kmh': 5, 'node_id': 438238719, 'category_primary_counts': [35, 36, 16, 31, 138, 1, 458, 125, 35, 909, 275, 43, 47], 'category_secondary_counts':...
-    for row in result:
-        if row["travel_time"] == travel_time:
-            category_secondary_counts = row["category_secondary_counts"] 
+    row = None
+    for candidate in result:
+        if candidate["travel_time"] == travel_time:
+            row = candidate
+            category_secondary_counts = row["category_secondary_counts"]
             break
+    if row is None:
+        raise LookupError(f"nessuna riga precomputata per travel_time={travel_time}")
     
     # DENSITY
     area_km2 = 0
@@ -135,16 +206,6 @@ def compute_isochrone_parameters(
             proximity = item['travel_time']
             break
 
-
-    #print("proximity", proximity)
-    # La closeness arriva dalla collection connectivity; fallback 0.0 se non disponibile.
-    
-    closeness_status, _, closeness = get_closeness_by_node_id(
-        node_id=node_id,
-        travel_mode=network_mode,
-    )
-    if closeness_status != 200:
-        closeness = 0.0
 
     #print("closeness", closeness)
     return {

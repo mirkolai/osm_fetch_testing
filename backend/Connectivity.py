@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Dict, Iterable, Tuple, Union
 
 from backend.mongo_db import db
 from backend.RequestModels import NetworkMode
@@ -24,6 +24,33 @@ def get_closeness_by_node_id(node_id: int, travel_mode: NetworkMode) -> Tuple[in
         return 200, "OK", float(closeness)
     except Exception as exc:
         return 500, str(exc), None
+
+
+def get_closeness_by_node_ids(node_ids: Iterable[int], travel_mode: NetworkMode) -> Dict[int, float]:
+    """
+    Come get_closeness_by_node_id, ma per più nodi con una sola query.
+
+    Restituisce {node_id: closeness}; i nodi senza closeness sono assenti
+    (il chiamante usa 0.0, come nel caso del lookup singolo).
+    """
+    if travel_mode not in {"walk", "bike"}:
+        return {}
+
+    ids = [int(node_id) for node_id in node_ids]
+    if not ids:
+        return {}
+
+    cursor = db[f"connectivity_{travel_mode}"].find(
+        {"node_id": {"$in": ids}},
+        {"_id": 0, "node_id": 1, "connectivity.closeness": 1},
+    )
+    closeness_by_node: Dict[int, float] = {}
+    for document in cursor:
+        closeness = (document.get("connectivity") or {}).get("closeness")
+        if closeness is not None:
+            # Come find_one: vale il primo documento trovato per il nodo.
+            closeness_by_node.setdefault(int(document["node_id"]), float(closeness))
+    return closeness_by_node
 
 
 def get_nodes_in_city(N: int, PRO_COM_T: str, network_mode: NetworkMode):

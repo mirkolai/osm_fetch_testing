@@ -260,6 +260,12 @@ def main() -> None:
                 "city_code"
             )
 
+            # Lookup per solo node_id (get_closeness_by_node_id / _ids):
+            # l'indice composto (city_code, node_id) non è utilizzabile.
+            collection.create_index(
+                "node_id"
+            )
+
             # ---------------------------------------------------------
             # CONTROLLO: il calcolo esiste già?
             # ---------------------------------------------------------

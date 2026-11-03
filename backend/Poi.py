@@ -75,15 +75,24 @@ def _resolve_network_mode(travel_mode: str) -> str:
     return "walk"
 
 
-def _fetch_reachable_pois_by_mode(node_id: int, max_distance: float, network_mode: str) -> List[Dict]:
+def _fetch_reachable_pois_by_mode(
+    node_id: int,
+    max_distance: float,
+    network_mode: str,
+    reachable=None,
+) -> List[Dict]:
     """
     Calcola i POI raggiungibili con pgr_drivingDistance su rete reale per mode.
 
     Il risultato usa la distanza di rete del nodo raggiungibile più vicino al POI
     sommata alla distanza residua nodo->POI salvata in node_poi.distance_m.
     """
-    query = f"""
-        WITH reachable AS (
+    if reachable is not None:
+        # Nodi raggiungibili già calcolati dal chiamante: evita una seconda pgr_drivingDistance.
+        reachable_source = "SELECT node, agg_cost FROM unnest(%s::bigint[], %s::float8[]) AS t(node, agg_cost)"
+        reachable_params = ([int(r[0]) for r in reachable], [float(r[1]) for r in reachable])
+    else:
+        reachable_source = f"""
             SELECT node, agg_cost
             FROM pgr_drivingDistance(
                 'SELECT id, source, target, cost, cost AS reverse_cost FROM edges WHERE network_mode = ''{network_mode}''',
@@ -91,6 +100,12 @@ def _fetch_reachable_pois_by_mode(node_id: int, max_distance: float, network_mod
                 %s,
                 directed := false
             )
+        """
+        reachable_params = (node_id, max_distance)
+
+    query = f"""
+        WITH reachable AS (
+            {reachable_source}
         )
         SELECT
             np.poi_id,
@@ -105,7 +120,7 @@ def _fetch_reachable_pois_by_mode(node_id: int, max_distance: float, network_mod
     conn = get_postgres_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, (node_id, max_distance, network_mode, max_distance))
+            cursor.execute(query, (*reachable_params, network_mode, max_distance))
             rows = cursor.fetchall()
             return list(rows)
     finally:
@@ -118,6 +133,7 @@ def get_detailed_pois_by_node_id(
     vel: int,
     categories: List[str],
     travel_mode: str = "walking",
+    reachable=None,
 ) -> Tuple[int, str, Union[List[Dict], None], int]:
     """
     Recupera i POI raggiungibili dal nodo specificato entro il tempo massimo indicato.
@@ -140,6 +156,7 @@ def get_detailed_pois_by_node_id(
             node_id=node_id,
             max_distance=max_distance,
             network_mode=network_mode,
+            reachable=reachable,
         )
         if len(documents) == 0:
             return 200, "not found", [], 0

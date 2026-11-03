@@ -100,6 +100,26 @@ def check_and_add_indexes():
                     "query": "CREATE INDEX idx_edges_network_mode ON edges (network_mode);",
                     "description": "Indice B-tree su edges.network_mode per filtri sulla rete"
                 },
+                {
+                    "name": "idx_nodes_geom_walk",
+                    "query": "CREATE INDEX idx_nodes_geom_walk ON nodes USING GIST (geom) WHERE network_mode = 'walk';",
+                    "description": "GIST parziale su nodes.geom per la rete walk (nearest-neighbour)"
+                },
+                {
+                    "name": "idx_nodes_geom_bike",
+                    "query": "CREATE INDEX idx_nodes_geom_bike ON nodes USING GIST (geom) WHERE network_mode = 'bike';",
+                    "description": "GIST parziale su nodes.geom per la rete bike (nearest-neighbour)"
+                },
+                {
+                    "name": "idx_edges_mode_city_cover",
+                    "query": "CREATE INDEX idx_edges_mode_city_cover ON edges (network_mode, city_code) INCLUDE (source, target, cost);",
+                    "description": "Covering index edges per leggere il grafo di una città"
+                },
+                {
+                    "name": "idx_node_poi_mode_node_cover",
+                    "query": "CREATE INDEX idx_node_poi_mode_node_cover ON node_poi (network_mode, node_id) INCLUDE (poi_id, distance_m);",
+                    "description": "Covering index node_poi per il join con i nodi raggiungibili"
+                },
             ]
             
             for idx_info in indexes:
@@ -125,7 +145,7 @@ def check_and_add_indexes():
             # Verifica indexes su tabelle critiche
             print("\n=== Riepilogo indici per tabella ===\n")
             
-            for table in ["nodes", "edges"]:
+            for table in ["nodes", "edges", "node_poi"]:
                 cursor.execute(
                     "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = %s ORDER BY indexname",
                     (table,)
@@ -138,7 +158,7 @@ def check_and_add_indexes():
             
             # Analisi veloce delle tabelle
             print("=== Analisi tabelle (ANALYZE) ===\n")
-            for table in ["nodes", "edges"]:
+            for table in ["nodes", "edges", "node_poi"]:
                 try:
                     print(f"⏳ ANALYZE su {table}...")
                     cursor.execute(f"ANALYZE {table};")
