@@ -6,6 +6,7 @@ import pyproj
 
 from backend.postgres_db import get_postgres_connection
 from backend.Connectivity import get_closeness_by_node_id
+from backend.category_mapping import aggregate_secondary_counts, get_new_groups
 
 
 
@@ -56,9 +57,6 @@ def compute_isochrone_parameters(
     network_mode,
     max_minutes,
     selected_categories,
-    primary_categories, 
-    secondary_categories,
-    groups_categories,
 ):
     """
     Calcola le metriche aggregate mostrate nei grafici dello user study.
@@ -83,10 +81,13 @@ def compute_isochrone_parameters(
 
     area_km2 = row["isochrone_area_km2"]
             
-    for i in range(len(secondary_categories)):
-        if secondary_categories[i] in selected_categories:
-            total_pois = total_pois + category_secondary_counts[i]
-            
+    # I conteggi del DB (categorie originali) vengono aggregati per NewSecondaryName.
+    aggregated_counts = aggregate_secondary_counts(category_secondary_counts)
+    selected_categories = [cat for cat in dict.fromkeys(selected_categories) if cat in aggregated_counts]
+
+    for cat in selected_categories:
+        total_pois = total_pois + aggregated_counts[cat]
+
     
     if total_pois == 0 or area_km2 == 0:
         density = 0
@@ -95,11 +96,7 @@ def compute_isochrone_parameters(
     #print("density", density)
 
     # ENTROPY
-    counts = {cat: 0 for cat in selected_categories}
-
-    for i in range(len(secondary_categories)):
-        if secondary_categories[i] in selected_categories:
-            counts[secondary_categories[i]] = category_secondary_counts[i]
+    counts = {cat: aggregated_counts[cat] for cat in selected_categories}
 
 
 
@@ -122,25 +119,19 @@ def compute_isochrone_parameters(
     sorted_precomputed_row = sorted(result, key=lambda x: x['travel_time'])
     proximity = max_minutes
 
-    for item in sorted_precomputed_row:
-        primary_present = []
+    selected_set = set(selected_categories)
+    # Solo le primary con almeno una categoria selezionata sono richieste.
+    required_groups = {
+        primary: [s for s in secondary_list if s in selected_set]
+        for primary, secondary_list in get_new_groups().items()
+    }
+    required_groups = [sl for sl in required_groups.values() if sl]
 
-        for primary, secondary_list in groups_categories.items():
+    for item in sorted_precomputed_row if required_groups else []:
+        item_counts = aggregate_secondary_counts(item['category_secondary_counts'])
 
-            found = False
-
-            for i, secondary in enumerate(secondary_categories):
-
-                if secondary in secondary_list:
-                    if item['category_secondary_counts'][i] > 0:
-                        found = True
-                        break
-
-            if found:
-                primary_present.append(primary)
-
-        # Verifica che tutte le primary category siano presenti
-        if len(primary_present) == len(groups_categories):
+        # Ogni primary (con categorie selezionate) deve avere almeno una categoria presente
+        if all(any(item_counts[s] > 0 for s in secondary_list) for secondary_list in required_groups):
             proximity = item['travel_time']
             break
 

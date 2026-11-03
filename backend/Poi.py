@@ -4,6 +4,11 @@ import os
 
 from psycopg2.extras import RealDictCursor
 
+from backend.category_mapping import (
+    expand_new_categories,
+    get_new_secondary_categories,
+    original_to_new_category,
+)
 from backend.mongo_db import db
 from backend.postgres_db import get_postgres_connection
 
@@ -123,7 +128,8 @@ def get_detailed_pois_by_node_id(
     """
     try:
         network_mode = _resolve_network_mode(travel_mode)
-        allowed_categories = set(expand_requested_categories(categories))
+        # Solo le categorie presenti nel mapping personalizzato sono considerate.
+        allowed_categories = set(expand_new_categories(categories or get_new_secondary_categories()))
 
         pois_collection = db["pois"]
 
@@ -157,8 +163,7 @@ def get_detailed_pois_by_node_id(
 
                 # Il frontend invia macro-categorie: qui lavoriamo su categorie atomiche espanse.
                 include_poi = (
-                    not allowed_categories
-                    or primary_category in allowed_categories
+                    primary_category in allowed_categories
                     or any(alt in allowed_categories for alt in alternate_categories)
                 )
 
@@ -168,7 +173,13 @@ def get_detailed_pois_by_node_id(
                         "distance": float(pois_distances[poi_id]),
                         "location": _normalize_poi_location(poi["location"]),
                         "names": poi["names"],
-                        "categories": poi["categories"]
+                        "categories": poi["categories"],
+                        "display_category": original_to_new_category(primary_category)
+                        or next(
+                            (original_to_new_category(alt) for alt in alternate_categories
+                             if alt in allowed_categories),
+                            None,
+                        ),
                     })
 
         # Ordina la lista per distanza in ordine crescente

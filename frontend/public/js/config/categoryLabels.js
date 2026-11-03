@@ -150,7 +150,14 @@
         transport_interchange: 'Nodo di interscambio dei trasporti',
         travel_service: 'Servizio turistico',
         vehicle_service: 'Servizio per veicoli',
-        water_transport_facility_or_service: 'Struttura o servizio di trasporto marittimo e fluviale'
+        water_transport_facility_or_service: 'Struttura o servizio di trasporto marittimo e fluviale',
+
+        community_and_cultural: 'Comunità e cultura',
+        live_events_venues: 'Luoghi per eventi dal vivo',
+        casual_eatery_and_beverage_venue: 'Locali di ristorazione veloce e bevande',
+        emergency_and_hospital: 'Pronto soccorso e ospedali',
+        shopping_mall_or_shopping_centre: 'Centri e grandi magazzini commerciali',
+        fashion_and_second_hand_store: 'Moda e negozi dell\'usato'
     };
 
     root.getCategoryLabelIt = function (categoryId) {

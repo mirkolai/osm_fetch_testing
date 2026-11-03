@@ -253,19 +253,26 @@
 }
 /* Progress bar chart */
 .pbc { width: 100%; padding: 8px 12px; text-align: left; display: flex !important; flex-direction: column; align-items: stretch !important; justify-content: flex-start !important; }
-.pbc-row { margin-bottom: 14px; }
-.pbc-row-small { margin-bottom: 8px; }
+.pbc-row { margin-bottom: 30px; }
+.pbc-row-small { margin-bottom: 24px; }
 .pbc-label { font-size: 13px; color: #333; margin-bottom: 4px; }
 .pbc-row-small .pbc-label { font-size: 12px; color: #555; }
-.pbc-track { position: relative; height: 16px; background: #e5e7eb; border-radius: 4px; }
-.pbc-row-small .pbc-track { height: 11px; }
-.pbc-fill { height: 100%; border-radius: 4px; transition: width .3s; }
-.pbc-avg { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; background: #000; }
+.pbc-track { position: relative; height: 28px; background: #e5e7eb; border: 1px solid #bbb; border-radius: 14px; }
+.pbc-row-small .pbc-track { height: 20px; border-radius: 10px; }
+.pbc-fill { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.pbc-segment { position: absolute; top: 0; bottom: 0; }
+.pbc-tick { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; background: rgba(0, 0, 0, .45); }
+.pbc-tick-label { position: absolute; top: 100%; margin-top: 3px; transform: translateX(-50%); font-size: 10px; color: #666; }
+.pbc-row-small .pbc-tick-label { font-size: 9px; }
+.pbc-avg { position: absolute; top: 50%; height: 34px; transform: translateY(-50%); z-index: 2; width: 4px; margin-left: -2px; background: #000; box-sizing: border-box;
+    left: calc(var(--avg) * 1%);
+    /* Allinea al pixel intero per evitare bordi sfumati (larghezza apparente diversa). */
+    left: round(down, calc(var(--avg) * 1%), 1px); }
 .pbc-hoverable { cursor: help; }
 .pbc-details { max-height: 0; overflow: hidden; opacity: 0; padding-left: 14px; transition: max-height .25s, opacity .25s; }
 .pbc-group:hover .pbc-details, .pbc-group:focus-within .pbc-details { max-height: 200px; opacity: 1; }
 .pbc-legend { font-size: 12px; color: #333; display: flex; align-items: center; gap: 6px; }
-.pbc-avg-sample { display: inline-block; width: 3px; height: 14px; background: #000; }
+.pbc-avg-sample { display: inline-block; width: 4px; height: 14px; background: #000; }
 
 /* Gauge chart */
 .gauge-chart { width: 100%; margin-top: 24px; padding-top: 16px; border-top: 1px solid #ececf2; text-align: center; }

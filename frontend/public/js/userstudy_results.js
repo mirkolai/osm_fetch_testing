@@ -257,7 +257,7 @@ function drawPOIs(analysisData, layerGroup) {
                     marker.bindPopup(`
                         <div style="font-size: 12px;">
                             <strong>${poiName}</strong><br>
-                            <small>${primaryCategory.replace(/_/g, ' ')}</small><br>
+                            <small>${window.getCategoryLabelIt(poi.display_category || primaryCategory)}</small><br>
                             <small style="color: #999;">Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}</small>
                         </div>
                     `);

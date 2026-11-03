@@ -19,6 +19,7 @@ from backend.UserStudySession import (
     GetSessionRequest,
     AnalyzePersonalizedRequest,
 )
+from backend.category_mapping import get_new_groups, get_new_secondary_categories
 from backend.userstudy_db import (
     create_session as db_create_session,
     get_session as db_get_session,
@@ -132,16 +133,6 @@ def _load_city_boundaries_feature_collection() -> Dict[str, Any]:
 
 
 
-def _load_categories() -> Tuple[List[str], List[str],Dict[str, List[str]]]:
-    categories_path = os.path.join(os.path.dirname(__file__), "categories.json")
-    with open(categories_path, "r", encoding="utf-8") as file_obj:
-        categories_by_group = json.load(file_obj)
-    primary_categories = sorted(categories_by_group.keys())
-    secondary_categories = sorted({cat for values in categories_by_group.values() for cat in values})
-    return primary_categories, secondary_categories,categories_by_group
-
-
-
 def _get_city_sample_size() -> int:
     try:
         return max(1, int(os.getenv("USERSTUDY_CITY_SAMPLE_SIZE", "100")))
@@ -199,10 +190,7 @@ def _compute_city_sample_personalized_parameters(
             velocity,
             travel_time,
             max_minutes,
-            selected_categories,
-            primary_categories,
-            secondary_categories,
-            groups_categories) -> list[Dict[str, Any]]:
+            selected_categories) -> list[Dict[str, Any]]:
 
 
     sample_rows = get_nodes_in_city(
@@ -230,10 +218,7 @@ def _compute_city_sample_personalized_parameters(
                         travel_time,
                         network_mode,
                         max_minutes,
-                        selected_categories,
-                        primary_categories, 
-                        secondary_categories,
-                        groups_categories,)
+                        selected_categories,)
             proximities.append(parameters["proximity"])
             entropies.append(parameters["entropy"])
             densities.append(parameters["density"])
@@ -285,12 +270,10 @@ def resolve_velocity_kmh(travel_mode: UserStudyTravelMode) -> int:
 @router.get("/categories")
 async def get_categories() -> Dict[str, Any]:
     """
-    Restituisce le categorie disponibili da categories.json
+    Restituisce le categorie personalizzate (NewPrimaryName -> NewSecondaryName) da personalised_categories.tsv
     """
     try:
-        categories_path = os.path.join(os.path.dirname(__file__), 'categories.json')
-        with open(categories_path, 'r', encoding='utf-8') as f:
-            categories_dict = json.load(f)
+        categories_dict = get_new_groups()
         
         return {
             "status": "success",
@@ -431,8 +414,9 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         # 2 o 5 se walk, 15 se bike
         network_mode = _network_mode_for_travel_mode(request.travel_mode)
         #walk o bike (se walk, velocity=5 km/h; se bike, velocity=15 km/h, se slow_walk, velocity=2 km/h)
-        primary_categories, secondary_categories, groups_categories = _load_categories()
-        selected_categories = request.categories or secondary_categories
+        valid_new_categories = set(get_new_secondary_categories())
+        selected_categories = [c for c in (request.categories or []) if c in valid_new_categories] \
+            or get_new_secondary_categories()
         coordinates = Coordinates(lat=request.latitude, lon=request.longitude)
         
         # Step 1: Trova il node_id più vicino
@@ -493,9 +477,6 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
                 travel_time=minutes,
                 max_minutes=60,
                 selected_categories=selected_categories,
-                primary_categories=primary_categories,
-                secondary_categories=secondary_categories,
-                groups_categories=groups_categories,
         )
         #print("parameters",parameters)
 
@@ -505,10 +486,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
             velocity=velocity,
             travel_time=minutes,
             max_minutes=60,
-            selected_categories=selected_categories,
-            primary_categories=primary_categories,
-            secondary_categories=secondary_categories,
-            groups_categories=groups_categories)
+            selected_categories=selected_categories)
         # Salva in sessione le metriche personalizzate per export finale e confronto.
         #print("parameters",parameters)
         #print("minimum sample",mininum_sample)

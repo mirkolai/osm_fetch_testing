@@ -1,6 +1,10 @@
 const clamp01 = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
 
-// Progress bar con marcatore verticale nero per la media cittadina.
+// Stessa scala cromatica del gauge chart: 5 fasce da 20 punti percentuali.
+const BAND_COLORS = ['#d9534f', '#f0ad4e', '#e9d85a', '#8cc16a', '#3f9b4f'];
+const TICKS = [20, 40, 60, 80];
+
+// Progress bar a termometro con marcatore verticale nero per la media cittadina.
 function buildBar(label, value, average, color, { small = false } = {}) {
     const row = document.createElement('div');
     row.className = `pbc-row${small ? ' pbc-row-small' : ''}`;
@@ -15,14 +19,39 @@ function buildBar(label, value, average, color, { small = false } = {}) {
 
     const fill = document.createElement('div');
     fill.className = 'pbc-fill';
-    fill.style.width = `${clamp01(value) * 100}%`;
-    fill.style.background = color;
+    // Il riempimento è diviso in segmenti, ognuno col colore della propria fascia, fino al valore raggiunto.
+    const reached = clamp01(value) * 100;
+    BAND_COLORS.forEach((bandColor, index) => {
+        const start = index * 20;
+        const end = Math.min(start + 20, reached);
+        if (end > start) {
+            const segment = document.createElement('div');
+            segment.className = 'pbc-segment';
+            segment.style.left = `${start}%`;
+            segment.style.width = `${end - start}%`;
+            segment.style.background = bandColor;
+            fill.appendChild(segment);
+        }
+    });
     track.appendChild(fill);
+
+    TICKS.forEach((tick) => {
+        const mark = document.createElement('div');
+        mark.className = 'pbc-tick';
+        mark.style.left = `${tick}%`;
+        track.appendChild(mark);
+
+        const tickLabel = document.createElement('span');
+        tickLabel.className = 'pbc-tick-label';
+        tickLabel.style.left = `${tick}%`;
+        tickLabel.textContent = `${tick}%`;
+        track.appendChild(tickLabel);
+    });
 
     if (Number.isFinite(average)) {
         const marker = document.createElement('div');
         marker.className = 'pbc-avg';
-        marker.style.left = `${clamp01(average) * 100}%`;
+        marker.style.setProperty('--avg', clamp01(average) * 100);
         track.appendChild(marker);
 
         const v = clamp01(value);

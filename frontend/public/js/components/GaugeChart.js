@@ -6,11 +6,11 @@ const R_OUTER = 120;
 const R_INNER = 78;
 
 const BANDS = [
-    { from: -100, to: -50, color: '#d9534f', label: 'Molto peggiore' },
-    { from: -50, to: -10, color: '#f0ad4e', label: 'Peggiore' },
-    { from: -10, to: 10, color: '#e9d85a', label: 'In linea' },
-    { from: 10, to: 50, color: '#8cc16a', label: 'Migliore' },
-    { from: 50, to: 100, color: '#3f9b4f', label: 'Molto migliore' },
+    { from: -100, to: -60, color: '#d9534f', label: 'Molto peggiore' },
+    { from: -60, to: -20, color: '#f0ad4e', label: 'Peggiore' },
+    { from: -20, to: 20, color: '#e9d85a', label: 'In linea' },
+    { from: 20, to: 60, color: '#8cc16a', label: 'Migliore' },
+    { from: 60, to: 100, color: '#3f9b4f', label: 'Molto migliore' },
 ];
 
 const clamp01 = (value) => Math.max(0, Math.min(Number(value) || 0, 1));
@@ -107,15 +107,21 @@ export function renderGaugeChart(containerId, values, averages) {
         'aria-label': `Questo indirizzo è ${Math.abs(percent)}% ${percent >= 0 ? 'migliore' : 'peggiore'} della media cittadina`,
     });
 
+    // Le fasce sono colorate solo fino alla lancetta; il resto resta grigio.
     BANDS.forEach((b) => {
-        const path = el('path', { d: arcPath(b.from, b.to), fill: b.color, stroke: '#fff', 'stroke-width': 2 });
+        const track = el('path', { d: arcPath(b.from, b.to), fill: '#e5e7eb', stroke: '#fff', 'stroke-width': 2 });
         const tip = el('title');
         tip.textContent = b.label;
-        path.appendChild(tip);
-        svg.appendChild(path);
+        track.appendChild(tip);
+        svg.appendChild(track);
+
+        const reachedTo = Math.min(b.to, result.percent);
+        if (reachedTo > b.from) {
+            svg.appendChild(el('path', { d: arcPath(b.from, reachedTo), fill: b.color, stroke: '#fff', 'stroke-width': 2 }));
+        }
     });
 
-    [-100, -50, 0, 50, 100].forEach((tick) => {
+    [-100, -60, -20, 0, 20, 60, 100].forEach((tick) => {
         const [x, y] = point(R_OUTER + 14, toAngle(tick));
         svg.appendChild(buildText(tick === 0 ? '0%' : formatSigned(tick), x, y + 4, { size: 11, color: '#666' }));
     });

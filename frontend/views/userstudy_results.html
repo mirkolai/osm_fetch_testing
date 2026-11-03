@@ -233,6 +233,16 @@
             font-weight: 600;
         }
 
+        .step5-chart-panel-standard {
+            border: 2px solid rgb(72, 61, 139);
+            border-radius: 8px;
+        }
+
+        .step5-chart-panel-personalized {
+            border: 2px solid rgb(245, 101, 101); 
+            border-radius: 8px;
+        }
+
         .step5-chart-canvas {
             width: 100%;
             min-height: 370px;
@@ -353,13 +363,13 @@
             Questa analisi valuta il livello di prossimità urbana dell’area sulla base della distribuzione attuale dei servizi e dei criteri personalizzati applicati all’analisi. I risultati misurano la facilità di accesso ai servizi essenziali, la loro presenza e la qualità della rete urbana, confrontando le prestazioni dell’area analizzata con la media cittadina di riferimento e tenendo conto delle preferenze definite per l’area.
         </p>
             <div id="spider-chart-modal">
-                <section class="step5-chart-panel">
+                <section class="step5-chart-panel step5-chart-panel-standard">
                     <h5>Area selezionata</h5>
                     <div id="spider-chart-modal-standard" class="step5-chart-canvas"></div>
                     <div id="gauge-chart-modal-standard" class="gauge-chart"></div>
                     <div id="step5-standard-legend" class="step5-radar-legend"></div>
                 </section>
-                <section class="step5-chart-panel">
+                <section class="step5-chart-panel step5-chart-panel-personalized">
                     <h5>Area selezionata Personalizzata</h5>
                     <div id="spider-chart-modal-personalized" class="step5-chart-canvas"></div>
                     <div id="gauge-chart-modal-personalized" class="gauge-chart"></div>
