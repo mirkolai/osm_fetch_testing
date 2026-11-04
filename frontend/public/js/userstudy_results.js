@@ -435,8 +435,9 @@ function buildChartDatasets() {
     if (defaultAnalysis && defaultAnalysis.parameters && personalizedAnalysis && personalizedAnalysis.parameters) {
         const defaultParameters = defaultAnalysis.parameters;
         const personalizedParameters = personalizedAnalysis.parameters;
-        const cityAverageParameters = hasValidCityAverageMetrics(personalizedAnalysis.city_average_parameters)
-            ? personalizedAnalysis.city_average_parameters
+        // La media città standard deve venire dall'analisi default (tutte le categorie).
+        const cityAverageParameters = hasValidCityAverageMetrics(defaultAnalysis.city_average_parameters)
+            ? defaultAnalysis.city_average_parameters
             : null;
         const citySamplePersonalizedParameters = hasValidCityAverageMetrics(
             personalizedAnalysis.city_average_parameters,
