@@ -241,6 +241,7 @@ def _compute_city_sample_personalized_parameters(
         "density": sum(densities) / len(densities),
         "closeness": sum(closenesses) / len(closenesses),
     }
+    
     minimum_values = {
         "proximity": np.percentile(proximities, 10),
         "entropy": np.percentile(entropies, 10),
@@ -254,7 +255,45 @@ def _compute_city_sample_personalized_parameters(
         "closeness": np.percentile(closenesses, 90),
     }
 
-    return averages,minimum_values,maximum_values
+    gauge_scale = _build_gauge_scale(
+        proximities, densities, entropies, closenesses, minimum_values, maximum_values
+    )
+
+    return averages, minimum_values, maximum_values, gauge_scale
+
+
+def _normalized_score(value, minimum, maximum) -> float:
+    """Stessa normalizzazione min/max con clip usata per i punteggi esposti."""
+    if maximum - minimum <= 0:
+        return 0.0
+    return float(np.clip((value - minimum) / (maximum - minimum), 0, 1))
+
+
+def _composite_index(proximity_score, density_score, entropy_score, closeness_score) -> float:
+    """Indice del gauge: media tra accessibilità ai POI e closeness."""
+    poi_accessibility = ((1 - proximity_score) + density_score + entropy_score) / 3.0
+    return (poi_accessibility + closeness_score) / 2.0
+
+
+def _build_gauge_scale(proximities, densities, entropies, closenesses, minimum_values, maximum_values):
+    """
+    Scala del gauge derivata dalla distribuzione dell'indice composito sui nodi del campione.
+
+    Restituisce i percentili 5, 20, 40, 50, 60, 80, 95 (limiti dei quintili, mediana
+    ed estremi) e gli indici ordinati, usati per calcolare la posizione della via.
+    """
+    indices = sorted(
+        _composite_index(
+            _normalized_score(prox, minimum_values["proximity"], maximum_values["proximity"]),
+            _normalized_score(dens, minimum_values["density"], maximum_values["density"]),
+            _normalized_score(ent, minimum_values["entropy"], maximum_values["entropy"]),
+            _normalized_score(clo, minimum_values["closeness"], maximum_values["closeness"]),
+        )
+        for prox, dens, ent, clo in zip(proximities, densities, entropies, closenesses)
+    )
+    percentiles = [5, 20, 40, 50, 60, 80, 95]
+    knots = [float(v) for v in np.percentile(indices, percentiles)]
+    return {"percentiles": percentiles, "knots": knots, "sample_indices": indices}
 
 
 
@@ -492,7 +531,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         )
         #print("parameters",parameters)
 
-        avg_sample, mininum_sample, maximum_sample = _compute_city_sample_personalized_parameters(
+        avg_sample, mininum_sample, maximum_sample, gauge_scale = _compute_city_sample_personalized_parameters(
             city_code=city_code,
             network_mode=network_mode,
             velocity=velocity,
@@ -503,6 +542,19 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
         #print("parameters",parameters)
         #print("minimum sample",mininum_sample)
         #print("maximum sample",maximum_sample)
+        """
+        Il quadrante va da −100 a +100 e la mediana cittadina è a 0.
+L'indice della via viene posizionato con una mappa lineare a tratti: p5 → −100, p20 → −60, p40 → −20, p50 → 0, p60 → +20, p80 → +60, p95 → +100. Le fasce colorate coincidono quindi con i quintili e gli estremi con p5 e p95.
+Non è più una percentuale rispetto alla media. Ho tolto il simbolo % dalle tacche.
+Al centro del gauge compare l'etichetta della fascia (es. "Migliore"), non più "+51%".
+La didascalia riporta la posizione nel campione, per esempio "meglio di circa il 78% delle vie del campione cittadino", e confronta l'indice della via con la mediana.
+Se la risposta non contiene gauge_scale, il gauge viene nascosto. Succede con la cache vecchia di default_analysis_cache in sessionStorage, quindi ricarica da capo o svuota la sessione.
+        
+        
+        """
+        
+        
+        
         metrics_payload = {
                 "proximity_score": np.clip(
                     (parameters.get("proximity") - mininum_sample["proximity"]) /
@@ -566,6 +618,7 @@ async def analyze_personalized(request: AnalyzePersonalizedRequest) -> Dict[str,
 
 
         city_average_parameters["poi_accessibility"] =  ((1-city_average_parameters["proximity_score"]) + city_average_parameters["density_score"] + city_average_parameters["entropy_score"]) / 3.0
+        city_average_parameters["gauge_scale"] = gauge_scale
 
         #print("metrics_payload",metrics_payload)
         #print("city_average_parameters",city_average_parameters)

@@ -1,5 +1,5 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const RANGE = 100; // il quadrante copre da -100% a +100% rispetto alla media
+const RANGE = 100; // il quadrante va da -100 a +100, con 0 sulla mediana della città
 const CX = 150;
 const CY = 140;
 const R_OUTER = 120;
@@ -52,25 +52,54 @@ function buildText(content, x, y, { size = 12, weight = 400, color = '#333', anc
     return text;
 }
 
-const formatSigned = (percent) => `${percent > 0 ? '+' : ''}${percent}%`;
+const formatSigned = (value) => `${value > 0 ? '+' : ''}${value}`;
+
+// Posizioni sul quadrante dei percentili 5, 20, 40, 50, 60, 80, 95 dell'indice cittadino:
+// i limiti dei quintili coincidono con i confini delle fasce colorate.
+const SCALE_POSITIONS = [-100, -60, -20, 0, 20, 60, 100];
+
+// Interpolazione lineare a tratti dell'indice sui nodi della scala (-100..+100).
+function interpolateOnScale(value, knots) {
+    if (value <= knots[0]) {
+        return SCALE_POSITIONS[0];
+    }
+    for (let i = 1; i < knots.length; i += 1) {
+        if (value <= knots[i]) {
+            const width = knots[i] - knots[i - 1];
+            if (width <= 0) {
+                return SCALE_POSITIONS[i];
+            }
+            const t = (value - knots[i - 1]) / width;
+            return SCALE_POSITIONS[i - 1] + t * (SCALE_POSITIONS[i] - SCALE_POSITIONS[i - 1]);
+        }
+    }
+    return SCALE_POSITIONS[SCALE_POSITIONS.length - 1];
+}
 
 /**
  * Indice sintetico = media tra Accessibilità ai POI e Connettività (closeness).
- * Il gauge mostra di quanto l'indice della via si discosta da quello della media cittadina.
+ * La scala del gauge deriva dalla distribuzione dello stesso indice sul campione di nodi
+ * della città: 0 = mediana, estremi = 5° e 95° percentile, fasce = quintili.
  */
 export function computeGaugeDifference(values, averages) {
     if (!values || !averages) {
         return null;
     }
-    const streetIndex = (clamp01(values.poi_accessibility) + clamp01(values.closeness)) / 2;
-    const cityIndex = (clamp01(averages.poi_accessibility) + clamp01(averages.closeness)) / 2;
-    if (!Number.isFinite(cityIndex) || cityIndex <= 0) {
+    const scale = averages.gauge_scale;
+    if (!scale || !Array.isArray(scale.knots) || scale.knots.length !== SCALE_POSITIONS.length) {
         return null;
     }
+    const streetIndex = (clamp01(values.poi_accessibility) + clamp01(values.closeness)) / 2;
+    const medianIndex = scale.knots[3];
+    const sample = Array.isArray(scale.sample_indices) ? scale.sample_indices : [];
+    const rank = sample.length
+        ? (sample.filter((v) => v <= streetIndex + 1e-9).length / sample.length) * 100
+        : null;
     return {
         streetIndex,
-        cityIndex,
-        percent: ((streetIndex - cityIndex) / cityIndex) * 100,
+        cityIndex: medianIndex,
+        percent: interpolateOnScale(streetIndex, scale.knots),
+        rank,
     };
 }
 
@@ -94,7 +123,7 @@ export function renderGaugeChart(containerId, values, averages) {
 
     const title = document.createElement('div');
     title.className = 'gauge-title';
-    title.textContent = 'Confronto complessivo con la media della città';
+    title.textContent = 'Confronto complessivo con la città';
 
     const subtitle = document.createElement('div');
     subtitle.className = 'gauge-subtitle';
@@ -104,7 +133,7 @@ export function renderGaugeChart(containerId, values, averages) {
         viewBox: '0 0 300 205',
         class: 'gauge-svg',
         role: 'img',
-        'aria-label': `Questo indirizzo è ${Math.abs(percent)}% ${percent >= 0 ? 'migliore' : 'peggiore'} della media cittadina`,
+        'aria-label': `Posizione sul quadrante: ${formatSigned(percent)} rispetto alla mediana cittadina (${band.label})`,
     });
 
     // Le fasce sono colorate solo fino alla lancetta; il resto resta grigio.
@@ -123,10 +152,10 @@ export function renderGaugeChart(containerId, values, averages) {
 
     [-100, -60, -20, 0, 20, 60, 100].forEach((tick) => {
         const [x, y] = point(R_OUTER + 14, toAngle(tick));
-        svg.appendChild(buildText(tick === 0 ? '0%' : formatSigned(tick), x, y + 4, { size: 11, color: '#666' }));
+        svg.appendChild(buildText(tick === 0 ? '0' : formatSigned(tick), x, y + 4, { size: 11, color: '#666' }));
     });
 
-    // Tacca nera sulla media cittadina (0%).
+    // Tacca nera sulla mediana cittadina (0).
     const [mx1, my1] = point(R_INNER - 4, toAngle(0));
     const [mx2, my2] = point(R_OUTER + 4, toAngle(0));
     svg.appendChild(el('line', { x1: mx1, y1: my1, x2: mx2, y2: my2, stroke: '#000', 'stroke-width': 3 }));
@@ -146,16 +175,16 @@ export function renderGaugeChart(containerId, values, averages) {
     svg.appendChild(needle);
     svg.appendChild(el('circle', { cx: CX, cy: CY, r: 9, fill: '#333' }));
 
-    svg.appendChild(buildText(formatSigned(percent), CX, CY + 36, { size: 26, weight: 700, color: band.color === '#e9d85a' ? '#8a7d1f' : band.color }));
-    svg.appendChild(buildText('rispetto alla media città', CX, CY + 52, { size: 12, color: '#555' }));
+    svg.appendChild(buildText(band.label, CX, CY + 36, { size: 22, weight: 700, color: band.color === '#e9d85a' ? '#8a7d1f' : band.color }));
+    svg.appendChild(buildText('rispetto alla mediana della città', CX, CY + 52, { size: 12, color: '#555' }));
 
     const caption = document.createElement('div');
     caption.className = 'gauge-caption';
-    const verdict = percent === 0
-        ? 'in linea con la media della città'
-        : `${Math.abs(percent)}% ${percent > 0 ? 'migliore' : 'peggiore'} rispetto alla media della città`;
-    caption.textContent = `Questo indirizzo è ${verdict} `
-        + `(indice ${Math.round(result.streetIndex * 100)}% contro ${Math.round(result.cityIndex * 100)}%).`;
+    const rankText = result.rank === null
+        ? ''
+        : `, meglio di circa il ${Math.round(result.rank)}% delle vie del campione cittadino`;
+    caption.textContent = `Questo indirizzo è classificato "${band.label.toLowerCase()}"${rankText} `
+        + `(indice ${Math.round(result.streetIndex * 100)}% contro una mediana di ${Math.round(result.cityIndex * 100)}%).`;
 
     container.appendChild(title);
     container.appendChild(subtitle);
