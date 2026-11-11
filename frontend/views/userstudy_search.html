@@ -22,7 +22,6 @@
 
         #map {
             width: 100%;
-            height: 100vh;
             z-index: 1;
         }
 
@@ -41,8 +40,8 @@
 
         .search-panel {
             position: fixed;
-            top: 100px;
-            left: 20px;
+            top: 5%;
+            left: 5%;
             background: white;
             padding: 20px;
             border-radius: 8px;
@@ -338,23 +337,54 @@
         .btn-view-analysis:hover {
             background-color: #5568d3;
         }
+
+        .progress-bar-container {
+            margin-bottom: 30px;
+
+        }
+        
+        .step-progress {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 10px;
+      
+        }
+        
+        .progress {
+            height: 8px;
+            margin-top: 5px;
+
+
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+        }
     </style>
 </head>
 
 <body>
 
-<!-- Progress Indicator -->
-<div class="progress-indicator">
-    <i class="bi bi-info-circle me-2"></i>
-    Passo 3/7 - Selezione Via
-</div>
+
 
 <!-- Search Panel -->
 <div class="search-panel">
-    <h5>Seleziona una via</h5>
-    
+    <!-- <h5>Seleziona l'indirizzo del luogo in cui vivi</h5>-->
+    <!-- Progress Indicator -->
+    <div class="progress-bar-container">
+        <div class="step-progress">Passo 3 / 7</div>
+        <div class="progress">
+            <div class="progress-bar" style="width: 28.6%"></div>
+        </div>
+    </div>
     <div class="search-input-group">
-        <label for="city-search">Inserisci un indirizzo:    
+        <label for="city-search">Seleziona l'indirizzo del luogo in cui vivi:    
             <i class="bi bi-info-circle text-secondary"
             data-bs-toggle="tooltip"
             data-bs-placement="right"
@@ -404,35 +434,21 @@
 <div class="modal-overlay" id="modal-overlay">
     <div class="modal-content-box">
         <button class="modal-close" id="modal-close">&times;</button>
-            <h4 class="modal-title">Analisi senza personalizzazione</h4>
-        <p class="modal-description">
+            <!-- <h4 class="modal-title">Analisi senza personalizzazione</h4>-->
+           <!-- <p class="modal-description">
             Questa analisi valuta il livello di prossimità urbana dell'area considerando la distribuzione attuale dei servizi,
             senza applicare preferenze o pesi personalizzati 
             <i class="bi bi-info-circle text-secondary"
             data-bs-toggle="tooltip"
             data-bs-placement="right"
             title="Le misure di accessibilità ai servizi vengono generalmente calcolate considerando un utente standard. Questo approccio consente un confronto omogeneo, ma può non rappresentare le esigenze specifiche e le preferenze individuali di ogni persona.">
-            </i>. 
-            I risultati misurano la facilità di accesso ai servizi essenziali, la loro presenza e la qualità
-            della rete urbana, confrontando le prestazioni dell'area analizzata con la media
-            cittadina di riferimento. 
+            </i>. -->
+            Qui mostriamo la facilità di accesso ai servizi essenziali vicini a casa tua e la qualità dei collegamenti con il resto della città in riferimento alla media cittadina. 
+        
         </p>
             <div id="spider-chart-modal"></div>
             <div id="gauge-chart-modal" class="gauge-chart"></div>
-            <div class="chart-info">
-                <h6>Parametri Analizzati:</h6>
-
-                    <p><strong>Prossimità:</strong> Tempo necessario per raggiungere tutti i servizi essenziali.</p>
-
-                    <p><strong>Densità:</strong> Quantità di servizi presenti nell'area raggiungibile entro il tempo di percorrenza considerato.</p>
-
-                    <p><strong>Varietà:</strong> Diversità delle tipologie di servizi disponibili, che misura la capacità dell'area di soddisfare esigenze differenti.</p>
-
-                    <p><strong>Accessibilità:</strong> Indicatore complessivo che sintetizza la facilità con cui è possibile raggiungere un'offerta ampia e diversificata di servizi.</p>
-
-                    <p><strong>Connettività:</strong> Centralità della rete stradale, che esprime quanto rapidamente l'area è collegata al resto della rete urbana.</p>
-            </div>
-    </div>
+   
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

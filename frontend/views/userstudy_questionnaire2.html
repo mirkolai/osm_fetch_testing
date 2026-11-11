@@ -4,7 +4,7 @@
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Study - Questionario 2</title>
+    <title>Questionario</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
@@ -189,16 +189,16 @@
         <div class="questionnaire-card">
             <!-- Progress Bar -->
             <div class="progress-bar-container">
-                <div class="step-progress">Passo 2 / 7 - La tua Percezione del Quartiere</div>
+                <div class="step-progress">Passo 2 / 7</div>
                 <div class="progress">
                     <div class="progress-bar" style="width: 28.6%"></div>
                 </div>
             </div>
             
-            <h2 style="color: #333; margin-bottom: 30px;">Percezione Iniziale del Quartiere</h2>
+            <h2 style="color: #333; margin-bottom: 30px;">Quale percezione hai del quartiere in cui vivi?</h2>
             
             <p style="color: #888; margin-bottom: 25px;">
-                Prima di esplorare la mappa, vorremmo conoscere la tua percezione attuale della tua zona.
+                Da adesso in poi, considera la casa in cui vivi per la maggior parte del tempo e il quartiere in cui si trova.
             </p>
             
             <div id="error-message" class="error-message"></div>
@@ -207,7 +207,7 @@
                 <!-- Accessibility -->
                 <div class="form-section">
                     <h5>Accessibilità (Comodità)</h5>
-                    <p class="form-section-desc">Quanto ritieni accessibile il tuo quartiere in termini di facilità nel fruire dei servizi?</p>
+                    <p class="form-section-desc">Quanto ritieni accessibile il quartiere in cui vivi in termini di facilità nella fruizione dei servizi?</p>
                     <div class="slider-labels">
                         <span>Per nulla accessibile</span>
                         <span>Molto accessibile</span>
@@ -220,8 +220,8 @@
                 
                 <!-- Proximity Average -->
                 <div class="form-section">
-                    <h5>Vicinanza (Distanza media)</h5>
-                    <p class="form-section-desc">Quanto tempo impieghi a piedi al massimo per raggiungere in media i servizi essenziali?</p>
+                    <h5>Vicinanza (Prossimità media)</h5>
+                    <p class="form-section-desc">Quanto tempo impieghi in genere per raggiungere a piedi i servizi essenziali?</p>
                     <div class="slider-container">
                         <span>Minuti:</span>
                         <input type="number" name="proximity_avg_minutes" class="input-number" min="0" max="180" value="15" required>
@@ -230,8 +230,8 @@
                 
                 <!-- Proximity Max -->
                 <div class="form-section">
-                    <h5>Vicinanza (Distanza massima)</h5>
-                    <p class="form-section-desc">Quanto tempo impieghi a raggiungere il più distante dei servizi essenziali a piedi?</p>
+                    <h5>Vicinanza (Prossimità massima)</h5>
+                    <p class="form-section-desc">Quanto tempo impieghi a raggiungere a piedi il più distante dei servizi essenziali?</p>
                     <div class="slider-container">
                         <span>Minuti:</span>
                         <input type="number" name="proximity_max_minutes" class="input-number" min="0" max="180" value="30" required>
@@ -241,7 +241,7 @@
                 <!-- Density -->
                 <div class="form-section">
                     <h5>Densità (Quantità)</h5>
-                    <p class="form-section-desc">Come valuteresti la quantità complessiva di servizi disponibili a breve distanza da casa tua?</p>
+                    <p class="form-section-desc">Come valuteresti la quantità complessiva di servizi disponibili a breve distanza?</p>
                     <div class="slider-labels">
                         <span>Nessuno</span>
                         <span>Tanti</span>
@@ -255,7 +255,7 @@
                 <!-- Entropy -->
                 <div class="form-section">
                     <h5>Varietà (Diversità)</h5>
-                    <p class="form-section-desc">Come valuteresti la varietà tipologica dei servizi vicini a casa tua?</p>
+                    <p class="form-section-desc">Come valuteresti la varietà dei servizi disponibili a breve distanza?</p>
                     <div class="slider-labels">
                         <span>Nessuna varietà</span>
                         <span>Molta varietà</span>
@@ -268,8 +268,8 @@
                 
                 <!-- Closeness -->
                 <div class="form-section">
-                    <h5>Connettività (Collegamento)</h5>
-                    <p class="form-section-desc">Quanto ritieni che il tuo quartiere sia ben collegato al resto della città utilizzando modalità sostenibili?</p>
+                    <h5>Collegamento (Connettività)</h5>
+                    <p class="form-section-desc">Quanto ritieni che il tuo quartiere sia collegato al resto della città utilizzando mezzi di trasporto sostenibili?</p>
                     <div class="slider-labels">
                         <span>Per nulla collegato</span>
                         <span>Molto collegato</span>

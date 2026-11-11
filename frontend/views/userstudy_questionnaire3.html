@@ -29,29 +29,7 @@
             margin-bottom: 30px;
         }
         
-        .progress-bar-container {
-            margin-bottom: 30px;
-        }
-        
-        .step-progress {
-            font-size: 14px;
-            color: #667eea;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        
-        .progress {
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            height: 100%;
-            border-radius: 10px;
-        }
+
         
         .form-section {
             margin-bottom: 30px;
@@ -215,6 +193,30 @@
             font-size: 13px;
             text-transform: uppercase;
         }
+
+        .progress-bar-container {
+            margin-bottom: 30px;
+        }
+        
+        .step-progress {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -222,16 +224,18 @@
         <div class="questionnaire-card">
             <!-- Progress Bar -->
             <div class="progress-bar-container">
-                <div class="step-progress">Passo 6 / 7 - Valutazione Post-Esplorazione</div>
+                <div class="step-progress">Passo 6 / 7</div>
+
                 <div class="progress">
                     <div class="progress-bar" style="width: 85.7%"></div>
                 </div>
+
             </div>
             
-            <h2 style="color: #333; margin-bottom: 30px;">La Tua Percezione Dopo l'Esplorazione</h2>
+            <h2 style="color: #333; margin-bottom: 30px;">Hai cambiato la percezione che hai del quartiere in cui vivi?</h2>
             
             <p style="color: #888; margin-bottom: 25px;">
-                Dopo aver esplorato la mappa interattiva, valutiamo nuovamente come percepisci il tuo quartiere.
+                Dopo aver esplorato la mappa interattiva, valuta nuovamente come percepisci il tuo quartiere.
             </p>
             
             <div id="error-message" class="error-message"></div>
@@ -240,7 +244,7 @@
                 <!-- Accessibility -->
                 <div class="form-section">
                     <h5>Accessibilità (Comodità)</h5>
-                    <p class="form-section-desc">Quanto ritieni accessibile il tuo quartiere in termini di facilità nel fruire dei servizi?</p>
+                    <p class="form-section-desc">Quanto ritieni accessibile il quartiere in cui vivi in termini di facilità nella fruizione dei servizi?</p>
                     <div class="slider-labels">
                         <span>Per nulla accessibile</span>
                         <span>Molto accessibile</span>
@@ -254,7 +258,7 @@
                 <!-- Proximity Average -->
                 <div class="form-section">
                     <h5>Vicinanza (Distanza media)</h5>
-                    <p class="form-section-desc">Quanto tempo impieghi a piedi al massimo per raggiungere in media i servizi essenziali?</p>
+                    <p class="form-section-desc">Quanto tempo impieghi in genere per raggiungere a piedi i servizi essenziali?</p>
                     <div class="slider-container">
                         <span>Minuti:</span>
                         <input type="number" name="proximity_avg_minutes" class="input-number" min="0" max="180" value="15" required>
@@ -264,7 +268,7 @@
                 <!-- Proximity Max -->
                 <div class="form-section">
                     <h5>Vicinanza (Distanza massima)</h5>
-                    <p class="form-section-desc">Quanto tempo impieghi a raggiungere il più distante dei servizi essenziali a piedi?</p>
+                    <p class="form-section-desc">Quanto tempo impieghi a raggiungere a piedi il più distante dei servizi essenziali?</p>
                     <div class="slider-container">
                         <span>Minuti:</span>
                         <input type="number" name="proximity_max_minutes" class="input-number" min="0" max="180" value="30" required>
@@ -274,7 +278,7 @@
                 <!-- Density -->
                 <div class="form-section">
                     <h5>Densità (Quantità)</h5>
-                    <p class="form-section-desc">Come valuteresti la quantità complessiva di servizi disponibili a breve distanza da casa tua?</p>
+                    <p class="form-section-desc">Come valuteresti la quantità complessiva di servizi disponibili a breve distanza?</p>
                     <div class="slider-labels">
                         <span>Nessuno</span>
                         <span>Tanti</span>
@@ -288,7 +292,7 @@
                 <!-- Entropy -->
                 <div class="form-section">
                     <h5>Varietà (Diversità)</h5>
-                    <p class="form-section-desc">Come valuteresti la varietà tipologica dei servizi vicini a casa tua?</p>
+                    <p class="form-section-desc">Come valuteresti la varietà dei servizi disponibili a breve distanza?</p>
                     <div class="slider-labels">
                         <span>Nessuna varietà</span>
                         <span>Molta varietà</span>
@@ -302,7 +306,7 @@
                 <!-- Closeness -->
                 <div class="form-section">
                     <h5>Connettività (Collegamento)</h5>
-                    <p class="form-section-desc">Quanto ritieni che il tuo quartiere sia ben collegato al resto della città utilizzando modalità sostenibili?</p>
+                    <p class="form-section-desc">Quanto ritieni che il tuo quartiere sia collegato al resto della città utilizzando mezzi di trasporto sostenibili?</p>
                     <div class="slider-labels">
                         <span>Per nulla collegato</span>
                         <span>Molto collegato</span>
@@ -315,12 +319,12 @@
                 
                 <!-- Question Divider -->
                 <div class="section-divider">
-                    <h6><i class="bi bi-question-circle me-2"></i>Domande Aggiuntive</h6>
+                    <h6><i class="bi bi-question-circle me-2"></i>Domande aggiuntive</h6>
                 </div>
                 
                 <!-- Platform Understanding -->
                 <div class="form-section">
-                    <h5>Impatto della Piattaforma sulla Comprensione</h5>
+                    <h5>Impatto della piattaforma sulla comprensione</h5>
                     <p class="form-section-desc">Quanto l'utilizzo della piattaforma ti ha aiutato a comprendere con maggiore precisione le reali distanze e i tempi per raggiungere i servizi?</p>
                     <div class="slider-labels">
                         <span>Per niente</span>
@@ -334,7 +338,7 @@
                 
                 <!-- Opinion Revision -->
                 <div class="form-section">
-                    <h5>Revisione della Tua Opinione</h5>
+                    <h5>Revisione della tua opinione</h5>
                     <p class="form-section-desc">In che misura i risultati personalizzati della piattaforma ti hanno portato a rivedere la tua opinione iniziale sulla qualità dei servizi nella tua zona?</p>
                     <div class="slider-labels">
                         <span>Per niente</span>
@@ -348,7 +352,7 @@
                 
                 <!-- Comments -->
                 <div class="form-section" style="border-bottom: none;">
-                    <h5>Commenti Finali</h5>
+                    <h5>Commenti finali</h5>
                     <p class="form-section-desc">Hai altri commenti o osservazioni sulla percezione della tua zona o sull'impatto che questa piattaforma ha avuto su di te?</p>
                     <textarea name="additional_comments" class="textarea-custom" placeholder="Scrivi qui i tuoi commenti..."></textarea>
                 </div>

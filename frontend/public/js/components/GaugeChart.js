@@ -177,13 +177,24 @@ export function renderGaugeChart(containerId, values, averages) {
 
     svg.appendChild(buildText(band.label, CX, CY + 36, { size: 22, weight: 700, color: band.color === '#e9d85a' ? '#8a7d1f' : band.color }));
     svg.appendChild(buildText('rispetto alla mediana della città', CX, CY + 52, { size: 12, color: '#555' }));
-
     const caption = document.createElement('div');
     caption.className = 'gauge-caption';
-    const rankText = result.rank === null
-        ? ''
-        : `, meglio di circa il ${Math.round(result.rank)}% delle vie del campione cittadino`;
-    caption.textContent = `Questo indirizzo è classificato "${band.label.toLowerCase()}"${rankText} `
+
+    const rank = result.rank;
+
+    let comparisonText = '';
+
+    if (rank !== null && Number.isFinite(rank)) {
+        const percentile = Math.round(rank);
+
+        if (percentile >= 50) {
+            comparisonText = `superiore al ${percentile}% delle vie del campione cittadino`;
+        } else {
+            comparisonText = `inferiore al ${100 - percentile}% delle vie del campione cittadino`;
+        }
+    }
+
+    caption.textContent = `Questo indirizzo presenta un livello di accessibilità e connessione ${comparisonText} `
         + `(indice ${Math.round(result.streetIndex * 100)}% contro una mediana di ${Math.round(result.cityIndex * 100)}%).`;
 
     container.appendChild(title);

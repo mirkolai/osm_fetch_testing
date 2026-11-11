@@ -4,8 +4,8 @@
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Study - Selezione Categorie</title>
-
+    <title>Questionario</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -58,12 +58,7 @@
             border-radius: 10px;
         }
         
-        .section-title {
-            color: #333;
-            font-weight: 600;
-            margin-bottom: 25px;
-            font-size: 22px;
-        }
+
         
         .section-description {
             color: #888;
@@ -135,7 +130,9 @@
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
             gap: 14px;
             margin-bottom: 24px;
+            align-items: start; /* Aggiungi questa riga */
         }
+
         
         .category-group {
             min-width: 0;
@@ -374,18 +371,18 @@
         <div class="card-custom">
             <!-- Progress Bar -->
             <div class="progress-bar-container">
-                <div class="step-progress">Passo 4 / 7 - Selezione Categorie</div>
+                <div class="step-progress">Passo 4 / 7</div>
                 <div class="progress">
                     <div class="progress-bar" style="width: 57.1%"></div>
                 </div>
             </div>
             
             <h2 class="section-title">
-                <i class="bi bi-map me-2"></i> Configura l'Esplorazione
+                Quali sono le tue preferenze?
             </h2>
             
             <p class="section-description">
-                Seleziona i parametri di viaggio e le categorie di servizi che desideri visualizzare.
+                Seleziona le tue preferenze di viaggio e di servizi che ritieni importanti.
             </p>
             
             <!-- Settings Section -->
@@ -406,19 +403,24 @@
                     <div class="btn-group w-100 travel-mode-selector" role="group">
 
                         
+
+
+                        <input type="radio" class="btn-check" name="travel-mode" id="mode-slow-walk" value="slow_walk">
+                        <label class="btn btn-outline-primary" for="mode-slow-walk">
+                            <i class="fa-solid fa-person-cane"></i>
+                            <i class="fa-solid fa-baby-carriage"></i>
+                            <i class="fa-solid fa-wheelchair"></i>
+                            Passo lento
+                        </label>
+
                         <input type="radio" class="btn-check" name="travel-mode" id="mode-walk" value="walk" checked>
                         <label class="btn btn-outline-primary" for="mode-walk">
                             <i class="bi bi-person-walking"></i> Passo normale
                         </label>
 
-                        <input type="radio" class="btn-check" name="travel-mode" id="mode-slow-walk" value="slow_walk">
-                        <label class="btn btn-outline-primary" for="mode-slow-walk">
-                            <i class="bi bi-person-walking"></i> Passo lento
-                        </label>
-
                         <input type="radio" class="btn-check" name="travel-mode" id="mode-bike" value="bike">
                         <label class="btn btn-outline-primary" for="mode-bike">
-                            <i class="bi bi-bicycle"></i> In bicicletta
+                            <i class="bi bi-bicycle"></i> Bicicletta / monopattino
                         </label>
 
                     </div>
@@ -427,10 +429,10 @@
             
             <!-- Categories Section -->
             <div>
-                <div class="setting-label"><i class="bi bi-tags me-2"></i> Categorie di Servizi</div>
-                <p class="section-description">
+                <div class="setting-label"><i class="bi bi-tags me-2"></i> Categorie di servizi</div>
+                <!-- <p class="section-description">
                     Seleziona le categorie di servizi che desideri visualizzare sulla mappa.
-                </p>
+                </p> -->
                 
                 <div class="categories-container" id="categories-container">
                     <!-- Populated by JavaScript -->

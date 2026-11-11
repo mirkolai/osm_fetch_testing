@@ -6,13 +6,37 @@ const TICKS = [20, 40, 60, 80];
 
 // Progress bar a termometro con marcatore verticale nero per la media cittadina.
 function buildBar(label, value, average, color, { small = false } = {}) {
+
+    const BAR_DESCRIPTIONS = {
+        'Vicinanza (Prossimità)': 'Tempo necessario per raggiungere tutti i servizi essenziali.',
+        'Quantità (Densità)': 'Numero di servizi presenti nell’area raggiungibile entro il tempo di percorrenza considerato.',
+        'Varietà (Diversità)': 'Diversità delle tipologie di servizi disponibili, che misura la capacità dell’area di soddisfare esigenze differenti.',
+        'Collegamento (Connettività)': 'Centralità della rete stradale, che esprime quanto rapidamente l’area è collegata al resto della rete urbana.',
+        'Accessibilità ai servizi': 'Indicatore complessivo che sintetizza la facilità con cui è possibile raggiungere un’offerta ampia e diversificata di servizi.'
+    };
+
+
+
+
     const row = document.createElement('div');
     row.className = `pbc-row${small ? ' pbc-row-small' : ''}`;
 
     const head = document.createElement('div');
     head.className = 'pbc-label';
     const percent = Math.round(clamp01(value) * 100);
-    head.textContent = `${label} (${percent}%)`;
+
+    const labelText = document.createElement('span');
+    labelText.textContent = `${label} (${percent}%)`;
+    head.appendChild(labelText);
+
+    if (BAR_DESCRIPTIONS[label]) {
+        const info = document.createElement('span');
+        info.className = 'pbc-info';
+        info.textContent = 'ⓘ';
+        info.title = BAR_DESCRIPTIONS[label];
+        info.setAttribute('aria-label', BAR_DESCRIPTIONS[label]);
+        head.appendChild(info);
+    }
 
     const track = document.createElement('div');
     track.className = 'pbc-track';
@@ -70,10 +94,32 @@ function buildBar(label, value, average, color, { small = false } = {}) {
     return row;
 }
 
+
+function buildInfoLabel(title, description) {
+    const wrapper = document.createElement('span');
+    wrapper.className = 'info-label';
+
+    wrapper.textContent = title;
+
+    const info = document.createElement('span');
+    info.className = 'info-tooltip';
+    info.textContent = 'ⓘ';
+    info.title = description;
+
+    wrapper.appendChild(info);
+
+    return wrapper;
+}
+
+
+
 /**
  * values / averages: oggetti con proximity_score, density_score, entropy_score,
  * poi_accessibility, closeness. averages può essere null.
  */
+
+
+
 export function renderProgressBarChart(containerId, values, averages, color = '#483d8b') {
 
     console.log('===== PROGRESS BAR CHART =====');
@@ -101,7 +147,7 @@ export function renderProgressBarChart(containerId, values, averages, color = '#
     const num = (p, key) => (p && Number.isFinite(p[key]) ? clamp01(p[key]) : NaN);
 
     const accessibility = buildBar(
-        'Accessibilità ai POI',
+        'Accessibilità ai servizi',
         clamp01(values.poi_accessibility),
         num(averages, 'poi_accessibility'),
         color,
@@ -110,17 +156,16 @@ export function renderProgressBarChart(containerId, values, averages, color = '#
 
     const details = document.createElement('div');
     details.className = 'pbc-details';
-    details.appendChild(buildBar('Prossimità', prox(values), prox(averages), color, { small: true }));
-    details.appendChild(buildBar('Varietà', clamp01(values.entropy_score), num(averages, 'entropy_score'), color, { small: true }));
-    details.appendChild(buildBar('Densità', clamp01(values.density_score), num(averages, 'density_score'), color, { small: true }));
-
+    details.appendChild(buildBar('Vicinanza (Prossimità)', prox(values), prox(averages), color, { small: true }));
+    details.appendChild(buildBar('Varietà (Diversità)', clamp01(values.entropy_score), num(averages, 'entropy_score'), color, { small: true }));
+    details.appendChild(buildBar('Quantità (Densità)', clamp01(values.density_score), num(averages, 'density_score'), color, { small: true }));
     const group = document.createElement('div');
     group.className = 'pbc-group';
     group.appendChild(accessibility);
     group.appendChild(details);
 
     container.appendChild(group);
-    container.appendChild(buildBar('Connettività', clamp01(values.closeness), num(averages, 'closeness'), color));
+    container.appendChild(buildBar('Collegamento (Connettività)', clamp01(values.closeness), num(averages, 'closeness'), color));
 
     const legend = document.createElement('div');
     legend.className = 'pbc-legend';
