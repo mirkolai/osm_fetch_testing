@@ -1,0 +1,36 @@
+.textarea-custom {
+    width: 100%;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 100px;
+}
+
+.textarea-custom:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    outline: none;
+}
+
+.section-divider {
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+    margin: 30px 0 20px 0;
+    padding: 15px 15px;
+    border-radius: 4px;
+}
+
+.section-divider h6 {
+    color: #667eea;
+    font-weight: 600;
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.form-section--no-border {
+    border-bottom: none;
+}

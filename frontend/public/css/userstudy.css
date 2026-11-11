@@ -1,0 +1,86 @@
+.progress-bar--14-3 { width: 14.3%; }
+.progress-bar--28-6 { width: 28.6%; }
+.progress-bar--42-8 { width: 42.8%; }
+.progress-bar--57-1 { width: 57.1%; }
+.progress-bar--71 { width: 71%; }
+.progress-bar--85-7 { width: 85.7%; }
+
+.userstudy-title {
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.userstudy-intro {
+    margin-bottom: 25px;
+    color: #888;
+}
+
+.userstudy-range-value {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.userstudy-session-id {
+    color: #667eea;
+    font-size: 12px;
+}
+
+.userstudy-loading-message {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.userstudy-analysis-description {
+    margin-bottom: 15px;
+    color: #888;
+    font-size: 13px;
+}
+
+.userstudy-info-container {
+    display: none;
+}
+
+.userstudy-categories-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.userstudy-info-value--compact {
+    font-size: 13px;
+}
+
+.userstudy-privacy-note {
+    margin-top: 30px;
+    color: #999;
+    font-size: 12px;
+}
+
+.userstudy-selected-badges {
+    margin-top: 6px;
+}
+
+.progress-bar-container {
+    margin-bottom: 30px;
+}
+
+.step-progress {
+    margin-bottom: 10px;
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.progress {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #e0e0e0;
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}

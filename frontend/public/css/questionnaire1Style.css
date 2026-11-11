@@ -1,0 +1,42 @@
+.form-section {
+    margin-bottom: 30px;
+}
+
+.form-check {
+    margin-bottom: 12px;
+}
+
+.form-check-input {
+    border-color: #ddd;
+    cursor: pointer;
+}
+
+.form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.form-check-label {
+    cursor: pointer;
+    margin-left: 8px;
+    color: #555;
+}
+
+.form-select {
+    border-color: #ddd;
+    color: #555;
+}
+
+.form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.error-message {
+    display: none;
+    color: #d32f2f;
+    margin-bottom: 5px;
+    padding: 5px;
+    background: #ffebee;
+    border-radius: 8px;
+}

@@ -8,181 +8,8 @@
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 40px 20px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .questionnaire-container {
-            max-width: 700px;
-            margin: 0 auto;
-        }
-        
-        .questionnaire-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            padding: 40px;
-            margin-bottom: 30px;
-        }
-        
-        .progress-bar-container {
-            margin-bottom: 30px;
-        }
-        
-        .step-progress {
-            font-size: 14px;
-            color: #667eea;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        
-        .progress {
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            height: 100%;
-            border-radius: 10px;
-        }
-        
-        .form-section {
-            margin-bottom: 30px;
-            padding-bottom: 25px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .form-section h5 {
-            color: #333;
-            font-weight: 600;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-        
-        .form-section-desc {
-            color: #888;
-            font-size: 13px;
-            margin-bottom: 15px;
-        }
-        
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .slider-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #999;
-            margin-bottom: 8px;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-            -webkit-appearance: none;
-            appearance: none;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            border: none;
-        }
-        
-        .input-number {
-            width: 80px;
-            text-align: center;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px;
-        }
-        
-        .input-number:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        
-        .slider-value {
-            min-width: 40px;
-            text-align: center;
-            font-weight: 600;
-            color: #667eea;
-        }
-        
-        .btn-nav {
-            padding: 10px 30px;
-            border-radius: 25px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-        }
-        
-        .btn-primary-custom:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-            color: white;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-            justify-content: space-between;
-        }
-        
-        .loading-spinner {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .error-message {
-            display: none;
-            color: #d32f2f;
-            margin-bottom: 15px;
-            padding: 15px;
-            background: #ffebee;
-            border-radius: 8px;
-        }
-        
-        .form-section:last-of-type {
-            border-bottom: none;
-        }
-    </style>
+    <link rel="stylesheet" href="../public/css/userstudy.css">
+    <link rel="stylesheet" href="../public/css/questionnaireStyle.css">
 </head>
 <body>
     <div class="questionnaire-container">
@@ -191,13 +18,13 @@
             <div class="progress-bar-container">
                 <div class="step-progress">Passo 2 / 7</div>
                 <div class="progress">
-                    <div class="progress-bar" style="width: 28.6%"></div>
+                    <div class="progress-bar progress-bar--28-6"></div>
                 </div>
             </div>
             
-            <h2 style="color: #333; margin-bottom: 30px;">Quale percezione hai del quartiere in cui vivi?</h2>
+            <h2 class="userstudy-title">Quale percezione hai del quartiere in cui vivi?</h2>
             
-            <p style="color: #888; margin-bottom: 25px;">
+            <p class="userstudy-intro">
                 Da adesso in poi, considera la casa in cui vivi per la maggior parte del tempo e il quartiere in cui si trova.
             </p>
             
@@ -213,7 +40,7 @@
                         <span>Molto accessibile</span>
                     </div>
                     <input type="range" name="accessibility" min="0" max="5" value="2" class="slider" id="accessibility">
-                    <div style="text-align: center; margin-top: 10px;">
+                    <div class="userstudy-range-value">
                         <span class="slider-value" id="accessibility-value">2</span> / 5
                     </div>
                 </div>
@@ -247,7 +74,7 @@
                         <span>Tanti</span>
                     </div>
                     <input type="range" name="density" min="0" max="5" value="2" class="slider" id="density">
-                    <div style="text-align: center; margin-top: 10px;">
+                    <div class="userstudy-range-value">
                         <span class="slider-value" id="density-value">2</span> / 5
                     </div>
                 </div>
@@ -261,7 +88,7 @@
                         <span>Molta varietà</span>
                     </div>
                     <input type="range" name="entropy" min="0" max="5" value="2" class="slider" id="entropy">
-                    <div style="text-align: center; margin-top: 10px;">
+                    <div class="userstudy-range-value">
                         <span class="slider-value" id="entropy-value">2</span> / 5
                     </div>
                 </div>
@@ -275,7 +102,7 @@
                         <span>Molto collegato</span>
                     </div>
                     <input type="range" name="closeness" min="0" max="5" value="2" class="slider" id="closeness">
-                    <div style="text-align: center; margin-top: 10px;">
+                    <div class="userstudy-range-value">
                         <span class="slider-value" id="closeness-value">2</span> / 5
                     </div>
                 </div>
